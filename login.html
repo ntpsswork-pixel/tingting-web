@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TingTing - เข้าสู่ระบบ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary-dark: #1e293b; --accent-gold: #fccf55; --danger: #ef4444; --success: #10b981; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Kanit', sans-serif; min-height: 100vh; background: var(--primary-dark); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        body::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 50% at 20% 30%, rgba(252,207,85,0.08) 0%, transparent 60%), radial-gradient(ellipse 50% 60% at 80% 70%, rgba(16,185,129,0.05) 0%, transparent 60%); animation: bgPulse 8s ease-in-out infinite alternate; }
+        @keyframes bgPulse { from { opacity: 0.6; } to { opacity: 1; } }
+        body::after { content: ''; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+        .login-wrapper { position: relative; z-index: 10; width: 100%; max-width: 420px; padding: 20px; animation: slideUp 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .brand { text-align: center; margin-bottom: 36px; }
+        .brand-logo { display: inline-flex; align-items: center; justify-content: center; width: 110px; height: 110px; border-radius: 28px; overflow: hidden; margin-bottom: 18px; box-shadow: 0 8px 32px rgba(252,207,85,0.3), 0 0 0 3px rgba(252,207,85,0.25), 0 0 0 6px rgba(252,207,85,0.08); animation: logoPop 0.8s 0.2s cubic-bezier(0.34,1.56,0.64,1) both; background: rgba(255,255,255,0.05); }
+        @keyframes logoPop { from { opacity: 0; transform: scale(0.4) rotate(-12deg); } to { opacity: 1; transform: scale(1) rotate(0deg); } }
+        .brand-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .brand-logo .fallback-icon { font-size: 52px; display: none; }
+        .brand h1 { color: var(--accent-gold); font-size: 30px; font-weight: 700; letter-spacing: 6px; }
+        .brand p { color: #64748b; font-size: 13px; margin-top: 6px; font-weight: 300; }
+        .login-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 36px; backdrop-filter: blur(20px); box-shadow: 0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06); transition: border-color 0.4s, box-shadow 0.4s; }
+        .login-card.success { border-color: rgba(16,185,129,0.5); }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; color: #94a3b8; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+        .input-wrap { position: relative; }
+        .input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 16px; pointer-events: none; opacity: 0.45; }
+        .form-group input { width: 100%; padding: 14px 16px 14px 44px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; font-family: 'Kanit', sans-serif; font-size: 15px; transition: all 0.2s; outline: none; }
+        .form-group input::placeholder { color: #475569; }
+        .form-group input:focus { border-color: var(--accent-gold); background: rgba(252,207,85,0.06); box-shadow: 0 0 0 3px rgba(252,207,85,0.1); }
+        .btn-login { width: 100%; padding: 15px; background: var(--accent-gold); color: var(--primary-dark); border: none; border-radius: 12px; font-family: 'Kanit', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: all 0.2s; letter-spacing: 2px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-login:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(252,207,85,0.4); }
+        .btn-login:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+        .spinner { display: none; width: 18px; height: 18px; border: 2px solid rgba(30,41,59,0.3); border-top-color: var(--primary-dark); border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-msg { display: none; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-top: 14px; text-align: center; white-space: pre-line; animation: shake 0.4s ease; }
+        @keyframes shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
+        .footer-text { text-align: center; color: #334155; font-size: 12px; margin-top: 28px; }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="brand">
+            <div class="brand-logo">
+                <img src="logo tingting.jpeg" alt="Logo" onerror="this.style.display='none'; document.getElementById('fallback').style.display='block';">
+                <span class="fallback-icon" id="fallback">🍜</span>
+            </div>
+            <h1>TINGTING</h1>
+            <p>ระบบจัดการคลังสินค้า</p>
+        </div>
+        <div class="login-card" id="loginCard">
+            <div class="form-group">
+                <label>Username</label>
+                <div class="input-wrap">
+                    <span class="input-icon">👤</span>
+                    <input type="text" id="usernameInput" placeholder="กรอก Username" autofocus>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <div class="input-wrap">
+                    <span class="input-icon">🔒</span>
+                    <input type="password" id="passwordInput" placeholder="กรอก Password">
+                </div>
+            </div>
+            <button class="btn-login" id="loginBtn" onclick="doLogin()">
+                <div class="spinner" id="spinner"></div>
+                <span id="btnText">เข้าสู่ระบบ</span>
+            </button>
+            <div class="error-msg" id="errorMsg"></div>
+        </div>
+        <div class="footer-text">© TingTing Dashboard — Powered by TTG System</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",
+            authDomain: "tingting-3d57f.firebaseapp.com",
+            projectId: "tingting-3d57f",
+            storageBucket: "tingting-3d57f.firebasestorage.app",
+            messagingSenderId: "998609441304",
+            appId: "1:998609441304:web:0c7fbedf869fa2335d296d"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db  = getFirestore(app);
+
+        async function hashPassword(password) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+        }
+
+        document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+        window.doLogin = async function() {
+            const username = document.getElementById('usernameInput').value.trim();
+            const password = document.getElementById('passwordInput').value.trim();
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.style.display = 'none';
+
+            if (!username || !password) { showError('⚠️ กรุณากรอก Username และ Password'); return; }
+
+            setLoading(true);
+
+            try {
+                // Admin hard-coded
+                if (username === 'admin' && password === 'admin') {
+                    loginSuccess({ name: 'Admin', role: 'admin', username: 'admin' });
+                    return;
+                }
+
+                // ดึง user จาก Firestore
+                const userSnap = await getDoc(doc(db, 'users', username));
+
+                if (!userSnap.exists()) { failLogin('❌ ไม่พบ Username นี้ในระบบ'); return; }
+
+                const userData = userSnap.data();
+
+                if (userData.status === 'suspended') { failLogin('⛔ บัญชีนี้ถูกระงับ\nกรุณาติดต่อผู้ดูแลระบบ'); return; }
+
+                const hashedInput = await hashPassword(password);
+                const storedPass  = userData.password;
+                let isValid = false;
+
+                if (!storedPass) {
+                    isValid = (password === '1234');
+                } else if (storedPass.length === 64) {
+                    isValid = (hashedInput === storedPass);
+                } else {
+                    // plain text เก่า → migrate อัตโนมัติ
+                    isValid = (password === storedPass);
+                    if (isValid) await setDoc(doc(db, 'users', username), { password: hashedInput }, { merge: true });
+                }
+
+                if (!isValid) { failLogin('❌ Password ไม่ถูกต้อง'); return; }
+
+                loginSuccess(userData);
+
+            } catch (err) {
+                console.error(err);
+                failLogin('⚠️ เชื่อมต่อ Firebase ไม่ได้ กรุณาลองใหม่');
+            }
+        };
+
+        function loginSuccess(userData) {
+            document.getElementById('loginCard').classList.add('success');
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('btnText').innerText = '✅ เข้าสู่ระบบสำเร็จ!';
+            localStorage.setItem('currentUser', JSON.stringify(userData));
+            setTimeout(() => { window.location.href = 'home.html'; }, 600);
+        }
+
+        function failLogin(msg) { setLoading(false); showError(msg); }
+
+        function setLoading(on) {
+            document.getElementById('loginBtn').disabled = on;
+            document.getElementById('spinner').style.display = on ? 'block' : 'none';
+            document.getElementById('btnText').innerText = on ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ';
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.innerText = msg; el.style.display = 'block';
+        }
+
+        if (localStorage.getItem('currentUser')) window.location.href = 'home.html';
+    </script>
+</body>
+</html>
