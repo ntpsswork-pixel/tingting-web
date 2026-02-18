@@ -634,10 +634,12 @@
 
         // ---- PERMISSIONS ----
         window.applyPermissions = function() {
-            const role=currentUser.role||'guest', perms=roleSettings[role]?.menus||[], isViewOnly=roleSettings[role]?.viewOnly||false;
-            document.getElementById('warehouseMenu').classList.toggle('hidden',!perms.includes('warehouse'));
-            document.getElementById('toolsMenu').classList.toggle('hidden',!perms.includes('tools'));
-            document.getElementById('adminMenu').classList.toggle('hidden',!perms.includes('admin'));
+            // ถ้าเป็น viewOnly ให้เห็นเมนูทุกอย่างเหมือน admin
+const effectivePerms = isViewOnly ? ["warehouse","tools","admin"] : perms;
+document.getElementById('warehouseMenu').classList.toggle('hidden',!effectivePerms.includes('warehouse'));
+document.getElementById('toolsMenu').classList.toggle('hidden',!effectivePerms.includes('tools'));
+document.getElementById('adminMenu').classList.toggle('hidden',!effectivePerms.includes('admin'));
+document.getElementById('bannerAdminSection').classList.toggle('hidden',!effectivePerms.includes('admin'));
             document.getElementById('bannerAdminSection').classList.toggle('hidden',!perms.includes('admin'));
             document.getElementById('viewOnlyAlert').classList.toggle('hidden',!isViewOnly);
             let s=document.getElementById("viewOnlyStyle");
