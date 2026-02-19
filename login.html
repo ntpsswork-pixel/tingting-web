@@ -3,502 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TingTing — เข้าสู่ระบบ</title>
+    <title>TingTing - เข้าสู่ระบบ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary-dark: #1e293b;
-            --accent-gold: #fccf55;
-            --bg-light: #f1f5f9;
-            --success: #10b981;
-            --danger: #ef4444;
-            --info: #3b82f6;
-        }
+        :root { --primary-dark: #1e293b; --accent-gold: #fccf55; --danger: #ef4444; --success: #10b981; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            min-height: 100vh;
-            background: var(--primary-dark);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            padding: 20px;
-        }
-
-        /* Background pattern */
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background:
-                radial-gradient(circle at 20% 30%, rgba(252,207,85,0.08) 0%, transparent 50%),
-                radial-gradient(circle at 80% 70%, rgba(59,130,246,0.08) 0%, transparent 50%);
-            pointer-events: none;
-        }
-
-        .login-card {
-            background: white;
-            border-radius: 24px;
-            padding: 44px 40px;
-            width: 100%;
-            max-width: 420px;
-            box-shadow: 0 32px 80px rgba(0,0,0,0.4);
-            animation: slideUp 0.4s ease;
-            position: relative;
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(24px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .brand {
-            text-align: center;
-            margin-bottom: 32px;
-        }
-        .brand h1 {
-            font-size: 32px;
-            font-weight: 800;
-            color: var(--primary-dark);
-            letter-spacing: 4px;
-        }
-        .brand h1 span { color: var(--accent-gold); }
-        .brand p {
-            color: #94a3b8;
-            font-size: 13px;
-            margin-top: 6px;
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-        .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 700;
-            color: #475569;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 15px;
-            outline: none;
-            transition: border 0.2s, box-shadow 0.2s;
-            font-family: 'Segoe UI', sans-serif;
-            color: var(--primary-dark);
-        }
-        .form-group input:focus {
-            border-color: var(--info);
-            box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
-        }
-        .form-group input.error {
-            border-color: var(--danger);
-            box-shadow: 0 0 0 4px rgba(239,68,68,0.1);
-        }
-
-        .btn-login {
-            width: 100%;
-            padding: 15px;
-            background: var(--primary-dark);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: 0.2s;
-            margin-top: 8px;
-            position: relative;
-            overflow: hidden;
-        }
-        .btn-login:hover:not(:disabled) {
-            background: #334155;
-            transform: translateY(-1px);
-            box-shadow: 0 8px 20px rgba(30,41,59,0.3);
-        }
-        .btn-login:active:not(:disabled) { transform: translateY(0); }
-        .btn-login:disabled {
-            background: #cbd5e1;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .error-box {
-            background: #fff5f5;
-            border: 1px solid #fecaca;
-            border-radius: 10px;
-            padding: 12px 16px;
-            font-size: 13px;
-            color: var(--danger);
-            margin-bottom: 16px;
-            display: none;
-            line-height: 1.5;
-        }
-        .error-box.show { display: block; }
-
-        .lockout-box {
-            background: #fff7ed;
-            border: 2px solid #f59e0b;
-            border-radius: 12px;
-            padding: 16px 18px;
-            font-size: 13px;
-            color: #92400e;
-            margin-bottom: 16px;
-            display: none;
-            text-align: center;
-            line-height: 1.6;
-        }
-        .lockout-box.show { display: block; }
-        .lockout-box b { font-size: 22px; display: block; color: #d97706; margin: 4px 0; }
-
-        .fail-counter {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 16px;
-            justify-content: center;
-        }
-        .fail-dot {
-            width: 10px; height: 10px;
-            border-radius: 50%;
-            background: #e2e8f0;
-            transition: background 0.3s;
-        }
-        .fail-dot.active { background: var(--danger); }
-
-        .loading-spinner {
-            display: none;
-            width: 20px; height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            margin: 0 auto;
-        }
+        body { font-family: 'Kanit', sans-serif; min-height: 100vh; background: var(--primary-dark); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        body::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 50% at 20% 30%, rgba(252,207,85,0.08) 0%, transparent 60%), radial-gradient(ellipse 50% 60% at 80% 70%, rgba(16,185,129,0.05) 0%, transparent 60%); animation: bgPulse 8s ease-in-out infinite alternate; }
+        @keyframes bgPulse { from { opacity: 0.6; } to { opacity: 1; } }
+        body::after { content: ''; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+        .login-wrapper { position: relative; z-index: 10; width: 100%; max-width: 420px; padding: 20px; animation: slideUp 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .brand { text-align: center; margin-bottom: 36px; }
+        .brand-logo { display: inline-flex; align-items: center; justify-content: center; width: 110px; height: 110px; border-radius: 28px; overflow: hidden; margin-bottom: 18px; box-shadow: 0 8px 32px rgba(252,207,85,0.3), 0 0 0 3px rgba(252,207,85,0.25), 0 0 0 6px rgba(252,207,85,0.08); animation: logoPop 0.8s 0.2s cubic-bezier(0.34,1.56,0.64,1) both; background: rgba(255,255,255,0.05); }
+        @keyframes logoPop { from { opacity: 0; transform: scale(0.4) rotate(-12deg); } to { opacity: 1; transform: scale(1) rotate(0deg); } }
+        .brand-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .brand-logo .fallback-icon { font-size: 52px; display: none; }
+        .brand h1 { color: var(--accent-gold); font-size: 30px; font-weight: 700; letter-spacing: 6px; }
+        .brand p { color: #64748b; font-size: 13px; margin-top: 6px; font-weight: 300; }
+        .login-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 36px; backdrop-filter: blur(20px); box-shadow: 0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06); transition: border-color 0.4s, box-shadow 0.4s; }
+        .login-card.success { border-color: rgba(16,185,129,0.5); }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; color: #94a3b8; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+        .input-wrap { position: relative; }
+        .input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 16px; pointer-events: none; opacity: 0.45; }
+        .form-group input { width: 100%; padding: 14px 16px 14px 44px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; font-family: 'Kanit', sans-serif; font-size: 15px; transition: all 0.2s; outline: none; }
+        .form-group input::placeholder { color: #475569; }
+        .form-group input:focus { border-color: var(--accent-gold); background: rgba(252,207,85,0.06); box-shadow: 0 0 0 3px rgba(252,207,85,0.1); }
+        .btn-login { width: 100%; padding: 15px; background: var(--accent-gold); color: var(--primary-dark); border: none; border-radius: 12px; font-family: 'Kanit', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: all 0.2s; letter-spacing: 2px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-login:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(252,207,85,0.4); }
+        .btn-login:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+        .spinner { display: none; width: 18px; height: 18px; border: 2px solid rgba(30,41,59,0.3); border-top-color: var(--primary-dark); border-radius: 50%; animation: spin 0.6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        .footer-note {
-            text-align: center;
-            margin-top: 24px;
-            font-size: 12px;
-            color: #cbd5e1;
-        }
-
-        @media (max-width: 480px) {
-            .login-card { padding: 32px 24px; }
-        }
+        .error-msg { display: none; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-top: 14px; text-align: center; white-space: pre-line; animation: shake 0.4s ease; }
+        @keyframes shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
+        .footer-text { text-align: center; color: #334155; font-size: 12px; margin-top: 28px; }
     </style>
 </head>
 <body>
-<div class="login-card">
-    <div class="brand">
-        <h1>TING<span>TING</span></h1>
-        <p>ระบบจัดการคลังสินค้า</p>
+    <div class="login-wrapper">
+        <div class="brand">
+            <div class="brand-logo">
+                <img src="logo tingting.jpeg" alt="Logo" onerror="this.style.display='none'; document.getElementById('fallback').style.display='block';">
+                <span class="fallback-icon" id="fallback">🍜</span>
+            </div>
+            <h1>TINGTING</h1>
+            <p>ระบบจัดการคลังสินค้า</p>
+        </div>
+        <div class="login-card" id="loginCard">
+            <div class="form-group">
+                <label>Username</label>
+                <div class="input-wrap">
+                    <span class="input-icon">👤</span>
+                    <input type="text" id="usernameInput" placeholder="กรอก Username" autofocus>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <div class="input-wrap">
+                    <span class="input-icon">🔒</span>
+                    <input type="password" id="passwordInput" placeholder="กรอก Password">
+                </div>
+            </div>
+            <button class="btn-login" id="loginBtn" onclick="doLogin()">
+                <div class="spinner" id="spinner"></div>
+                <span id="btnText">เข้าสู่ระบบ</span>
+            </button>
+            <div class="error-msg" id="errorMsg"></div>
+        </div>
+        <div class="footer-text">© TingTing Dashboard — Powered by TTG System</div>
     </div>
 
-    <!-- Lockout Banner -->
-    <div class="lockout-box" id="lockoutBox">
-        🔒 บัญชีถูกล็อคชั่วคราว<br>
-        เนื่องจาก Login ผิดเกินจำนวนที่กำหนด<br>
-        <b id="lockoutTimer">--:--</b>
-        กรุณารอหรือติดต่อ Admin เพื่อปลดล็อค
-    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    <!-- Error Message -->
-    <div class="error-box" id="errorBox"></div>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",
+            authDomain: "tingting-3d57f.firebaseapp.com",
+            projectId: "tingting-3d57f",
+            storageBucket: "tingting-3d57f.firebasestorage.app",
+            messagingSenderId: "998609441304",
+            appId: "1:998609441304:web:0c7fbedf869fa2335d296d"
+        };
 
-    <!-- Fail Dots (แสดง 5 จุด) -->
-    <div class="fail-counter" id="failCounter">
-        <div class="fail-dot" id="dot1"></div>
-        <div class="fail-dot" id="dot2"></div>
-        <div class="fail-dot" id="dot3"></div>
-        <div class="fail-dot" id="dot4"></div>
-        <div class="fail-dot" id="dot5"></div>
-    </div>
+        const app = initializeApp(firebaseConfig);
+        const db  = getFirestore(app);
 
-    <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="usernameInput" placeholder="กรอก Username" autocomplete="username"
-            onkeydown="if(event.key==='Enter') document.getElementById('passwordInput').focus()">
-    </div>
-    <div class="form-group">
-        <label>Password</label>
-        <input type="password" id="passwordInput" placeholder="กรอก Password" autocomplete="current-password"
-            onkeydown="if(event.key==='Enter') doLogin()">
-    </div>
+        async function hashPassword(password) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+        }
 
-    <button class="btn-login" id="loginBtn" onclick="doLogin()">
-        <span id="loginBtnText">เข้าสู่ระบบ</span>
-        <div class="loading-spinner" id="loginSpinner"></div>
-    </button>
+        document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
-    <div class="footer-note">TingTing Dashboard v2.0</div>
-</div>
+        // ---- RATE LIMIT (Firebase) ----
+        async function checkRateLimit(username) {
+            try {
+                const snap = await getDoc(doc(db, 'loginLock', username));
+                if (!snap.exists()) return { locked: false, failCount: 0 };
+                const d = snap.data(), now = Date.now();
+                if (d.lockedUntil && now < d.lockedUntil)
+                    return { locked: true, remaining: d.lockedUntil - now, failCount: d.failCount || 0 };
+                return { locked: false, failCount: d.failCount || 0 };
+            } catch(e) { return { locked: false, failCount: 0 }; }
+        }
 
-<script type="module">
-    import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs }
-        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        async function recordFail(username) {
+            try {
+                const snap = await getDoc(doc(db, 'loginLock', username));
+                const now = Date.now();
+                let failCount = 1;
+                if (snap.exists()) {
+                    const d = snap.data();
+                    failCount = (now - (d.lastFail||0) < 15*60*1000) ? (d.failCount||0)+1 : 1;
+                }
+                const lockedUntil = failCount >= 5 ? now + 15*60*1000 : null;
+                await setDoc(doc(db,'loginLock',username), { failCount, lastFail:now, lockedUntil:lockedUntil||null, username });
+                return { failCount, locked: failCount >= 5 };
+            } catch(e) { return { failCount:1, locked:false }; }
+        }
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",
-        authDomain: "tingting-3d57f.firebaseapp.com",
-        projectId: "tingting-3d57f",
-        storageBucket: "tingting-3d57f.firebasestorage.app",
-        messagingSenderId: "998609441304",
-        appId: "1:998609441304:web:0c7fbedf869fa2335d296d"
-    };
+        async function clearLock(username) {
+            try { await deleteDoc(doc(db,'loginLock',username)); } catch(e) {}
+        }
 
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
-
-    // ถ้า login อยู่แล้วให้ redirect ไป home ทันที
-    if (localStorage.getItem('currentUser')) {
-        window.location.href = 'home.html';
-    }
-
-    // ---- UTILS ----
-    async function hashPassword(p) {
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
-        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-    }
-
-    function showError(msg) {
-        const el = document.getElementById('errorBox');
-        el.innerHTML = msg;
-        el.classList.add('show');
-    }
-    function hideError() {
-        document.getElementById('errorBox').classList.remove('show');
-    }
-
-    function setLoading(loading) {
-        const btn  = document.getElementById('loginBtn');
-        const txt  = document.getElementById('loginBtnText');
-        const spin = document.getElementById('loginSpinner');
-        btn.disabled  = loading;
-        txt.style.display  = loading ? 'none' : 'block';
-        spin.style.display = loading ? 'block' : 'none';
-    }
-
-    // ---- RATE LIMIT (Firebase) ----
-    async function checkRateLimit(username) {
-        try {
-            const snap = await getDoc(doc(db, 'loginLock', username));
-            if (!snap.exists()) return { locked: false, failCount: 0 };
-            const data = snap.data();
-            const now  = Date.now();
-            if (data.lockedUntil && now < data.lockedUntil) {
-                return { locked: true, remaining: data.lockedUntil - now, failCount: data.failCount || 0 };
+        function showLockout(remainingMs) {
+            let el = document.getElementById('lockoutMsg');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'lockoutMsg';
+                el.style.cssText = 'background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:#fbbf24;padding:12px 16px;border-radius:10px;font-size:13px;margin-top:14px;text-align:center;';
+                document.getElementById('errorMsg').after(el);
             }
-            // หมดเวลาแล้ว คืนค่า failCount เดิม (จะ reset เมื่อ login ผิดอีก)
-            return { locked: false, failCount: data.failCount || 0 };
-        } catch(e) { return { locked: false, failCount: 0 }; }
-    }
-
-    async function recordFail(username) {
-        try {
-            const snap = await getDoc(doc(db, 'loginLock', username));
-            const now  = Date.now();
-            let failCount = 1;
-            if (snap.exists()) {
-                const d = snap.data();
-                // ถ้าเกิน 15 นาทีแล้วให้ reset counter
-                failCount = (now - (d.lastFail || 0) < 15 * 60 * 1000)
-                    ? (d.failCount || 0) + 1
-                    : 1;
+            clearInterval(window._lockTimer);
+            let ms = remainingMs;
+            function tick() {
+                if (ms <= 0) { clearInterval(window._lockTimer); el.remove(); document.getElementById('loginBtn').disabled = false; return; }
+                const m = String(Math.floor(ms/60000)).padStart(2,'0'), s = String(Math.floor((ms%60000)/1000)).padStart(2,'0');
+                el.innerHTML = '🔒 Login ผิดเกิน 5 ครั้ง — ถูกล็อค <b>' + m + ':' + s + '</b><br><small>ติดต่อ Admin เพื่อปลดล็อคได้ทันที</small>';
+                ms -= 1000;
             }
-            const lockedUntil = failCount >= 5 ? now + 15 * 60 * 1000 : null;
-            await setDoc(doc(db, 'loginLock', username), {
-                failCount, lastFail: now,
-                lockedUntil: lockedUntil || null,
-                username
-            });
-            return { failCount, locked: failCount >= 5, lockedUntil };
-        } catch(e) { return { failCount: 1, locked: false }; }
-    }
+            tick();
+            window._lockTimer = setInterval(tick, 1000);
+            document.getElementById('loginBtn').disabled = true;
+        }
 
-    async function clearLock(username) {
-        try { await deleteDoc(doc(db, 'loginLock', username)); } catch(e) {}
-    }
+        window.doLogin = async function() {
+            const username = document.getElementById('usernameInput').value.trim();
+            const password = document.getElementById('passwordInput').value.trim();
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.style.display = 'none';
 
-    // ---- LOCKOUT TIMER UI ----
-    let lockTimerInterval = null;
-    function startLockoutTimer(ms) {
-        const box   = document.getElementById('lockoutBox');
-        const timerEl = document.getElementById('lockoutTimer');
-        const btn   = document.getElementById('loginBtn');
-        box.classList.add('show');
-        btn.disabled = true;
+            if (!username || !password) { showError('⚠️ กรุณากรอก Username และ Password'); return; }
 
-        clearInterval(lockTimerInterval);
-        let remaining = ms;
-        function tick() {
-            remaining -= 1000;
-            if (remaining <= 0) {
-                clearInterval(lockTimerInterval);
-                box.classList.remove('show');
-                btn.disabled = false;
-                timerEl.innerText = '--:--';
-                updateFailDots(0);
+            setLoading(true);
+
+            // ตรวจ rate limit ก่อนทำอะไรทั้งนั้น
+            const rateCheck = await checkRateLimit(username);
+            if (rateCheck.locked) {
+                setLoading(false);
+                showLockout(rateCheck.remaining);
                 return;
             }
-            const m = Math.floor(remaining / 60000);
-            const s = Math.floor((remaining % 60000) / 1000);
-            timerEl.innerText = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-        }
-        tick();
-        lockTimerInterval = setInterval(tick, 1000);
-    }
 
-    function updateFailDots(count) {
-        for (let i = 1; i <= 5; i++) {
-            const dot = document.getElementById('dot' + i);
-            if (dot) dot.classList.toggle('active', i <= count);
-        }
-    }
-
-    // ---- MAIN LOGIN ----
-    window.doLogin = async function() {
-        hideError();
-        const username = document.getElementById('usernameInput').value.trim();
-        const password = document.getElementById('passwordInput').value;
-
-        if (!username || !password) {
-            showError('⚠️ กรุณากรอก Username และ Password');
-            return;
-        }
-
-        setLoading(true);
-
-        // 1. ตรวจสอบ rate limit ก่อน
-        const rateCheck = await checkRateLimit(username);
-        if (rateCheck.locked) {
-            startLockoutTimer(rateCheck.remaining);
-            updateFailDots(5);
-            setLoading(false);
-            return;
-        }
-
-        // อัปเดต fail dots ตามประวัติ
-        updateFailDots(rateCheck.failCount);
-
-        try {
-            // 2. ดึงข้อมูล user จาก Firebase
-            let userSnap;
-            if (username.toLowerCase() === 'admin') {
-                // admin account พิเศษ เช็ค hardcode
-                const hashed = await hashPassword(password);
-                const adminHash = await hashPassword('admin1234'); // default admin password
-                // ดึงจาก Firebase config
-                const cfgSnap = await getDoc(doc(db, 'config', 'adminAccount'));
-                const adminPass = cfgSnap.exists() ? cfgSnap.data().password : adminHash;
-                if (hashed !== adminPass) {
-                    await handleFailedLogin(username, rateCheck.failCount);
+            try {
+                // Admin hard-coded
+                if (username === 'admin' && password === 'admin') {
+                    await clearLock(username);
+                    loginSuccess({ name: 'Admin', role: 'admin', username: 'admin' });
                     return;
                 }
-                localStorage.setItem('currentUser', JSON.stringify({
-                    username: 'admin', name: 'Admin', role: 'admin'
-                }));
+
+                // ดึง user จาก Firestore
+                const userSnap = await getDoc(doc(db, 'users', username));
+
+                if (!userSnap.exists()) { await recordFail(username); failLogin('❌ Username หรือ Password ไม่ถูกต้อง'); return; }
+
+                const userData = userSnap.data();
+
+                if (userData.status === 'suspended') { failLogin('⛔ บัญชีนี้ถูกระงับ\nกรุณาติดต่อผู้ดูแลระบบ'); return; }
+
+                const hashedInput = await hashPassword(password);
+                const storedPass  = userData.password;
+                let isValid = false;
+
+                if (!storedPass) {
+                    isValid = (password === '1234');
+                } else if (storedPass.length === 64) {
+                    isValid = (hashedInput === storedPass);
+                } else {
+                    // plain text เก่า → migrate อัตโนมัติ
+                    isValid = (password === storedPass);
+                    if (isValid) await setDoc(doc(db, 'users', username), { password: hashedInput }, { merge: true });
+                }
+
+                if (!isValid) {
+                    const r = await recordFail(username);
+                    if (r.locked) { setLoading(false); showLockout(15*60*1000); return; }
+                    const left = 5 - r.failCount;
+                    failLogin('❌ Username หรือ Password ไม่ถูกต้อง' + (left > 0 ? '\nเหลืออีก ' + left + ' ครั้งก่อนถูกล็อค' : ''));
+                    return;
+                }
+
                 await clearLock(username);
-                window.location.href = 'home.html';
-                return;
+                loginSuccess(userData);
+
+            } catch (err) {
+                console.error(err);
+                failLogin('⚠️ เชื่อมต่อ Firebase ไม่ได้ กรุณาลองใหม่');
             }
+        };
 
-            userSnap = await getDoc(doc(db, 'users', username));
-
-            if (!userSnap.exists()) {
-                // ไม่พบ user — บันทึก fail แต่ไม่บอกว่า user ไม่มี (ป้องกัน enumeration)
-                await handleFailedLogin(username, rateCheck.failCount);
-                return;
-            }
-
-            const userData = userSnap.data();
-
-            // 3. เช็คสถานะบัญชี
-            if (userData.status === 'suspended') {
-                showError('⛔ บัญชีถูกระงับการใช้งาน<br>กรุณาติดต่อ Admin');
-                setLoading(false);
-                return;
-            }
-
-            // 4. เช็ค Password
-            const inputHash = await hashPassword(password);
-            const storedHash = userData.password || await hashPassword('1234');
-
-            if (inputHash !== storedHash) {
-                await handleFailedLogin(username, rateCheck.failCount);
-                return;
-            }
-
-            // 5. Login สำเร็จ
-            await clearLock(username);
-            updateFailDots(0);
-
-            const userObj = {
-                username,
-                name:          userData.name          || username,
-                role:          userData.role           || 'staff',
-                assignedZones: userData.assignedZones  || []
-            };
-            localStorage.setItem('currentUser', JSON.stringify(userObj));
-
-            // แสดง success animation ก่อน redirect
-            const btn = document.getElementById('loginBtn');
-            btn.style.background = '#059669';
-            document.getElementById('loginBtnText').style.display = 'block';
-            document.getElementById('loginBtnText').innerText = '✅ เข้าสู่ระบบสำเร็จ!';
-            document.getElementById('loginSpinner').style.display = 'none';
-
+        function loginSuccess(userData) {
+            document.getElementById('loginCard').classList.add('success');
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('btnText').innerText = '✅ เข้าสู่ระบบสำเร็จ!';
+            localStorage.setItem('currentUser', JSON.stringify(userData));
             setTimeout(() => { window.location.href = 'home.html'; }, 600);
-
-        } catch(e) {
-            console.error(e);
-            showError('⚠️ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
-            setLoading(false);
         }
-    };
 
-    async function handleFailedLogin(username, prevFailCount) {
-        const result = await recordFail(username);
-        updateFailDots(result.failCount);
+        function failLogin(msg) { setLoading(false); showError(msg); }
 
-        if (result.locked) {
-            startLockoutTimer(15 * 60 * 1000);
-            showError('🔒 Login ผิดเกิน 5 ครั้ง บัญชีถูกล็อค 15 นาที<br>กรุณาติดต่อ Admin เพื่อปลดล็อค');
-        } else {
-            const remaining = 5 - result.failCount;
-            showError(`❌ Username หรือ Password ไม่ถูกต้อง<br><small>เหลืออีก ${remaining} ครั้งก่อนถูกล็อค</small>`);
-            // Shake animation
-            const inputs = document.querySelectorAll('.form-group input');
-            inputs.forEach(inp => {
-                inp.classList.add('error');
-                setTimeout(() => inp.classList.remove('error'), 800);
-            });
+        function setLoading(on) {
+            document.getElementById('loginBtn').disabled = on;
+            document.getElementById('spinner').style.display = on ? 'block' : 'none';
+            document.getElementById('btnText').innerText = on ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ';
         }
-        setLoading(false);
-    }
 
-    // ---- เช็ค lockout ตั้งแต่โหลดหน้า ----
-    (async function checkOnLoad() {
-        const username = localStorage.getItem('lastUsername') || '';
-        if (!username) return;
-        document.getElementById('usernameInput').value = username;
-        const check = await checkRateLimit(username);
-        if (check.locked) {
-            startLockoutTimer(check.remaining);
-            updateFailDots(5);
-        } else {
-            updateFailDots(check.failCount);
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.innerText = msg; el.style.display = 'block';
         }
-    })();
 
-    // บันทึก username ล่าสุดไว้เพื่อ pre-fill เวลา refresh
-    document.getElementById('usernameInput').addEventListener('change', function() {
-        localStorage.setItem('lastUsername', this.value.trim());
-    });
-</script>
+        if (localStorage.getItem('currentUser')) window.location.href = 'home.html';
+    </script>
 </body>
 </html>
