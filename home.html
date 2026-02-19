@@ -61,81 +61,9 @@
             th, td { border: 1px solid #ddd !important; padding: 8px !important; }
             .history-card { break-inside: avoid; }
         }
-
-        /* ===== MOBILE RESPONSIVE (เพิ่มใหม่ ไม่กระทบคอม) ===== */
-        .hamburger {
-            display: none;
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 2000;
-            background: var(--primary-dark);
-            color: var(--accent-gold);
-            border: none;
-            border-radius: 10px;
-            width: 44px;
-            height: 44px;
-            font-size: 20px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            align-items: center;
-            justify-content: center;
-        }
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 999;
-        }
-        .sidebar-overlay.open { display: block; }
-
-        @media (max-width: 768px) {
-            .hamburger { display: flex; }
-
-            .sidebar {
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
-                z-index: 1001;
-            }
-            .sidebar.open { transform: translateX(0); }
-
-            .main-content {
-                margin-left: 0 !important;
-                width: 100% !important;
-            }
-
-            .banner-container { height: 200px; }
-
-            .app-container { padding: 15px; padding-top: 70px; }
-
-            .modal-box { width: 90vw; padding: 20px; }
-
-            .tool-header {
-                flex-direction: column;
-                gap: 10px;
-                align-items: flex-start;
-                padding-top: 50px;
-            }
-            .tool-header button { align-self: flex-end; }
-
-            .filter-bar { flex-direction: column; }
-            .filter-bar select,
-            .filter-bar input[type="date"] { min-width: unset; width: 100%; box-sizing: border-box; }
-
-            .stock-row td { padding: 10px 8px; }
-
-            .history-card-header { flex-direction: column; align-items: flex-start; gap: 5px; }
-        }
-        /* ===== END MOBILE RESPONSIVE ===== */
     </style>
 </head>
 <body>
-    <!-- Hamburger button (มือถือเท่านั้น) -->
-    <button class="hamburger no-print" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
-    <!-- Overlay สำหรับปิด sidebar (มือถือเท่านั้น) -->
-    <div class="sidebar-overlay no-print" id="sidebarOverlay" onclick="closeSidebar()"></div>
-
     <div class="sidebar no-print">
         <div class="sidebar-brand"><h2>TINGTING</h2></div>
         <div class="user-info">
@@ -152,20 +80,20 @@
             <div id="warehouseMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subWH')">📦 คลังสินค้า ▾</div>
                 <div id="subWH" class="submenu">
-                    <div onclick="openStockSummary();closeSidebar();" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
+                    <div onclick="openStockSummary()" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
                 </div>
             </div>
             <div id="toolsMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subTools')" style="color:var(--success);">🛠️ เครื่องมือใช้งาน ▾</div>
                 <div id="subTools" class="submenu">
-                    <div onclick="openCentralStock();closeSidebar();">● นับสต๊อกครัวกลาง</div>
+                    <div onclick="openCentralStock()">● นับสต๊อกครัวกลาง</div>
                 </div>
             </div>
             <div id="adminMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subAdmin')" style="color:var(--accent-gold);">👤 จัดการระบบ ▾</div>
                 <div id="subAdmin" class="submenu">
-                    <div onclick="openUserManagement();closeSidebar();">● จัดการพนักงาน & สิทธิ์</div>
-                    <div onclick="openWarehouseManager();closeSidebar();" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
+                    <div onclick="openUserManagement()">● จัดการพนักงาน & สิทธิ์</div>
+                    <div onclick="openWarehouseManager()" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
                 </div>
             </div>
         </div>
@@ -233,6 +161,7 @@
         };
         let tempCountData = {};
         let selectedStaff = "";
+        let selectedDate = new Date().toISOString().split('T')[0]; // วันที่ปัจจุบัน default
 
         // ---- UTILS ----
         async function hashPassword(p) {
@@ -592,11 +521,14 @@
             usSnap.forEach(d=>{const u=d.data();if(u.status!=='suspended')staffOpts+=`<option value="${u.name}" ${selectedStaff===u.name?'selected':''}>${u.name}</option>`;});
 
             c.innerHTML=`<div class="tool-header no-print"><h2>📦 นับสต๊อก: ${zone}</h2><button onclick="closeTool()">✕ ปิด</button></div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;" class="no-print">
-                <div class="input-group"><label>เลือกโซน</label>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px;" class="no-print">
+                <div class="input-group"><label>📦 เลือกโซน</label>
                     <select onchange="renderStockTool(this.value)" style="width:100%;border:none;font-weight:bold;outline:none;">
                         ${visibleZones.map(w=>`<option ${w===zone?'selected':''}>${w}</option>`).join('')}
                     </select></div>
+                <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ (บังคับเลือก)</label>
+                    <input type="date" id="countDate" value="${selectedDate}" onchange="selectedDate=this.value" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+                </div>
                 <div class="input-group" style="border:2px solid var(--info);"><label>👤 เลือกชื่อคนนับ</label>
                     <select id="staffSelect" onchange="selectedStaff=this.value" style="width:100%;border:none;font-weight:bold;outline:none;">
                         <option value="">-- กรุณาเลือก --</option>${staffOpts}
@@ -604,95 +536,120 @@
                 <div class="input-group" style="background:#f1f5f9;"><label>📝 ผู้ทำรายการหลัก</label><b>${currentUser.name}</b></div>
             </div>
             <table class="stock-table">${zoneProds.map(p=>{
-                const base=countData[p.id]?.total||0, addedMain=tempCountData[p.id]?.addedMain||0, addedSub=tempCountData[p.id]?.addedSub||0, lu=countData[p.id]?.lastUpdate||'-';
-                const hasSub=p.subUnit&&p.subUnit.trim()!=='';
+                const units=p.units||[{name:p.unit||'',rate:0},{name:p.subUnit||'',rate:0}].filter(u=>u.name);
+                const pending=tempCountData[p.id];
+                const hasPending=pending&&units.some((_,ui)=>(pending['u'+ui]||0)>0);
+                const lu=countData[p.id]?.lastUpdate||'-';
+                const borderColors=['var(--info)','#a78bfa','#f59e0b'];
                 return `<tr class="stock-row">
                 <td><b style="font-size:16px;">${p.id}</b><br><span style="color:#475569;">${p.name}</span><br><small style="color:#94a3b8;font-size:10px;">นับล่าสุด: ${lu}</small></td>
                 <td style="text-align:right;">
-                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:15px;">
-                        <div style="text-align:right;">
-                            <div style="font-weight:bold;font-size:18px;${(addedMain>0||addedSub>0)?'color:var(--info);':'color:var(--success);'}">
-                                ${(addedMain>0||addedSub>0)?'รอยืนยัน':'สต๊อก'}: ${base+addedMain}
-                                ${addedSub>0?`<span style="font-size:13px;"> +${addedSub} ${p.subUnit}</span>`:''}
+                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;">
+                        <div style="text-align:right;min-width:120px;">
+                            <div style="font-weight:bold;font-size:16px;${hasPending?'color:var(--info);':'color:var(--success);'}">
+                                ${hasPending?'รอยืนยัน':'สต๊อก'}: ${countData[p.id]?.total||0} ${units[0]?.name||''}
                             </div>
+                            ${hasPending?`<div style="font-size:12px;color:var(--info);">${units.map((_,ui)=>(pending['u'+ui]||0)>0?`+${pending['u'+ui]} ${units[ui].name}`:'').filter(Boolean).join(', ')}</div>`:''}
                         </div>
-                        <div style="display:flex;flex-direction:column;gap:6px;">
-                            <div style="display:flex;align-items:center;gap:6px;">
-                                <small style="color:#64748b;width:40px;text-align:right;">${p.unit}:</small>
-                                <input type="number" id="inputMain-${p.id}" min="0" class="no-print viewonly-input"
-                                    style="width:80px;padding:8px;border-radius:8px;border:2px solid var(--info);text-align:center;font-weight:bold;font-size:15px;"
-                                    onkeydown="if(event.key==='Enter') addStock('${p.id}','${p.name}','${zone}','main')">
-                            </div>
-                            ${hasSub?`<div style="display:flex;align-items:center;gap:6px;">
-                                <small style="color:#7c3aed;width:40px;text-align:right;">${p.subUnit}:</small>
-                                <input type="number" id="inputSub-${p.id}" min="0" class="no-print viewonly-input"
-                                    style="width:80px;padding:8px;border-radius:8px;border:2px solid #a78bfa;text-align:center;font-weight:bold;font-size:15px;"
-                                    onkeydown="if(event.key==='Enter') addStock('${p.id}','${p.name}','${zone}','sub')">
-                            </div>`:''}
+                        <div style="display:flex;flex-direction:column;gap:5px;">
+                            ${units.map((u,ui)=>`
+                            <div style="display:flex;align-items:center;gap:5px;">
+                                <small style="color:${borderColors[ui]||'#64748b'};width:45px;text-align:right;font-weight:bold;">${u.name}:</small>
+                                <input type="number" id="input_${p.id}_${ui}" min="0" class="no-print viewonly-input"
+                                    style="width:75px;padding:7px;border-radius:8px;border:2px solid ${borderColors[ui]||'#cbd5e1'};text-align:center;font-weight:bold;font-size:14px;"
+                                    onkeydown="if(event.key==='Enter') addStock('${p.id}','${p.name}','${zone}',${ui})">
+                            </div>`).join('')}
                         </div>
-                        <button onclick="addStock('${p.id}','${p.name}','${zone}','both')" class="btn-action no-print" style="background:var(--info);font-size:20px;">＋</button>
+                        <button onclick="addStockAll('${p.id}','${p.name}','${zone}')" class="btn-action no-print" style="background:var(--info);font-size:20px;">＋</button>
                     </div>
                 </td></tr>`;}).join('')}</table>
-            <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:5px;" class="no-print">💡 กรอกจำนวนแล้วกด Enter หรือปุ่ม ＋</p>
+            <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:5px;" class="no-print">💡 กรอกจำนวนแล้วกด Enter ในช่องนั้น หรือกด ＋ เพื่อเพิ่มทุกช่องพร้อมกัน</p>
             <div style="margin-top:25px;text-align:center;" class="no-print">
                 <button onclick="finalSaveStock('${zone}')" style="background:var(--success);color:white;padding:18px 60px;border:none;border-radius:15px;font-size:20px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">💾 ยืนยันและบันทึกข้อมูลทั้งหมด</button>
             </div>`;
         };
 
-        window.addStock=function(id,name,zone,type){
+        // addStock: กรอกแล้วกด Enter ในช่องหน่วยนั้น
+        window.addStock=function(id,name,zone,unitIndex){
             const staffEl=document.getElementById('staffSelect');
             if(staffEl&&staffEl.value) selectedStaff=staffEl.value;
+            const el=document.getElementById(`input_${id}_${unitIndex}`);
+            const val=parseFloat(el?.value)||0;
+            if(val<=0){if(el){el.style.borderColor='var(--danger)';setTimeout(()=>el.style.borderColor='',800);}return;}
+            if(!tempCountData[id])tempCountData[id]={name};
+            tempCountData[id]['u'+unitIndex]=(tempCountData[id]['u'+unitIndex]||0)+val;
+            if(el){el.value='';el.style.borderColor='var(--success)';setTimeout(()=>el.style.borderColor='',600);}
+            setTimeout(()=>renderStockTool(zone),400);
+        };
 
-            const elMain=document.getElementById(`inputMain-${id}`);
-            const elSub=document.getElementById(`inputSub-${id}`);
-            const valMain=elMain?parseFloat(elMain.value)||0:0;
-            const valSub=elSub?parseFloat(elSub.value)||0:0;
-
-            // ถ้า type=main อ่านแค่ main, type=sub อ่านแค่ sub, type=both อ่านทั้งคู่
-            const useMain = (type==='main'||type==='both') ? valMain : (type==='sub'?0:valMain);
-            const useSub  = (type==='sub' ||type==='both') ? valSub  : (type==='main'?0:valSub);
-
-            if(useMain<=0&&useSub<=0){
-                if(elMain){elMain.style.borderColor='var(--danger)';setTimeout(()=>elMain.style.borderColor='var(--info)',1000);}
-                return;
-            }
-            if(!tempCountData[id])tempCountData[id]={addedMain:0,addedSub:0,name};
-            if(useMain>0){tempCountData[id].addedMain+=useMain;if(elMain){elMain.value='';elMain.style.borderColor='var(--success)';}}
-            if(useSub>0){tempCountData[id].addedSub+=useSub;if(elSub){elSub.value='';elSub.style.borderColor='#a78bfa';}}
-            setTimeout(()=>{renderStockTool(zone);},400);
+        // addStockAll: กด ＋ เพิ่มทุกช่องพร้อมกัน
+        window.addStockAll=function(id,name,zone){
+            const staffEl=document.getElementById('staffSelect');
+            if(staffEl&&staffEl.value) selectedStaff=staffEl.value;
+            const p=allProducts.find(pd=>pd.id===id);
+            const units=p?.units||[{name:p?.unit||'',rate:0}];
+            let anyVal=false;
+            units.forEach((_,ui)=>{
+                const el=document.getElementById(`input_${id}_${ui}`);
+                const val=parseFloat(el?.value)||0;
+                if(val>0){
+                    if(!tempCountData[id])tempCountData[id]={name};
+                    tempCountData[id]['u'+ui]=(tempCountData[id]['u'+ui]||0)+val;
+                    if(el){el.value='';el.style.borderColor='var(--success)';setTimeout(()=>el.style.borderColor='',600);}
+                    anyVal=true;
+                }
+            });
+            if(!anyVal){toast('⚠️ กรุณากรอกจำนวนก่อน','#c2410c');return;}
+            setTimeout(()=>renderStockTool(zone),400);
         };
 
         window.finalSaveStock=async function(zone){
-            // อ่านค่า selectedStaff จาก DOM ก่อนเสมอ
             const staffEl=document.getElementById('staffSelect');
             if(staffEl&&staffEl.value) selectedStaff=staffEl.value;
+            const dateEl=document.getElementById('countDate');
+            if(dateEl&&dateEl.value) selectedDate=dateEl.value;
 
+            if(!selectedDate){toast('⚠️ กรุณาเลือกวันที่นับก่อน','#c2410c');return;}
             if(!selectedStaff){toast('⚠️ กรุณาเลือกคนนับก่อน','#c2410c');return;}
-            const hasChanges=Object.keys(tempCountData).some(id=>(tempCountData[id].addedMain||0)>0||(tempCountData[id].addedSub||0)>0||(tempCountData[id].added||0)>0);
+            const hasChanges=Object.keys(tempCountData).some(id=>{
+                const td=tempCountData[id];
+                return Object.keys(td).filter(k=>k.startsWith('u')).some(k=>(td[k]||0)>0);
+            });
             if(!hasChanges){toast('❌ ไม่พบข้อมูลการเปลี่ยนแปลง กรุณากรอกจำนวนและกด ＋ ก่อน','#c2410c');return;}
-            if(!confirm(`ยืนยันการบันทึกโดยคุณ ${selectedStaff}?`))return;
+            if(!confirm(`ยืนยันการบันทึกวันที่ ${selectedDate} โดยคุณ ${selectedStaff}?`))return;
 
+            // แปลงวันที่จาก yyyy-mm-dd เป็น dd/mm/yyyy (ไทย)
+            const [yr,mo,dy]=selectedDate.split('-');
+            const dateStr=`${dy}/${mo}/${parseInt(yr)+543}`;
             const now=new Date();
-            const dateStr=now.toLocaleDateString('th-TH');
             const timeStr=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
-            const ts=dateStr+" "+timeStr;
+            const ts=dateStr+' '+timeStr;
 
+            // คำนวณยอดรวมใน countData (หน่วยหลักเท่านั้น)
             Object.keys(tempCountData).forEach(id=>{
-                if(!countData[id])countData[id]={total:0,name:tempCountData[id].name};
-                countData[id].total+=(tempCountData[id].addedMain||tempCountData[id].added||0);
+                const td=tempCountData[id];
+                const p=allProducts.find(pd=>pd.id===id);
+                const units=p?.units||[{name:p?.unit||'',rate:0}];
+                // แปลงทุกหน่วยให้เป็นหน่วยหลัก
+                let totalInUnit1=td['u0']||0;
+                // u1 แปลงโดย rate[0] ของ unit[0]
+                if((td['u1']||0)>0&&units[0]?.rate>0) totalInUnit1+=((td['u1']||0)/units[0].rate);
+                if((td['u2']||0)>0&&units[0]?.rate>0&&units[1]?.rate>0) totalInUnit1+=((td['u2']||0)/(units[0].rate*units[1].rate));
+                if(!countData[id])countData[id]={total:0,name:td.name};
+                countData[id].total=Math.round((countData[id].total+totalInUnit1)*1000)/1000;
                 countData[id].lastUpdate=ts;
                 countData[id].countedBy=selectedStaff;
             });
             await saveCountData();
 
-            const sessionItems=Object.keys(tempCountData).map(id=>({
-                id,
-                name:tempCountData[id].name,
-                amountMain:tempCountData[id].addedMain||tempCountData[id].added||0,
-                amountSub:tempCountData[id].addedSub||0,
-                unit:allProducts.find(p=>p.id===id)?.unit||'',
-                subUnit:allProducts.find(p=>p.id===id)?.subUnit||''
-            }));
+            // บันทึก history พร้อมข้อมูลทุกหน่วย
+            const sessionItems=Object.keys(tempCountData).map(id=>{
+                const td=tempCountData[id];
+                const p=allProducts.find(pd=>pd.id===id);
+                const units=p?.units||[{name:p?.unit||'',rate:0}];
+                const amounts=units.map((_,ui)=>({amount:td['u'+ui]||0,unit:units[ui]?.name||''}));
+                return {id,name:td.name,amounts,units};
+            });
 
             await addDoc(collection(db,'stockHistory'),{
                 zone,date:dateStr,timestamp:now.getTime(),
@@ -700,7 +657,7 @@
             });
 
             tempCountData={};
-            toast('✅ บันทึกสำเร็จ!','#059669');
+            toast('✅ บันทึกสำเร็จ! ตัวเลขรีเซ็ตแล้ว','#059669');
             renderStockTool(zone);
         };
 
@@ -758,15 +715,20 @@
                             <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">รหัส</th>
                             <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">ชื่อสินค้า</th>
                             <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">จำนวน</th>
-                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วยหลัก</th>
-                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วยย่อย</th>
+                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
+                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">จำนวน</th>
+                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
+                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">จำนวน</th>
+                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
                         </tr></thead>
-                        <tbody>${(s.items||[]).map(it=>`<tr style="border-top:1px solid #f1f5f9;">
+                        <tbody>${(s.items||[]).map(it=>{
+                            // support both old and new format
+                            const amounts=it.amounts||[{amount:it.amountMain||it.amount||0,unit:it.unit||''},{amount:it.amountSub||0,unit:it.subUnit||''}].filter(a=>a.unit);
+                            return `<tr style="border-top:1px solid #f1f5f9;">
                             <td style="padding:10px;font-weight:bold;">${it.id}</td>
                             <td style="padding:10px;color:#475569;">${it.name}</td>
-                            <td style="padding:10px;text-align:center;font-weight:bold;color:var(--success);">${it.amountMain||it.amount||0} ${it.unit||''}</td>
-                            <td style="padding:10px;text-align:center;color:#7c3aed;">${it.amountSub>0?(it.amountSub+' '+(it.subUnit||'')):'-'}</td>
-                        </tr>`).join('')}</tbody>
+                            ${amounts.map(a=>`<td style="padding:10px;text-align:center;font-weight:bold;color:var(--success);">${a.amount>0?a.amount:'-'}</td><td style="padding:10px;text-align:center;color:#64748b;">${a.unit}</td>`).join('')}
+                        </tr>`;}).join('')}</tbody>
                     </table>
                 </div>`).join('');
             } catch(e){console.error(e);container.innerHTML='<p style="color:var(--danger);text-align:center;padding:40px;">❌ โหลดข้อมูลไม่สำเร็จ</p>';}
@@ -774,10 +736,14 @@
 
         window.exportExcelHistory=function(){
             if(!currentHistoryData||currentHistoryData.length===0){toast('❌ ไม่มีข้อมูลให้ export','#c2410c');return;}
-            const rows=[["วันที่","คลัง","รหัสสินค้า","ชื่อสินค้า","จำนวน(หน่วยหลัก)","หน่วยหลัก","จำนวน(หน่วยย่อย)","หน่วยย่อย","คนนับ","บันทึกโดย"]];
+            const rows=[["วันที่","คลัง","รหัสสินค้า","ชื่อสินค้า","จำนวนหน่วย1","หน่วย1","จำนวนหน่วย2","หน่วย2","จำนวนหน่วย3","หน่วย3","คนนับ","บันทึกโดย"]];
             currentHistoryData.forEach(s=>{
                 (s.items||[]).forEach(it=>{
-                    rows.push([s.date,s.zone,it.id,it.name,it.amountMain||it.amount||0,it.unit||'',it.amountSub||0,it.subUnit||'',s.countedBy||'',s.recordedBy||'']);
+                    const amounts=it.amounts||[{amount:it.amountMain||it.amount||0,unit:it.unit||''},{amount:it.amountSub||0,unit:it.subUnit||''}].filter(a=>a.unit);
+                    const row=[s.date,s.zone,it.id,it.name];
+                    amounts.forEach(a=>{row.push(a.amount>0?a.amount:'');row.push(a.unit);});
+                    row.push(s.countedBy||'',s.recordedBy||'');
+                    rows.push(row);
                 });
             });
             const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
@@ -804,11 +770,26 @@
                     <h4>🍎 สินค้าหลัก</h4>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
                         <input type="text" id="newPdId" placeholder="รหัส SKU" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
-                        <input type="text" id="newPdUnit" placeholder="หน่วยหลัก เช่น ลัง" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
-                        <input type="text" id="newPdSubUnit" placeholder="หน่วยย่อย เช่น ถุง (ไม่บังคับ)" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
-                        <input type="text" id="newPdName" placeholder="ชื่อสินค้า" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
-                        <button onclick="addPd()" style="grid-column:span 2;background:var(--info);color:white;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;">+ บันทึกสินค้า</button>
+                        <input type="text" id="newPdName" placeholder="ชื่อสินค้า" style="padding:10px;border:1px solid #ddd;border-radius:8px;grid-column:span 1;">
                     </div>
+                    <div style="background:#f8fafc;border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid #e2e8f0;">
+                        <div style="font-size:11px;color:#64748b;font-weight:bold;margin-bottom:8px;">หน่วยและอัตราแปลง (สูงสุด 3 หน่วย)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+                            <input type="text" id="newPdUnit1" placeholder="หน่วยที่ 1 (ใหญ่สุด) เช่น ลัง" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                            <input type="number" id="newPdRate1" placeholder="1 ลัง = ? ถุง" min="1" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                            <small style="color:#94a3b8;">× หน่วยที่ 2</small>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+                            <input type="text" id="newPdUnit2" placeholder="หน่วยที่ 2 (กลาง) เช่น ถุง" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                            <input type="number" id="newPdRate2" placeholder="1 ถุง = ? กรัม" min="1" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                            <small style="color:#94a3b8;">× หน่วยที่ 3</small>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;">
+                            <input type="text" id="newPdUnit3" placeholder="หน่วยที่ 3 (เล็กสุด) เช่น กรัม" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                            <div></div><small style="color:#94a3b8;">หน่วยสุดท้าย</small>
+                        </div>
+                    </div>
+                    <button onclick="addPd()" style="width:100%;background:var(--info);color:white;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;">+ บันทึกสินค้า</button>
                     <div id="pdMasterContainer" style="max-height:250px;overflow-y:auto;border-top:1px solid #eee;padding-top:10px;"></div>
                 </div>
             </div>
@@ -860,25 +841,25 @@
 
         window.renderPdList=function(){
             const c=document.getElementById('pdMasterContainer');if(!c)return;
-            c.innerHTML=allProducts.map((p,i)=>`
-            <div style="padding:8px;background:#f8fafc;margin-bottom:6px;border-radius:8px;border:1px solid #edf2f7;">
-                <div style="display:flex;align-items:center;gap:6px;" id="pdRow_${i}">
-                    <div style="flex:1;font-size:12px;">
-                        <b>${p.id}</b> - <span id="pdLabel_${i}">${p.name}</span>
-                        <span style="color:#94a3b8;font-size:11px;"> (${p.unit}${p.subUnit?' / '+p.subUnit:''})</span>
-                    </div>
+            c.innerHTML=allProducts.map((p,i)=>{
+                const units=p.units||[{name:p.unit,rate:0},{name:p.subUnit||'',rate:0}].filter(u=>u.name);
+                const unitsStr=units.map((u,ui)=>u.name+(ui<units.length-1&&u.rate>0?' (×'+u.rate+')':'')).join(' → ');
+                return `<div style="padding:8px;background:#f8fafc;margin-bottom:6px;border-radius:8px;border:1px solid #edf2f7;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="flex:1;font-size:12px;"><b>${p.id}</b> - ${p.name}<br><span style="color:#94a3b8;font-size:11px;">${unitsStr}</span></div>
                     <button class="btn-sm" style="background:var(--info);color:white;" onclick="toggleEditPd(${i})">✏️</button>
                     <button class="btn-sm" style="background:var(--danger);color:white;" onclick="deletePd(${i})">✕</button>
                 </div>
-                <div id="pdEditArea_${i}" style="display:none;margin-top:8px;display:none;">
+                <div id="pdEditArea_${i}" style="display:none;margin-top:8px;">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
                         <input id="pdEditName_${i}" value="${p.name}" placeholder="ชื่อสินค้า" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;grid-column:span 2;">
-                        <input id="pdEditUnit_${i}" value="${p.unit}" placeholder="หน่วยหลัก" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
-                        <input id="pdEditSubUnit_${i}" value="${p.subUnit||''}" placeholder="หน่วยย่อย" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                        ${units.map((u,ui)=>`
+                        <input id="pdEditUnit${ui}_${i}" value="${u.name}" placeholder="หน่วยที่ ${ui+1}" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                        ${ui<units.length-1?`<input id="pdEditRate${ui}_${i}" value="${u.rate||''}" placeholder="อัตราแปลง ×" type="number" min="1" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">`:'<div></div>'}`).join('')}
                         <button onclick="saveEditPd(${i})" style="grid-column:span 2;background:var(--success);color:white;border:none;padding:6px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">💾 บันทึก</button>
                     </div>
                 </div>
-            </div>`).join('');
+            </div>`;}).join('');
         };
 
         window.toggleEditPd=function(i){
@@ -887,13 +868,20 @@
         };
 
         window.saveEditPd=function(i){
-            const name=document.getElementById(`pdEditName_${i}`).value.trim();
-            const unit=document.getElementById(`pdEditUnit_${i}`).value.trim();
-            const subUnit=document.getElementById(`pdEditSubUnit_${i}`).value.trim();
-            if(!name||!unit)return;
+            const name=document.getElementById(`pdEditName_${i}`)?.value.trim();
+            if(!name)return;
+            const existingUnits=allProducts[i].units||[{name:allProducts[i].unit,rate:0},{name:allProducts[i].subUnit||'',rate:0}].filter(u=>u.name);
+            const newUnits=[];
+            for(let ui=0;ui<existingUnits.length;ui++){
+                const uName=document.getElementById(`pdEditUnit${ui}_${i}`)?.value.trim()||'';
+                const uRate=parseFloat(document.getElementById(`pdEditRate${ui}_${i}`)?.value)||0;
+                if(uName) newUnits.push({name:uName,rate:uRate});
+            }
+            if(!newUnits.length)return;
             allProducts[i].name=name;
-            allProducts[i].unit=unit;
-            allProducts[i].subUnit=subUnit;
+            allProducts[i].units=newUnits;
+            allProducts[i].unit=newUnits[0]?.name||'';
+            allProducts[i].subUnit=newUnits[1]?.name||'';
             saveConfig(); renderPdList();
             toast('✅ แก้ไขสินค้าเรียบร้อย','#059669');
         };
@@ -915,15 +903,27 @@
 
         window.addPd=function(){
             const id=document.getElementById('newPdId').value.trim();
-            const unit=document.getElementById('newPdUnit').value.trim();
-            const subUnit=document.getElementById('newPdSubUnit').value.trim();
             const name=document.getElementById('newPdName').value.trim();
-            if(id&&name&&unit){
-                allProducts.push({id,name,unit,subUnit});
-                saveConfig(); renderPdList(); renderMapping();
-                document.getElementById('newPdId').value=document.getElementById('newPdUnit').value=document.getElementById('newPdSubUnit').value=document.getElementById('newPdName').value='';
-                toast('✅ เพิ่มสินค้าเรียบร้อย','#059669');
-            }
+            const u1=document.getElementById('newPdUnit1').value.trim();
+            const u2=document.getElementById('newPdUnit2').value.trim();
+            const u3=document.getElementById('newPdUnit3').value.trim();
+            const r1=parseFloat(document.getElementById('newPdRate1').value)||0;
+            const r2=parseFloat(document.getElementById('newPdRate2').value)||0;
+            if(!id||!name||!u1){toast('⚠️ กรุณากรอก รหัส, ชื่อสินค้า และหน่วยที่ 1 อย่างน้อย','#c2410c');return;}
+            // สร้าง units array
+            const units=[];
+            if(u1) units.push({name:u1,rate:r1||0}); // rate = อัตราแปลงไปหน่วยถัดไป
+            if(u2) units.push({name:u2,rate:r2||0});
+            if(u3) units.push({name:u3,rate:0}); // หน่วยสุดท้ายไม่มี rate
+            allProducts.push({id,name,units,
+                // backward compat
+                unit:u1, subUnit:u2||''
+            });
+            saveConfig(); renderPdList(); renderMapping();
+            ['newPdId','newPdName','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
+                const el=document.getElementById(x); if(el) el.value='';
+            });
+            toast('✅ เพิ่มสินค้าเรียบร้อย','#059669');
         };
 
         window.deletePd=function(i){if(confirm('ยืนยันลบสินค้า?')){allProducts.splice(i,1);saveConfig();renderPdList();renderMapping();}};
@@ -932,16 +932,6 @@
         window.logout=function(){localStorage.removeItem("currentUser");window.location.href="login.html";};
         window.toggleSub=function(id){const s=document.getElementById(id);s.style.display=(s.style.display==='block')?'none':'block';};
         window.closeTool=function(){if(Object.keys(tempCountData).length>0){if(!confirm("ยังไม่บันทึก ต้องการปิดจริงไหม?"))return;}document.getElementById('toolAppContainer').classList.add('hidden');document.getElementById('dashboardView').classList.remove('hidden');};
-
-        // ---- MOBILE SIDEBAR TOGGLE (เพิ่มใหม่) ----
-        window.toggleSidebar = function() {
-            document.querySelector('.sidebar').classList.toggle('open');
-            document.getElementById('sidebarOverlay').classList.toggle('open');
-        };
-        window.closeSidebar = function() {
-            document.querySelector('.sidebar').classList.remove('open');
-            document.getElementById('sidebarOverlay').classList.remove('open');
-        };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 </body>
