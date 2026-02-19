@@ -588,6 +588,8 @@
         };
 
         window.finalSaveStock = async function(zone) {
+           const staffEl = document.getElementById('staffName');
+            if (staffEl && staffEl.value) selectedStaff = staffEl.value;
             if(!selectedStaff){toast('⚠️ กรุณาเลือกคนนับก่อน','#c2410c'); return;}
             if(Object.keys(tempCountData).length===0){toast('❌ ไม่พบข้อมูลการเปลี่ยนแปลง','#c2410c'); return;}
             if(!confirm(`ยืนยันการบันทึกโดยคุณ ${selectedStaff}?`)) return;
