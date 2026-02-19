@@ -14,7 +14,7 @@
         .sidebar-brand h2 { margin: 0; color: var(--accent-gold); font-size: 24px; letter-spacing: 2px; }
         .user-info { padding: 20px; margin: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; font-size: 14px; }
         .user-info b { color: var(--accent-gold); display: block; margin-bottom: 4px; }
-        .nav-links { flex: 1; padding: 10px 15px; }
+        .nav-links { flex: 1; padding: 10px 15px; overflow-y: auto; }
         .nav-item { padding: 12px 15px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; display: flex; align-items: center; gap: 10px; color: #cbd5e1; }
         .nav-item:hover { background: rgba(255,255,255,0.05); }
         .nav-item.active { background: var(--accent-gold); color: var(--primary-dark); font-weight: bold; }
@@ -35,21 +35,28 @@
         .input-group { background: white; padding: 10px; border-radius: 10px; border: 1px solid #e2e8f0; }
         .input-group label { display: block; font-size: 11px; color: #64748b; margin-bottom: 3px; font-weight: bold; }
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease; }
-        .modal-box { background: white; border-radius: 20px; padding: 32px; width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.3); }
+        .modal-box { background: white; border-radius: 20px; padding: 32px; width: 420px; box-shadow: 0 24px 60px rgba(0,0,0,0.3); max-height: 80vh; overflow-y: auto; }
         .modal-box h3 { margin: 0 0 20px; color: var(--primary-dark); font-size: 18px; }
-        .modal-box input { width: 100%; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px; margin-bottom: 12px; box-sizing: border-box; outline: none; transition: border 0.2s; }
+        .modal-box input { width: 100%; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px; margin-bottom: 12px; box-sizing: border-box; outline: none; transition: border 0.2s; font-family: 'Segoe UI', sans-serif; }
         .modal-box input:focus { border-color: var(--info); }
         .modal-error { color: var(--danger); font-size: 12px; margin-bottom: 10px; display: none; }
-        .toast { position: fixed; bottom: 30px; right: 30px; background: #1e293b; color: white; padding: 14px 20px; border-radius: 12px; font-size: 14px; z-index: 99999; animation: slideUp 0.3s ease; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .toast { position: fixed; bottom: 30px; right: 30px; background: #1e293b; color: white; padding: 14px 20px; border-radius: 12px; font-size: 14px; z-index: 99999; animation: toastIn 0.3s ease; box-shadow: 0 8px 24px rgba(0,0,0,0.3); max-width: 300px; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .upload-progress { display: none; margin-top: 10px; background: #f1f5f9; border-radius: 8px; overflow: hidden; height: 8px; }
         .upload-progress-bar { height: 100%; background: var(--success); transition: width 0.3s; width: 0%; }
+        .filter-bar { background: white; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
+        .filter-bar label { font-size: 11px; color: #64748b; font-weight: bold; display: block; margin-bottom: 5px; }
+        .filter-bar select, .filter-bar input[type="date"] { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px; outline: none; min-width: 180px; }
+        .filter-bar select:focus, .filter-bar input:focus { border-color: var(--info); }
+        .history-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; overflow: hidden; }
+        .history-card-header { padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
         @media print {
             .sidebar, .no-print, button, #bannerAdminSection { display: none !important; }
             .main-content { margin-left: 0 !important; width: 100% !important; }
             .app-container { padding: 0 !important; }
             table { width: 100% !important; border: 1px solid #000 !important; }
             th, td { border: 1px solid #ddd !important; padding: 8px !important; }
+            .history-card { break-inside: avoid; }
         }
     </style>
 </head>
@@ -72,7 +79,7 @@
             <div id="warehouseMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subWH')">📦 คลังสินค้า ▾</div>
                 <div id="subWH" class="submenu">
-                    <div onclick="openStockSummary()" style="color:var(--accent-gold);">📊 สรุปยอดรวม (PDF/Excel)</div>
+                    <div onclick="openStockSummary()" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
                 </div>
             </div>
             <div id="toolsMenu" class="hidden">
@@ -109,9 +116,7 @@
                         <input type="file" id="bannerFile" accept="image/*" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;">
                         <button onclick="uploadBanner()" style="background:var(--success);color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;">+ เพิ่มแบนเนอร์</button>
                     </div>
-                    <div class="upload-progress" id="uploadProgress">
-                        <div class="upload-progress-bar" id="uploadProgressBar"></div>
-                    </div>
+                    <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
                     <div id="thumbList" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:15px;"></div>
                 </div>
             </div>
@@ -119,7 +124,7 @@
                 <h3>ยินดีต้อนรับสู่ TingTing Dashboard</h3>
                 <p>เลือกเมนูทางซ้ายมือเพื่อเริ่มการทำงาน</p>
                 <div id="viewOnlyAlert" class="hidden" style="background:#fff7ed;color:#c2410c;padding:15px;border-radius:10px;border:1px solid #fdba74;margin-top:20px;">
-                    ⚠️ <b>โหมดผู้บริหาร:</b> คุณมีสิทธิ์ดูข้อมูลได้อย่างเดียว
+                    ⚠️ <b>โหมดดูอย่างเดียว:</b> คุณสามารถดูข้อมูลได้ทั้งหมด แต่ไม่สามารถแก้ไขหรือบันทึกได้
                 </div>
             </div>
         </div>
@@ -128,7 +133,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, collection, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",
@@ -139,37 +144,43 @@
             appId: "1:998609441304:web:0c7fbedf869fa2335d296d"
         };
 
-        // Cloudinary config
-        const CLOUDINARY_CLOUD = "dof4vtj87";
+        const CLOUDINARY_CLOUD  = "dof4vtj87";
         const CLOUDINARY_PRESET = "tingting_banners";
 
         const app = initializeApp(firebaseConfig);
         const db  = getFirestore(app);
 
-        let currentUser   = JSON.parse(localStorage.getItem("currentUser")) || null;
-        let warehouseList = ["คลังหลัก"];
-        let allProducts   = [];
-        let zoneProductMap= {};
-        let countData     = {};
-        let roleSettings  = { admin: { menus: ["warehouse","tools","admin"], viewOnly: false }, warehouse: { menus: ["warehouse","tools"], viewOnly: false }, staff: { menus: ["tools"], viewOnly: false } };
+        let currentUser    = JSON.parse(localStorage.getItem("currentUser")) || null;
+        let warehouseList  = ["คลังหลัก"];
+        let allProducts    = [];
+        let zoneProductMap = {};
+        let countData      = {};
+        let roleSettings   = {
+            admin:     { menus: ["warehouse","tools","admin"], viewOnly: false },
+            warehouse: { menus: ["warehouse","tools"],         viewOnly: false },
+            staff:     { menus: ["tools"],                     viewOnly: false }
+        };
         let tempCountData = {};
         let selectedStaff = "";
 
-        async function hashPassword(password) {
-            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+        // ---- UTILS ----
+        async function hashPassword(p) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
             return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
         }
 
         function toast(msg, color = '#1e293b') {
+            document.querySelectorAll('.toast').forEach(t => t.remove());
             const t = document.createElement('div');
             t.className = 'toast'; t.style.background = color; t.innerText = msg;
             document.body.appendChild(t);
             setTimeout(() => t.remove(), 3000);
         }
 
+        // ---- FIREBASE HELPERS ----
         async function loadConfig() {
             try {
-                const snap = await getDoc(doc(db, 'config', 'main'));
+                const snap = await getDoc(doc(db,'config','main'));
                 if (snap.exists()) {
                     const d = snap.data();
                     if (d.warehouseList)  warehouseList  = d.warehouseList;
@@ -177,36 +188,45 @@
                     if (d.zoneProductMap) zoneProductMap = d.zoneProductMap;
                     if (d.roleSettings)   roleSettings   = d.roleSettings;
                 }
-            } catch(e) { console.error('loadConfig', e); }
-        }
-
-        async function saveConfig() {
-            await setDoc(doc(db, 'config', 'main'), { warehouseList, allProducts, zoneProductMap, roleSettings }, { merge: true });
-        }
-
-        async function loadCountData() {
-            try {
-                const snap = await getDoc(doc(db, 'stock', 'countData'));
-                if (snap.exists()) countData = snap.data();
             } catch(e) { console.error(e); }
         }
 
-        async function saveCountData() {
-            await setDoc(doc(db, 'stock', 'countData'), countData);
+        async function saveConfig() {
+            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings }, { merge:true }); }
+            catch(e) { toast('❌ บันทึก config ไม่สำเร็จ','#c2410c'); }
         }
 
-        // โหลดแบนเนอร์จาก Firestore
+        async function loadCountData() {
+            try { const s = await getDoc(doc(db,'stock','countData')); if (s.exists()) countData = s.data(); }
+            catch(e) { console.error(e); }
+        }
+
+        async function saveCountData() {
+            try { await setDoc(doc(db,'stock','countData'), countData); }
+            catch(e) { toast('❌ บันทึกสต๊อกไม่สำเร็จ','#c2410c'); }
+        }
+
         async function loadBanners() {
-            try {
-                const snap = await getDoc(doc(db, 'config', 'banners'));
-                return snap.exists() ? (snap.data().urls || []) : [];
-            } catch(e) { return []; }
+            try { const s = await getDoc(doc(db,'config','banners')); return s.exists() ? (s.data().urls || []) : []; }
+            catch(e) { return []; }
         }
 
         async function saveBanners(urls) {
-            await setDoc(doc(db, 'config', 'banners'), { urls });
+            await setDoc(doc(db,'config','banners'), { urls });
         }
 
+        // ---- คลังที่ user มีสิทธิ์เห็น ----
+        function getVisibleWarehouses() {
+            const u = currentUser;
+            // user BT000... → เห็นเฉพาะคลังที่ผูกไว้
+            if (u.username && u.username.toUpperCase().startsWith('BT000')) {
+                return u.assignedZones && u.assignedZones.length > 0 ? u.assignedZones : [];
+            }
+            // คนอื่นเห็นทั้งหมด
+            return warehouseList;
+        }
+
+        // ---- ONLOAD ----
         window.onload = async function() {
             if (!currentUser) { window.location.href = 'login.html'; return; }
             document.getElementById('roleDisplay').innerText = currentUser.name;
@@ -214,493 +234,560 @@
             await loadCountData();
             applyPermissions();
             await renderBanners();
-            setInterval(checkToolExpiry, 1000);
-            setInterval(checkHardBanStatus, 8000);
+            setInterval(checkToolExpiry, 5000);
+            setInterval(checkHardBanStatus, 10000);
         };
 
-        // ---- BANNER (Cloudinary + Firestore) ----
-        window.renderBanners = async function() {
-            const urls = await loadBanners();
-            const defaultBanner = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
-            const bannerUrls = urls.length > 0 ? urls : [defaultBanner];
+        // ---- PERMISSIONS (viewOnly เห็นทุกเมนูแต่แก้ไขไม่ได้) ----
+        window.applyPermissions = function() {
+            const role       = currentUser.role || 'guest';
+            const perms      = roleSettings[role]?.menus || [];
+            const isViewOnly = roleSettings[role]?.viewOnly || false;
 
+            // viewOnly → เห็นเมนูทุกอย่างเหมือน admin แต่แก้ไขไม่ได้
+            const effectivePerms = isViewOnly ? ["warehouse","tools","admin"] : perms;
+
+            document.getElementById('warehouseMenu').classList.toggle('hidden', !effectivePerms.includes('warehouse'));
+            document.getElementById('toolsMenu').classList.toggle('hidden', !effectivePerms.includes('tools'));
+            document.getElementById('adminMenu').classList.toggle('hidden', !effectivePerms.includes('admin'));
+            document.getElementById('bannerAdminSection').classList.toggle('hidden', !effectivePerms.includes('admin'));
+            document.getElementById('viewOnlyAlert').classList.toggle('hidden', !isViewOnly);
+
+            // ซ่อนปุ่มแก้ไขถ้า viewOnly
+            let existingStyle = document.getElementById("viewOnlyStyle");
+            if (isViewOnly) {
+                if (!existingStyle) {
+                    const st = document.createElement('style');
+                    st.id = "viewOnlyStyle";
+                    st.innerHTML = `
+                        button[onclick*="finalSaveStock"],
+                        button[onclick*="addNewUser"],
+                        button[onclick*="addWh"],
+                        button[onclick*="addPd"],
+                        button[onclick*="grantAccess"],
+                        button[onclick*="revokeAccess"],
+                        button[onclick*="unbanUser"],
+                        button[onclick*="requestDelete"],
+                        button[onclick*="cancelDelete"],
+                        button[onclick*="adminResetPassword"],
+                        button[onclick*="uploadBanner"],
+                        button[onclick*="delBanner"],
+                        button[onclick*="updateStockTemp"],
+                        .btn-action { display: none !important; }
+                        .viewonly-input { pointer-events: none !important; opacity: 0.7 !important; }
+                    `;
+                    document.head.appendChild(st);
+                }
+            } else if (existingStyle) { existingStyle.remove(); }
+
+            document.getElementById('roleStatusText').innerText = "ฐานะ: " + role.toUpperCase() + (isViewOnly ? " (ดูอย่างเดียว)" : "");
+        };
+
+        window.checkToolExpiry = async function() {
+            const now   = new Date().getTime();
+            const role  = currentUser.role || 'guest';
+            const perms = roleSettings[role]?.menus || [];
+            const isVO  = roleSettings[role]?.viewOnly || false;
+            const effP  = isVO ? ["warehouse","tools","admin"] : perms;
+            const menu  = document.getElementById('toolsMenu');
+
+            if (!effP.includes('tools')) { menu.classList.add('hidden'); return; }
+            if (role === 'admin') { menu.classList.remove('hidden'); document.getElementById('timerDisplay').innerText = "⏳ สิทธิ์: ถาวร"; return; }
+
+            try {
+                const snap   = await getDoc(doc(db,'users',currentUser.username));
+                if (!snap.exists()) { menu.classList.add('hidden'); return; }
+                const expiry = snap.data().toolExpiry || 0;
+                if (now < expiry) {
+                    menu.classList.remove('hidden');
+                    if (expiry > 4000000000000) { document.getElementById('timerDisplay').innerText = "⏳ สิทธิ์: ถาวร"; }
+                    else { const d = Math.floor((expiry-now)/60000); document.getElementById('timerDisplay').innerText = `⏳ เหลือ: ${Math.floor(d/60)}ชม. ${d%60}น.`; }
+                } else { menu.classList.add('hidden'); }
+            } catch(e) {}
+        };
+
+        window.checkHardBanStatus = async function() {
+            if (!currentUser || currentUser.username === 'admin') return;
+            try {
+                const snap = await getDoc(doc(db,'users',currentUser.username));
+                if (snap.exists() && snap.data().status === 'suspended') { alert('🚫 บัญชีถูกระงับ!'); logout(); }
+            } catch(e) {}
+        };
+
+        // ---- BANNER ----
+        window.renderBanners = async function() {
+            const urls    = await loadBanners();
+            const defUrl  = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80";
+            const show    = urls.length > 0 ? urls : [defUrl];
             const wrapper = document.getElementById('bannerWrapper');
             if (wrapper) {
-                wrapper.innerHTML = bannerUrls.map(url => `<div class="swiper-slide"><img src="${url}" style="width:100%;height:100%;object-fit:cover;"></div>`).join('');
-                if (window._swiper) window._swiper.destroy(true, true);
-                window._swiper = new Swiper(".mySwiper", { pagination:{ el:".swiper-pagination" }, autoplay:{ delay:3500 }, loop: bannerUrls.length > 1 });
+                wrapper.innerHTML = show.map(u => `<div class="swiper-slide"><img src="${u}" style="width:100%;height:100%;object-fit:cover;"></div>`).join('');
+                if (window._sw) { try { window._sw.destroy(true,true); } catch(e){} }
+                window._sw = new Swiper(".mySwiper", { pagination:{el:".swiper-pagination"}, autoplay:{delay:3500}, loop: show.length > 1 });
             }
-
-            const thumbList = document.getElementById("thumbList");
-            if (thumbList) {
-                thumbList.innerHTML = urls.map((url, i) => `
-                <div style="position:relative;">
-                    <img src="${url}" style="width:100px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
-                    <button onclick="delBanner(${i})" style="position:absolute;top:-5px;right:-5px;background:red;color:white;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:10px;">✕</button>
-                </div>`).join('');
-            }
+            const tl = document.getElementById("thumbList");
+            if (tl) tl.innerHTML = urls.map((u,i) => `<div style="position:relative;"><img src="${u}" style="width:100px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #ddd;"><button onclick="delBanner(${i})" style="position:absolute;top:-5px;right:-5px;background:red;color:white;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:10px;">✕</button></div>`).join('');
         };
 
         window.uploadBanner = async function() {
             const file = document.getElementById('bannerFile').files[0];
-            if (!file) { toast('⚠️ กรุณาเลือกรูปก่อน', '#c2410c'); return; }
-
-            const progress = document.getElementById('uploadProgress');
-            const bar      = document.getElementById('uploadProgressBar');
-            progress.style.display = 'block';
-            bar.style.width = '30%';
-
+            if (!file) { toast('⚠️ กรุณาเลือกรูปก่อน','#c2410c'); return; }
+            const prog = document.getElementById('uploadProgress'), bar = document.getElementById('uploadProgressBar');
+            prog.style.display = 'block'; bar.style.width = '30%';
             try {
-                // อัปโหลดไป Cloudinary
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('upload_preset', CLOUDINARY_PRESET);
-
+                const fd = new FormData(); fd.append('file', file); fd.append('upload_preset', CLOUDINARY_PRESET);
                 bar.style.width = '60%';
-
-                const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: formData });
+                const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method:'POST', body:fd });
                 const data = await res.json();
-
                 if (!data.secure_url) throw new Error('Upload failed');
-
                 bar.style.width = '90%';
-
-                // บันทึก URL ลง Firestore
-                const currentUrls = await loadBanners();
-                currentUrls.push(data.secure_url);
-                await saveBanners(currentUrls);
-
-                bar.style.width = '100%';
-                toast('✅ อัปโหลดแบนเนอร์เรียบร้อย!', '#059669');
+                const cur = await loadBanners(); cur.push(data.secure_url);
+                await saveBanners(cur); bar.style.width = '100%';
+                toast('✅ อัปโหลดแบนเนอร์เรียบร้อย!','#059669');
                 document.getElementById('bannerFile').value = '';
-
-                setTimeout(() => { progress.style.display = 'none'; bar.style.width = '0%'; }, 1000);
+                setTimeout(() => { prog.style.display='none'; bar.style.width='0%'; }, 1000);
                 await renderBanners();
-
-            } catch(e) {
-                console.error(e);
-                progress.style.display = 'none';
-                bar.style.width = '0%';
-                toast('❌ อัปโหลดไม่สำเร็จ กรุณาลองใหม่', '#c2410c');
-            }
+            } catch(e) { prog.style.display='none'; bar.style.width='0%'; toast('❌ อัปโหลดไม่สำเร็จ','#c2410c'); }
         };
 
         window.delBanner = async function(i) {
             if (!confirm('ลบแบนเนอร์นี้?')) return;
-            const urls = await loadBanners();
-            urls.splice(i, 1);
-            await saveBanners(urls);
-            toast('🗑️ ลบแบนเนอร์เรียบร้อย', '#059669');
+            const urls = await loadBanners(); urls.splice(i,1);
+            await saveBanners(urls); toast('🗑️ ลบแบนเนอร์เรียบร้อย','#059669');
             await renderBanners();
         };
 
         // ---- CHANGE PASSWORD ----
         window.openChangePasswordModal = function() {
-            if (currentUser.username === 'admin' && currentUser.role === 'admin') {
-                toast('⚠️ บัญชี Admin หลักไม่สามารถเปลี่ยน Password ได้', '#c2410c'); return;
-            }
+            if (currentUser.username === 'admin' && currentUser.role === 'admin') { toast('⚠️ บัญชี Admin หลักไม่สามารถเปลี่ยน Password ได้','#c2410c'); return; }
             const modal = document.createElement('div');
             modal.className = 'modal-overlay'; modal.id = 'changePassModal';
-            modal.innerHTML = `
-                <div class="modal-box">
-                    <h3>🔑 เปลี่ยน Password</h3>
-                    <input type="password" id="oldPassInput" placeholder="Password ปัจจุบัน">
-                    <input type="password" id="newPassInput" placeholder="Password ใหม่">
-                    <input type="password" id="confirmPassInput" placeholder="ยืนยัน Password ใหม่">
-                    <div class="modal-error" id="passModalError"></div>
-                    <div style="display:flex;gap:10px;margin-top:8px;">
-                        <button onclick="submitChangePassword()" style="flex:1;background:var(--info);color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:bold;">✅ ยืนยัน</button>
-                        <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
-                    </div>
-                </div>`;
+            modal.innerHTML = `<div class="modal-box"><h3>🔑 เปลี่ยน Password</h3>
+                <input type="password" id="oldPassInput" placeholder="Password ปัจจุบัน">
+                <input type="password" id="newPassInput" placeholder="Password ใหม่">
+                <input type="password" id="confirmPassInput" placeholder="ยืนยัน Password ใหม่">
+                <div class="modal-error" id="passModalError"></div>
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                    <button onclick="submitChangePassword()" style="flex:1;background:var(--info);color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:bold;">✅ ยืนยัน</button>
+                    <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
+                </div></div>`;
             document.body.appendChild(modal);
         };
 
         window.submitChangePassword = async function() {
-            const oldPass = document.getElementById('oldPassInput').value;
-            const newPass = document.getElementById('newPassInput').value;
-            const confirmPass = document.getElementById('confirmPassInput').value;
-            const errEl = document.getElementById('passModalError');
-            errEl.style.display = 'none';
-            if (!oldPass || !newPass || !confirmPass) { errEl.innerText = '⚠️ กรุณากรอกให้ครบ'; errEl.style.display = 'block'; return; }
-            if (newPass !== confirmPass) { errEl.innerText = '❌ Password ใหม่ไม่ตรงกัน'; errEl.style.display = 'block'; return; }
-            if (newPass.length < 4) { errEl.innerText = '❌ ต้องมีอย่างน้อย 4 ตัวอักษร'; errEl.style.display = 'block'; return; }
+            const op=document.getElementById('oldPassInput').value, np=document.getElementById('newPassInput').value, cp=document.getElementById('confirmPassInput').value;
+            const err=document.getElementById('passModalError'); err.style.display='none';
+            if (!op||!np||!cp) { err.innerText='⚠️ กรุณากรอกให้ครบ'; err.style.display='block'; return; }
+            if (np!==cp) { err.innerText='❌ Password ใหม่ไม่ตรงกัน'; err.style.display='block'; return; }
+            if (np.length<4) { err.innerText='❌ ต้องมีอย่างน้อย 4 ตัวอักษร'; err.style.display='block'; return; }
             try {
-                const userSnap = await getDoc(doc(db, 'users', currentUser.username));
-                if (!userSnap.exists()) { errEl.innerText = '❌ ไม่พบข้อมูลผู้ใช้'; errEl.style.display = 'block'; return; }
-                const hashedOld = await hashPassword(oldPass);
-                const storedPass = userSnap.data().password || await hashPassword('1234');
-                if (hashedOld !== storedPass) { errEl.innerText = '❌ Password ปัจจุบันไม่ถูกต้อง'; errEl.style.display = 'block'; return; }
-                await setDoc(doc(db, 'users', currentUser.username), { password: await hashPassword(newPass) }, { merge: true });
-                closeModal();
-                toast('✅ เปลี่ยน Password เรียบร้อย!', '#059669');
-            } catch(e) { errEl.innerText = '⚠️ เกิดข้อผิดพลาด'; errEl.style.display = 'block'; }
+                const snap=await getDoc(doc(db,'users',currentUser.username));
+                if (!snap.exists()) { err.innerText='❌ ไม่พบข้อมูลผู้ใช้'; err.style.display='block'; return; }
+                const ho=await hashPassword(op), st=snap.data().password||await hashPassword('1234');
+                if (ho!==st) { err.innerText='❌ Password ปัจจุบันไม่ถูกต้อง'; err.style.display='block'; return; }
+                await setDoc(doc(db,'users',currentUser.username),{password:await hashPassword(np)},{merge:true});
+                closeModal(); toast('✅ เปลี่ยน Password เรียบร้อย!','#059669');
+            } catch(e) { err.innerText='⚠️ เกิดข้อผิดพลาด'; err.style.display='block'; }
         };
 
-        window.closeModal = function() { const m = document.getElementById('changePassModal'); if (m) m.remove(); };
+        window.closeModal = function() { const m=document.getElementById('changePassModal'); if(m) m.remove(); };
 
-        // ---- USER MANAGEMENT ----
+        // ---- USER MANAGEMENT (เพิ่มการผูกคลังสำหรับ BT000) ----
         window.openUserManagement = function() {
             document.getElementById('dashboardView').classList.add('hidden');
-            const container = document.getElementById('toolAppContainer');
-            container.classList.remove('hidden');
-            container.innerHTML = `
-                <div class="tool-header no-print">
-                    <h2>👤 จัดการพนักงาน & กำหนดสิทธิ์ Role</h2>
-                    <button onclick="closeTool()">✕ ปิด</button>
+            const c=document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            c.innerHTML=`<div class="tool-header no-print"><h2>👤 จัดการพนักงาน & กำหนดสิทธิ์ Role</h2><button onclick="closeTool()">✕ ปิด</button></div>
+            <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:25px;">
+                <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
+                    <h4 style="margin-top:0;">🎭 ตั้งค่า Role & สิทธิ์</h4>
+                    <div style="display:flex;gap:8px;margin-bottom:15px;">
+                        <input type="text" id="newRoleName" placeholder="ชื่อ Role ใหม่" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ddd;">
+                        <button onclick="addNewRole()" style="background:var(--success);color:white;border:none;padding:10px;border-radius:8px;cursor:pointer;">เพิ่ม Role</button>
+                    </div>
+                    <div id="rolePermissionsList"></div>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:25px;">
-                    <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
-                        <h4 style="margin-top:0;">🎭 ตั้งค่า Role & สิทธิ์</h4>
-                        <div style="display:flex;gap:8px;margin-bottom:15px;">
-                            <input type="text" id="newRoleName" placeholder="ชื่อ Role ใหม่" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ddd;">
-                            <button onclick="addNewRole()" style="background:var(--success);color:white;border:none;padding:10px;border-radius:8px;cursor:pointer;">เพิ่ม Role</button>
-                        </div>
-                        <div id="rolePermissionsList"></div>
+                <div>
+                    <div style="background:white;padding:20px;border-radius:15px;margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;" class="no-print">
+                        <input type="text" id="newUserName" placeholder="ชื่อพนักงาน" style="padding:10px;border-radius:8px;border:1px solid #ddd;flex:1;min-width:120px;">
+                        <input type="text" id="newUserKey" placeholder="Username" style="padding:10px;border-radius:8px;border:1px solid #ddd;flex:1;min-width:120px;">
+                        <input type="text" id="newUserPass" placeholder="Password (ไม่กรอก = 1234)" style="padding:10px;border-radius:8px;border:1px solid #ddd;flex:1;min-width:140px;">
+                        <select id="newUserRole" style="padding:10px;border-radius:8px;flex:1;min-width:100px;"></select>
+                        <button onclick="addNewUser()" style="background:var(--info);color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;">+ เพิ่มพนักงาน</button>
                     </div>
-                    <div>
-                        <div style="background:white;padding:20px;border-radius:15px;margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;" class="no-print">
-                            <input type="text" id="newUserName" placeholder="ชื่อพนักงาน" style="padding:10px;border-radius:8px;border:1px solid #ddd;flex:1;min-width:120px;">
-                            <input type="text" id="newUserKey" placeholder="Username" style="padding:10px;border-radius:8px;border:1px solid #ddd;flex:1;min-width:120px;">
-                            <input type="text" id="newUserPass" placeholder="Password (ไม่กรอก = 1234)" style="padding:10px;border-radius:8px;border:1px solid #ddd;flex:1;min-width:140px;">
-                            <select id="newUserRole" style="padding:10px;border-radius:8px;flex:1;min-width:100px;"></select>
-                            <button onclick="addNewUser()" style="background:var(--info);color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;">+ เพิ่มพนักงาน</button>
-                        </div>
-                        <div id="userGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px;"></div>
-                    </div>
-                </div>`;
-            renderRoleSettings();
-            renderUserCards();
+                    <div id="userGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px;"></div>
+                </div>
+            </div>`;
+            renderRoleSettings(); renderUserCards();
         };
 
         window.renderUserCards = async function() {
-            const grid = document.getElementById('userGrid');
-            if (!grid) return;
-            grid.innerHTML = '<p style="color:#94a3b8;">กำลังโหลด...</p>';
-            const snap = await getDocs(collection(db, 'users'));
-            const now = new Date().getTime();
-            let html = "";
+            const grid=document.getElementById('userGrid'); if(!grid) return;
+            grid.innerHTML='<p style="color:#94a3b8;padding:20px;">กำลังโหลด...</p>';
+            const snap=await getDocs(collection(db,'users')), now=new Date().getTime(); let html="";
             snap.forEach(d => {
-                const k = d.id, u = d.data();
-                const active = u.toolExpiry > now;
-                const isSuspended = u.status === 'suspended';
-                const isPendingDelete = u.deleteAt !== undefined && u.deleteAt !== null;
-                let deleteInfoText = "";
-                if (isPendingDelete) {
-                    const daysLeft = Math.ceil(((u.deleteAt + 604800000) - now) / 86400000);
-                    deleteInfoText = `<div style="color:var(--danger);font-size:10px;margin-top:5px;font-weight:bold;">⏳ ลบถาวรใน ${daysLeft > 0 ? daysLeft : 0} วัน</div>`;
-                }
-                html += `
-                <div class="user-card" style="${isSuspended ? 'border:2px solid var(--danger);background:#fff5f5;' : ''} ${isPendingDelete ? 'opacity:0.6;' : ''}">
-                    <div style="display:flex;justify-content:space-between;">
+                const k=d.id, u=d.data(), active=u.toolExpiry>now, isSusp=u.status==='suspended';
+                const isPendDel=u.deleteAt!=null&&u.deleteAt!==undefined;
+                const isBranch = k.toUpperCase().startsWith('BT000');
+                let delInfo="";
+                if (isPendDel) { const dl=Math.ceil(((u.deleteAt+604800000)-now)/86400000); delInfo=`<div style="color:var(--danger);font-size:10px;margin-top:5px;font-weight:bold;">⏳ ลบถาวรใน ${dl>0?dl:0} วัน</div>`; }
+                const assignedZones = u.assignedZones || [];
+                const zoneInfo = isBranch ? `<div style="font-size:11px;color:var(--info);margin-top:4px;">📍 คลัง: ${assignedZones.length>0?assignedZones.join(', '):'ยังไม่ได้ผูกคลัง'}</div>` : '';
+                html+=`<div class="user-card" style="${isSusp?'border:2px solid var(--danger);background:#fff5f5;':''} ${isPendDel?'opacity:0.6;':''}">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
                         <b>${u.name}</b>
-                        <span style="font-size:10px;background:#eee;padding:2px 6px;border-radius:4px;">${u.role}</span>
+                        <div style="display:flex;gap:5px;">
+                            ${isBranch?'<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:4px;">สาขา</span>':''}
+                            <span style="font-size:10px;background:#eee;padding:2px 6px;border-radius:4px;">${u.role}</span>
+                        </div>
                     </div>
-                    <small style="color:#64748b;">ID: ${k}</small>
-                    ${deleteInfoText}
-                    <div style="margin:12px 0;font-size:12px;">
-                        สถานะ: ${isSuspended ? '<b style="color:var(--danger);">⛔ ถูกระงับ</b>' : (active ? '🟢 มีสิทธิ์' : '⚪ หมดสิทธิ์')}
-                    </div>
+                    <small style="color:#64748b;">ID: ${k}</small>${delInfo}${zoneInfo}
+                    <div style="margin:12px 0;font-size:12px;">สถานะ: ${isSusp?'<b style="color:var(--danger);">⛔ ถูกระงับ</b>':(active?'🟢 มีสิทธิ์':'⚪ หมดสิทธิ์')}</div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;" class="no-print">
                         <button onclick="grantAccess('${k}',5)" style="background:var(--info);color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">+5 ชม.</button>
                         <button onclick="grantAccess('${k}',0)" style="background:var(--accent-gold);border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">ถาวร</button>
-                        ${isSuspended
-                            ? `<button onclick="unbanUser('${k}')" style="background:#0ea5e9;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">🔓 ปลดระงับ</button>`
-                            : `<button onclick="revokeAccess('${k}')" style="background:var(--danger);color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">🚫 ระงับ</button>`
-                        }
-                        ${isPendingDelete
-                            ? `<button onclick="cancelDelete('${k}')" style="background:#64748b;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">↩️ กู้คืน</button>`
-                            : `<button onclick="requestDelete('${k}')" style="background:#000;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">🗑️ ลบ</button>`
-                        }
+                        ${isSusp?`<button onclick="unbanUser('${k}')" style="background:#0ea5e9;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">🔓 ปลดระงับ</button>`:`<button onclick="revokeAccess('${k}')" style="background:var(--danger);color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">🚫 ระงับ</button>`}
+                        ${isPendDel?`<button onclick="cancelDelete('${k}')" style="background:#64748b;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">↩️ กู้คืน</button>`:`<button onclick="requestDelete('${k}')" style="background:#000;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">🗑️ ลบ</button>`}
                         <button onclick="adminResetPassword('${k}')" style="grid-column:span 2;background:#7c3aed;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;margin-top:2px;">🔑 Reset Password → 1234</button>
+                        ${isBranch?`<button onclick="openAssignZoneModal('${k}')" style="grid-column:span 2;background:#0891b2;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;margin-top:2px;">📍 ผูกคลังสาขา</button>`:''}
                     </div>
                 </div>`;
             });
-            grid.innerHTML = html || '<p style="color:#94a3b8;">ยังไม่มีพนักงาน</p>';
+            grid.innerHTML = html || '<p style="color:#94a3b8;padding:20px;">ยังไม่มีพนักงาน</p>';
         };
 
-        window.adminResetPassword = async function(username) {
-            if (!confirm(`Reset Password ของ ${username} กลับเป็น "1234"?`)) return;
-            await setDoc(doc(db,'users',username), { password: await hashPassword('1234') }, { merge: true });
-            toast('✅ Reset Password เรียบร้อย Password ใหม่คือ: 1234', '#059669');
+        // ---- ผูกคลังให้ BT000 ----
+        window.openAssignZoneModal = async function(username) {
+            const snap = await getDoc(doc(db,'users',username));
+            const userData = snap.exists() ? snap.data() : {};
+            const assigned = userData.assignedZones || [];
+
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay'; modal.id = 'assignZoneModal';
+            modal.innerHTML = `<div class="modal-box">
+                <h3>📍 ผูกคลังให้ ${username}</h3>
+                <p style="color:#64748b;font-size:13px;margin-bottom:15px;">เลือกคลังที่ต้องการให้ user นี้มีสิทธิ์เข้าถึง</p>
+                <div id="zoneCheckList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+                    ${warehouseList.map(wh => `
+                    <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;">
+                        <input type="checkbox" value="${wh}" ${assigned.includes(wh)?'checked':''} style="width:18px;height:18px;">
+                        <span>${wh}</span>
+                    </label>`).join('')}
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="saveAssignedZones('${username}')" style="flex:1;background:var(--success);color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:bold;">✅ บันทึก</button>
+                    <button onclick="document.getElementById('assignZoneModal').remove()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
         };
 
-        window.unbanUser = async function(username) { await setDoc(doc(db,'users',username), { status:'active' }, { merge:true }); toast('🔓 ปลดระงับเรียบร้อย', '#059669'); renderUserCards(); };
-        window.requestDelete = async function(username) { if (!confirm(`ลบบัญชี ${username}? (รอลบ 7 วัน)`)) return; await setDoc(doc(db,'users',username), { deleteAt: new Date().getTime() }, { merge:true }); renderUserCards(); };
-        window.cancelDelete = async function(username) { await setDoc(doc(db,'users',username), { deleteAt: null }, { merge:true }); toast('✅ กู้คืนบัญชีเรียบร้อย', '#059669'); renderUserCards(); };
-        window.grantAccess = async function(k, h) { const expiry = (h===0) ? 4070908800000 : new Date().getTime()+(h*3600000); await setDoc(doc(db,'users',k), { toolExpiry:expiry, status:'active' }, { merge:true }); toast('✅ อัปเดตสิทธิ์เรียบร้อย', '#059669'); renderUserCards(); };
-        window.revokeAccess = async function(k) { if (!confirm(`🚫 ระงับ ${k}?`)) return; await setDoc(doc(db,'users',k), { toolExpiry:0, status:'suspended' }, { merge:true }); toast('🔒 ระงับเรียบร้อย', '#c2410c'); renderUserCards(); };
+        window.saveAssignedZones = async function(username) {
+            const checks = document.querySelectorAll('#zoneCheckList input:checked');
+            const zones  = Array.from(checks).map(c => c.value);
+            await setDoc(doc(db,'users',username), { assignedZones: zones }, { merge:true });
 
-        window.checkHardBanStatus = async function() {
-            if (!currentUser || currentUser.username === 'admin') return;
-            try {
-                const snap = await getDoc(doc(db,'users', currentUser.username));
-                if (snap.exists() && snap.data().status === 'suspended') { alert('🚫 บัญชีถูกระงับ!'); logout(); }
-            } catch(e) {}
+            // อัปเดต currentUser ด้วยถ้าเป็น user เดิม
+            if (currentUser.username === username) {
+                currentUser.assignedZones = zones;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            }
+            document.getElementById('assignZoneModal').remove();
+            toast('✅ ผูกคลังเรียบร้อย','#059669');
+            renderUserCards();
         };
 
+        window.adminResetPassword = async function(u) { if(!confirm(`Reset Password ของ ${u} → "1234"?`)) return; await setDoc(doc(db,'users',u),{password:await hashPassword('1234')},{merge:true}); toast('✅ Reset เรียบร้อย Password ใหม่: 1234','#059669'); };
+        window.unbanUser = async function(u) { await setDoc(doc(db,'users',u),{status:'active'},{merge:true}); toast('🔓 ปลดระงับเรียบร้อย','#059669'); renderUserCards(); };
+        window.requestDelete = async function(u) { if(!confirm(`ลบบัญชี ${u}? (รอลบ 7 วัน)`)) return; await setDoc(doc(db,'users',u),{deleteAt:new Date().getTime()},{merge:true}); renderUserCards(); };
+        window.cancelDelete = async function(u) { await setDoc(doc(db,'users',u),{deleteAt:null},{merge:true}); toast('✅ กู้คืนบัญชีเรียบร้อย','#059669'); renderUserCards(); };
+        window.grantAccess = async function(k,h) { await setDoc(doc(db,'users',k),{toolExpiry:h===0?4070908800000:new Date().getTime()+(h*3600000),status:'active'},{merge:true}); toast('✅ อัปเดตสิทธิ์เรียบร้อย','#059669'); renderUserCards(); };
+        window.revokeAccess = async function(k) { if(!confirm(`🚫 ระงับ ${k}?`)) return; await setDoc(doc(db,'users',k),{toolExpiry:0,status:'suspended'},{merge:true}); toast('🔒 ระงับเรียบร้อย','#c2410c'); renderUserCards(); };
         window.addNewUser = async function() {
-            const n = document.getElementById('newUserName').value.trim();
-            const u = document.getElementById('newUserKey').value.trim();
-            const r = document.getElementById('newUserRole').value;
-            const rawPass = document.getElementById('newUserPass').value.trim() || '1234';
-            if (!n || !u) return;
-            await setDoc(doc(db,'users',u), { name:n, role:r, username:u, password: await hashPassword(rawPass), toolExpiry:0, status:'active' });
-            toast('✅ เพิ่มพนักงานเรียบร้อย', '#059669');
-            document.getElementById('newUserName').value = document.getElementById('newUserKey').value = document.getElementById('newUserPass').value = '';
+            const n=document.getElementById('newUserName').value.trim(), u=document.getElementById('newUserKey').value.trim(), r=document.getElementById('newUserRole').value, rp=document.getElementById('newUserPass').value.trim()||'1234';
+            if(!n||!u) return;
+            const userData = {name:n,role:r,username:u,password:await hashPassword(rp),toolExpiry:0,status:'active'};
+            if (u.toUpperCase().startsWith('BT000')) userData.assignedZones = [];
+            await setDoc(doc(db,'users',u), userData);
+            toast('✅ เพิ่มพนักงานเรียบร้อย','#059669');
+            document.getElementById('newUserName').value=document.getElementById('newUserKey').value=document.getElementById('newUserPass').value='';
             renderUserCards();
         };
 
         window.renderRoleSettings = function() {
-            const list = document.getElementById('rolePermissionsList');
-            const sel  = document.getElementById('newUserRole');
-            if (!list) return;
-            let html = '', options = '';
+            const list=document.getElementById('rolePermissionsList'), sel=document.getElementById('newUserRole'); if(!list) return;
+            let html='', opts='';
             Object.keys(roleSettings).forEach(role => {
-                const perms = roleSettings[role].menus, viewOnly = roleSettings[role].viewOnly || false;
-                html += `<div style="padding:12px;border:1px solid #f1f5f9;border-radius:10px;margin-bottom:10px;background:#f8fafc;">
-                    <div style="display:flex;justify-content:space-between;">
-                        <b style="text-transform:uppercase;">${role}</b>
-                        ${role !== 'admin' ? `<small onclick="deleteRole('${role}')" style="color:red;cursor:pointer;">ลบ Role</small>` : ''}
-                    </div>
-                    <div style="display:flex;gap:12px;font-size:11px;margin-top:8px;">
+                const perms=roleSettings[role].menus, vo=roleSettings[role].viewOnly||false;
+                html+=`<div style="padding:12px;border:1px solid #f1f5f9;border-radius:10px;margin-bottom:10px;background:#f8fafc;">
+                    <div style="display:flex;justify-content:space-between;"><b style="text-transform:uppercase;">${role}</b>${role!=='admin'?`<small onclick="deleteRole('${role}')" style="color:red;cursor:pointer;">ลบ Role</small>`:''}</div>
+                    <div style="display:flex;gap:12px;font-size:11px;margin-top:8px;flex-wrap:wrap;">
                         <label><input type="checkbox" ${perms.includes('warehouse')?'checked':''} onchange="togglePerm('${role}','warehouse')"> คลัง</label>
                         <label><input type="checkbox" ${perms.includes('tools')?'checked':''} onchange="togglePerm('${role}','tools')"> เครื่องมือ</label>
                         <label><input type="checkbox" ${perms.includes('admin')?'checked':''} onchange="togglePerm('${role}','admin')"> แอดมิน</label>
-                        <label style="color:var(--info);font-weight:bold;"><input type="checkbox" ${viewOnly?'checked':''} onchange="toggleViewOnly('${role}')"> 👁️ ดูอย่างเดียว</label>
+                        <label style="color:var(--info);font-weight:bold;"><input type="checkbox" ${vo?'checked':''} onchange="toggleViewOnly('${role}')"> 👁️ ดูอย่างเดียว</label>
                     </div>
                 </div>`;
-                options += `<option value="${role}">${role}</option>`;
+                opts+=`<option value="${role}">${role}</option>`;
             });
-            list.innerHTML = html;
-            if (sel) sel.innerHTML = options;
+            list.innerHTML=html; if(sel) sel.innerHTML=opts;
         };
 
-        window.toggleViewOnly = function(role) { roleSettings[role].viewOnly = !roleSettings[role].viewOnly; saveConfig(); renderRoleSettings(); applyPermissions(); };
-        window.togglePerm = function(role, menu) { const idx = roleSettings[role].menus.indexOf(menu); if(idx>-1) roleSettings[role].menus.splice(idx,1); else roleSettings[role].menus.push(menu); saveConfig(); applyPermissions(); renderRoleSettings(); };
-        window.addNewRole = function() { const name = document.getElementById('newRoleName').value.trim().toLowerCase(); if(name && !roleSettings[name]) { roleSettings[name]={menus:[],viewOnly:false}; saveConfig(); renderRoleSettings(); } };
-        window.deleteRole = function(role) { if(confirm(`ลบ Role: ${role}?`)) { delete roleSettings[role]; saveConfig(); renderRoleSettings(); } };
+        window.toggleViewOnly = function(r) { roleSettings[r].viewOnly=!roleSettings[r].viewOnly; saveConfig(); renderRoleSettings(); applyPermissions(); };
+        window.togglePerm = function(r,m) { const i=roleSettings[r].menus.indexOf(m); if(i>-1) roleSettings[r].menus.splice(i,1); else roleSettings[r].menus.push(m); saveConfig(); applyPermissions(); renderRoleSettings(); };
+        window.addNewRole = function() { const n=document.getElementById('newRoleName').value.trim().toLowerCase(); if(n&&!roleSettings[n]){roleSettings[n]={menus:[],viewOnly:false}; saveConfig(); renderRoleSettings();} };
+        window.deleteRole = function(r) { if(confirm(`ลบ Role: ${r}?`)){delete roleSettings[r]; saveConfig(); renderRoleSettings();} };
 
         // ---- STOCK TOOL ----
         window.openCentralStock = function() {
             document.getElementById('dashboardView').classList.add('hidden');
             document.getElementById('toolAppContainer').classList.remove('hidden');
             tempCountData = {};
-            renderStockTool(warehouseList[0]);
+            const visibleZones = getVisibleWarehouses();
+            renderStockTool(visibleZones[0] || warehouseList[0]);
         };
 
         window.renderStockTool = async function(zone) {
-            const container = document.getElementById('toolAppContainer');
-            const allowedIds = zoneProductMap[zone] || [];
-            const zoneProducts = allProducts.filter(p => allowedIds.includes(p.id));
-            const usersSnap = await getDocs(collection(db,'users'));
-            let staffOptions = '';
-            usersSnap.forEach(d => { const u = d.data(); if(u.status !== 'suspended') staffOptions += `<option value="${u.name}" ${selectedStaff===u.name?'selected':''}>${u.name}</option>`; });
+            const c = document.getElementById('toolAppContainer');
+            const visibleZones = getVisibleWarehouses();
+            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const usSnap = await getDocs(collection(db,'users')); let staffOpts='';
+            usSnap.forEach(d=>{const u=d.data(); if(u.status!=='suspended') staffOpts+=`<option value="${u.name}" ${selectedStaff===u.name?'selected':''}>${u.name}</option>`;});
 
-            container.innerHTML = `
-                <div class="tool-header no-print">
-                    <h2>📦 นับสต๊อก: ${zone}</h2>
-                    <button onclick="closeTool()">✕ ปิด</button>
+            c.innerHTML=`<div class="tool-header no-print"><h2>📦 นับสต๊อก: ${zone}</h2><button onclick="closeTool()">✕ ปิด</button></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;" class="no-print">
+                <div class="input-group"><label>เลือกโซน</label>
+                    <select onchange="renderStockTool(this.value)" style="width:100%;border:none;font-weight:bold;outline:none;">
+                        ${visibleZones.map(w=>`<option ${w===zone?'selected':''}>${w}</option>`).join('')}
+                    </select>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;" class="no-print">
-                    <div class="input-group">
-                        <label>เลือกโซน</label>
-                        <select onchange="renderStockTool(this.value)" style="width:100%;border:none;font-weight:bold;outline:none;">
-                            ${warehouseList.map(w=>`<option ${w===zone?'selected':''}>${w}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="input-group" style="border:2px solid var(--info);">
-                        <label>👤 เลือกชื่อคนนับ</label>
-                        <select id="staffName" onchange="selectedStaff=this.value" style="width:100%;border:none;font-weight:bold;outline:none;">
-                            <option value="">-- กรุณาเลือก --</option>${staffOptions}
-                        </select>
-                    </div>
-                    <div class="input-group" style="background:#f1f5f9;">
-                        <label>📝 ผู้ทำรายการหลัก</label>
-                        <b>${currentUser.name}</b>
-                    </div>
+                <div class="input-group" style="border:2px solid var(--info);"><label>👤 เลือกชื่อคนนับ</label>
+                    <select id="staffName" onchange="selectedStaff=this.value" style="width:100%;border:none;font-weight:bold;outline:none;"><option value="">-- กรุณาเลือก --</option>${staffOpts}</select>
                 </div>
-                <table class="stock-table">
-                    ${zoneProducts.map(p => {
-                        const baseTotal = countData[p.id]?.total || 0;
-                        const added = tempCountData[p.id]?.added || 0;
-                        const lastUpdate = countData[p.id]?.lastUpdate || '-';
-                        return `<tr class="stock-row">
-                            <td>
-                                <b style="font-size:16px;">${p.id}</b><br>
-                                <span style="color:#475569;">${p.name}</span><br>
-                                <small style="color:#94a3b8;font-size:10px;">นับล่าสุด: ${lastUpdate}</small>
-                            </td>
-                            <td style="text-align:right;">
-                                <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;">
-                                    <div style="text-align:right;">
-                                        <div style="font-weight:bold;font-size:18px;${added>0?'color:var(--info);':'color:var(--success);'}">
-                                            ${added>0?'รอยืนยัน: ':'สต๊อก: '} ${baseTotal+added}
-                                        </div>
-                                        <small style="color:#94a3b8;">หน่วย: ${p.unit}</small>
-                                    </div>
-                                    <input type="number" id="input-${p.id}" class="no-print" style="width:70px;padding:10px;border-radius:8px;border:1px solid #cbd5e1;text-align:center;font-weight:bold;" placeholder="0">
-                                    <button onclick="updateStockTemp(event,'${p.id}','${p.name}','${zone}')" class="btn-action" style="background:var(--info);">＋</button>
-                                </div>
-                            </td>
-                        </tr>`;
-                    }).join('')}
-                </table>
-                <div style="margin-top:40px;text-align:center;" class="no-print">
-                    <button onclick="finalSaveStock('${zone}')" style="background:var(--success);color:white;padding:18px 60px;border:none;border-radius:15px;font-size:20px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">
-                        💾 ยืนยันและบันทึกข้อมูลทั้งหมด
-                    </button>
-                </div>`;
+                <div class="input-group" style="background:#f1f5f9;"><label>📝 ผู้ทำรายการหลัก</label><b>${currentUser.name}</b></div>
+            </div>
+            <table class="stock-table">${zoneProds.map(p=>{
+                const base=countData[p.id]?.total||0, added=tempCountData[p.id]?.added||0, lu=countData[p.id]?.lastUpdate||'-';
+                return `<tr class="stock-row"><td><b style="font-size:16px;">${p.id}</b><br><span style="color:#475569;">${p.name}</span><br><small style="color:#94a3b8;font-size:10px;">นับล่าสุด: ${lu}</small></td>
+                <td style="text-align:right;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;">
+                    <div style="text-align:right;"><div style="font-weight:bold;font-size:18px;${added>0?'color:var(--info);':'color:var(--success);'}">${added>0?'รอยืนยัน: ':'สต๊อก: '} ${base+added}</div><small style="color:#94a3b8;">หน่วย: ${p.unit}</small></div>
+                    <input type="number" id="input-${p.id}" class="no-print viewonly-input" style="width:70px;padding:10px;border-radius:8px;border:1px solid #cbd5e1;text-align:center;font-weight:bold;" placeholder="0">
+                    <button onclick="updateStockTemp(event,'${p.id}','${p.name}','${zone}')" class="btn-action" style="background:var(--info);">＋</button>
+                </div></td></tr>`;}).join('')}</table>
+            <div style="margin-top:40px;text-align:center;" class="no-print">
+                <button onclick="finalSaveStock('${zone}')" style="background:var(--success);color:white;padding:18px 60px;border:none;border-radius:15px;font-size:20px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">💾 ยืนยันและบันทึกข้อมูลทั้งหมด</button>
+            </div>`;
         };
 
-        window.updateStockTemp = function(event, id, name, zone) {
-            const btn = event.currentTarget, inputEl = document.getElementById(`input-${id}`);
-            const val = parseFloat(inputEl.value) || 0;
+        window.updateStockTemp = function(event,id,name,zone) {
+            const btn=event.currentTarget, el=document.getElementById(`input-${id}`), val=parseFloat(el.value)||0;
             if(val===0) return;
-            if(!tempCountData[id]) tempCountData[id] = { added:0, name };
-            tempCountData[id].added += val;
-            btn.innerText = "OK"; btn.style.background = "#059669";
-            setTimeout(() => { btn.innerText = "＋"; btn.style.background = ""; inputEl.value = ""; renderStockTool(zone); }, 350);
+            if(!tempCountData[id]) tempCountData[id]={added:0,name};
+            tempCountData[id].added+=val;
+            btn.innerText="OK"; btn.style.background="#059669";
+            setTimeout(()=>{btn.innerText="＋"; btn.style.background="var(--info)"; el.value=""; renderStockTool(zone);},350);
         };
 
         window.finalSaveStock = async function(zone) {
-            if (!selectedStaff) { toast('⚠️ กรุณาเลือกคนนับก่อน', '#c2410c'); return; }
-            if (Object.keys(tempCountData).length === 0) { toast('❌ ไม่พบข้อมูลการเปลี่ยนแปลง', '#c2410c'); return; }
-            if (!confirm(`ยืนยันการบันทึกโดยคุณ ${selectedStaff}?`)) return;
+            if(!selectedStaff){toast('⚠️ กรุณาเลือกคนนับก่อน','#c2410c'); return;}
+            if(Object.keys(tempCountData).length===0){toast('❌ ไม่พบข้อมูลการเปลี่ยนแปลง','#c2410c'); return;}
+            if(!confirm(`ยืนยันการบันทึกโดยคุณ ${selectedStaff}?`)) return;
+
             const now = new Date();
-            const timeStr = now.toLocaleDateString('th-TH') + " " + now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
-            Object.keys(tempCountData).forEach(id => {
-                if(!countData[id]) countData[id] = { total:0, name: tempCountData[id].name };
-                countData[id].total += tempCountData[id].added;
-                countData[id].lastUpdate = timeStr;
-                countData[id].countedBy = selectedStaff;
+            const dateStr = now.toLocaleDateString('th-TH');
+            const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+            const ts = dateStr + " " + timeStr;
+
+            // อัปเดต countData (ยอดปัจจุบัน)
+            Object.keys(tempCountData).forEach(id=>{
+                if(!countData[id]) countData[id]={total:0,name:tempCountData[id].name};
+                countData[id].total+=tempCountData[id].added;
+                countData[id].lastUpdate=ts;
+                countData[id].countedBy=selectedStaff;
             });
             await saveCountData();
-            tempCountData = {};
-            toast('✅ บันทึกสำเร็จ!', '#059669');
+
+            // บันทึก stockHistory แยก session
+            const sessionItems = Object.keys(tempCountData).map(id => ({
+                id, name: tempCountData[id].name, amount: tempCountData[id].added,
+                unit: allProducts.find(p=>p.id===id)?.unit || ''
+            }));
+
+            await addDoc(collection(db,'stockHistory'), {
+                zone,
+                date: dateStr,
+                timestamp: now.getTime(),
+                countedBy: selectedStaff,
+                recordedBy: currentUser.name,
+                items: sessionItems
+            });
+
+            tempCountData={};
+            toast('✅ บันทึกสำเร็จ!','#059669');
             renderStockTool(zone);
+        };
+
+        // ---- STOCK SUMMARY (ประวัติ + filter + export) ----
+        window.openStockSummary = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            const visibleZones = getVisibleWarehouses();
+
+            c.innerHTML=`<div class="tool-header">
+                <h2>📊 ประวัติการนับสต๊อก & Export รายงาน</h2>
+                <button onclick="closeTool()">✕ ปิด</button>
+            </div>
+            <div class="filter-bar no-print">
+                <div>
+                    <label>📦 เลือกคลัง</label>
+                    <select id="filterZone" onchange="loadHistory()">
+                        <option value="">— ทุกคลัง —</option>
+                        ${visibleZones.map(w=>`<option value="${w}">${w}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label>📅 วันที่เริ่มต้น</label>
+                    <input type="date" id="filterDateFrom" onchange="loadHistory()">
+                </div>
+                <div>
+                    <label>📅 วันที่สิ้นสุด</label>
+                    <input type="date" id="filterDateTo" onchange="loadHistory()">
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="exportExcelHistory()" style="background:var(--success);color:white;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                    <button onclick="window.print()" style="background:var(--danger);color:white;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">🖨️ Print PDF</button>
+                </div>
+            </div>
+            <div id="historyContainer"><p style="color:#94a3b8;text-align:center;padding:40px;">กำลังโหลดประวัติ...</p></div>`;
+
+            await loadHistory();
+        };
+
+        let currentHistoryData = [];
+
+        window.loadHistory = async function() {
+            const zone     = document.getElementById('filterZone')?.value || '';
+            const dateFrom = document.getElementById('filterDateFrom')?.value || '';
+            const dateTo   = document.getElementById('filterDateTo')?.value || '';
+            const container= document.getElementById('historyContainer');
+            if(!container) return;
+
+            container.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px;">กำลังโหลด...</p>';
+
+            try {
+                const snap = await getDocs(collection(db,'stockHistory'));
+                let sessions = [];
+                snap.forEach(d => sessions.push({id:d.id, ...d.data()}));
+
+                // กรองตาม zone
+                if (zone) sessions = sessions.filter(s => s.zone === zone);
+
+                // กรองตามวันที่
+                if (dateFrom) {
+                    const from = new Date(dateFrom).getTime();
+                    sessions = sessions.filter(s => s.timestamp >= from);
+                }
+                if (dateTo) {
+                    const to = new Date(dateTo).getTime() + 86399999;
+                    sessions = sessions.filter(s => s.timestamp <= to);
+                }
+
+                // เรียงล่าสุดก่อน
+                sessions.sort((a,b) => b.timestamp - a.timestamp);
+                currentHistoryData = sessions;
+
+                if (sessions.length === 0) {
+                    container.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px;">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</p>';
+                    return;
+                }
+
+                container.innerHTML = sessions.map(s => `
+                <div class="history-card">
+                    <div class="history-card-header">
+                        <div>
+                            <b style="font-size:15px;">📦 ${s.zone}</b>
+                            <span style="margin-left:12px;color:#64748b;font-size:13px;">📅 ${s.date} ${s.countedBy?'• 👤 '+s.countedBy:''}</span>
+                        </div>
+                        <span style="font-size:11px;color:#94a3b8;">บันทึกโดย: ${s.recordedBy||'-'}</span>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead><tr style="background:#f8fafc;">
+                            <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;font-weight:600;">รหัส</th>
+                            <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;font-weight:600;">ชื่อสินค้า</th>
+                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;font-weight:600;">จำนวน</th>
+                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;font-weight:600;">หน่วย</th>
+                        </tr></thead>
+                        <tbody>${(s.items||[]).map(it=>`<tr style="border-top:1px solid #f1f5f9;">
+                            <td style="padding:10px;font-weight:bold;">${it.id}</td>
+                            <td style="padding:10px;color:#475569;">${it.name}</td>
+                            <td style="padding:10px;text-align:center;font-weight:bold;color:var(--success);">${it.amount}</td>
+                            <td style="padding:10px;text-align:center;color:#94a3b8;">${it.unit}</td>
+                        </tr>`).join('')}</tbody>
+                    </table>
+                </div>`).join('');
+
+            } catch(e) {
+                console.error(e);
+                container.innerHTML = '<p style="color:var(--danger);text-align:center;padding:40px;">❌ โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</p>';
+            }
+        };
+
+        window.exportExcelHistory = function() {
+            if (!currentHistoryData || currentHistoryData.length === 0) { toast('❌ ไม่มีข้อมูลให้ export','#c2410c'); return; }
+            const rows = [["วันที่","คลัง","รหัสสินค้า","ชื่อสินค้า","จำนวน","หน่วย","คนนับ","บันทึกโดย"]];
+            currentHistoryData.forEach(s => {
+                (s.items||[]).forEach(it => {
+                    rows.push([s.date, s.zone, it.id, it.name, it.amount, it.unit, s.countedBy||'', s.recordedBy||'']);
+                });
+            });
+            const ws=XLSX.utils.aoa_to_sheet(rows), wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,"StockHistory");
+            const zone = document.getElementById('filterZone')?.value || 'all';
+            XLSX.writeFile(wb,`StockHistory_${zone}_${new Date().toLocaleDateString('th-TH')}.xlsx`);
         };
 
         // ---- WAREHOUSE MANAGER ----
         window.openWarehouseManager = function() {
             document.getElementById('dashboardView').classList.add('hidden');
-            const container = document.getElementById('toolAppContainer');
-            container.classList.remove('hidden');
-            container.innerHTML = `
-                <div class="tool-header">
-                    <h2>⚙️ ตั้งค่าคลังและสินค้าหลัก</h2>
-                    <button onclick="closeTool()">✕ ปิด</button>
+            const c=document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            c.innerHTML=`<div class="tool-header"><h2>⚙️ ตั้งค่าคลังและสินค้าหลัก</h2><button onclick="closeTool()">✕ ปิด</button></div>
+            <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:25px;">
+                <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;"><h4>📦 คลังสินค้า</h4>
+                    <div style="display:flex;gap:8px;margin-bottom:15px;"><input type="text" id="newWhName" placeholder="เพิ่มชื่อคลัง/โซนใหม่" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ddd;">
+                    <button onclick="addWh()" style="background:var(--success);color:white;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;">เพิ่ม</button></div>
+                    <div id="whListContainer"></div></div>
+                <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;"><h4>🍎 สินค้าหลัก</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                        <input type="text" id="newPdId" placeholder="รหัส SKU" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
+                        <input type="text" id="newPdUnit" placeholder="หน่วย" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
+                        <input type="text" id="newPdName" placeholder="ชื่อสินค้า" style="grid-column:span 2;padding:10px;border:1px solid #ddd;border-radius:8px;">
+                        <button onclick="addPd()" style="grid-column:span 2;background:var(--info);color:white;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;">+ บันทึกสินค้า</button>
+                    </div><div id="pdMasterContainer" style="max-height:200px;overflow-y:auto;border-top:1px solid #eee;padding-top:10px;"></div></div>
+            </div>
+            <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <h4 style="margin:0;">🔗 จับคู่สินค้าเข้าสู่โซน</h4>
+                    <select id="selectZoneMap" onchange="renderMapping()" style="padding:12px;border-radius:8px;min-width:300px;border:2px solid var(--primary-dark);font-weight:bold;"></select>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:25px;">
-                    <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
-                        <h4>📦 คลังสินค้า (Zones)</h4>
-                        <div style="display:flex;gap:8px;margin-bottom:15px;">
-                            <input type="text" id="newWhName" placeholder="เพิ่มชื่อคลัง/โซนใหม่" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ddd;">
-                            <button onclick="addWh()" style="background:var(--success);color:white;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;">เพิ่ม</button>
-                        </div>
-                        <div id="whListContainer"></div>
-                    </div>
-                    <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
-                        <h4>🍎 สินค้าหลัก</h4>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                            <input type="text" id="newPdId" placeholder="รหัส SKU" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
-                            <input type="text" id="newPdUnit" placeholder="หน่วย" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
-                            <input type="text" id="newPdName" placeholder="ชื่อสินค้า" style="grid-column:span 2;padding:10px;border:1px solid #ddd;border-radius:8px;">
-                            <button onclick="addPd()" style="grid-column:span 2;background:var(--info);color:white;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;">+ บันทึกสินค้า</button>
-                        </div>
-                        <div id="pdMasterContainer" style="max-height:200px;overflow-y:auto;border-top:1px solid #eee;padding-top:10px;"></div>
-                    </div>
-                </div>
-                <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                        <h4 style="margin:0;">🔗 จับคู่สินค้าเข้าสู่โซน</h4>
-                        <select id="selectZoneMap" onchange="renderMapping()" style="padding:12px;border-radius:8px;min-width:300px;border:2px solid var(--primary-dark);font-weight:bold;"></select>
-                    </div>
-                    <div id="mappingContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;"></div>
-                </div>`;
+                <div id="mappingContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;"></div>
+            </div>`;
             renderWhList(); renderPdList();
-            document.getElementById('selectZoneMap').innerHTML = warehouseList.map(wh=>`<option value="${wh}">${wh}</option>`).join('');
+            document.getElementById('selectZoneMap').innerHTML=warehouseList.map(w=>`<option value="${w}">${w}</option>`).join('');
             renderMapping();
         };
 
-        window.renderWhList = function() { const c = document.getElementById('whListContainer'); if(!c) return; c.innerHTML = warehouseList.map((wh,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #f1f5f9;"><span style="font-weight:bold;">${wh}</span><button onclick="deleteWh(${i})" style="color:var(--danger);background:none;border:none;cursor:pointer;">🗑️</button></div>`).join(''); };
-        window.renderPdList = function() { const c = document.getElementById('pdMasterContainer'); if(!c) return; c.innerHTML = allProducts.map((p,i)=>`<div style="font-size:12px;padding:8px;background:#f8fafc;margin-bottom:5px;display:flex;justify-content:space-between;border-radius:6px;border:1px solid #edf2f7;"><span><b>${p.id}</b> - ${p.name} (${p.unit})</span><span onclick="deletePd(${i})" style="cursor:pointer;color:#cbd5e1;">✕</span></div>`).join(''); };
-        window.renderMapping = function() { const zone=document.getElementById('selectZoneMap').value, c=document.getElementById('mappingContainer'); if(!zone||!c) return; const mapped=zoneProductMap[zone]||[]; c.innerHTML=allProducts.map(pd=>`<label style="display:flex;align-items:center;gap:12px;padding:15px;border:1px solid #e2e8f0;border-radius:12px;cursor:pointer;background:white;"><input type="checkbox" style="width:18px;height:18px;" ${mapped.includes(pd.id)?'checked':''} onchange="togglePdMapping('${zone}','${pd.id}')"><div style="font-size:13px;"><b>${pd.id}</b><br><span style="color:#64748b;">${pd.name}</span></div></label>`).join(''); };
-        window.togglePdMapping = function(zone,id) { if(!zoneProductMap[zone]) zoneProductMap[zone]=[]; const idx=zoneProductMap[zone].indexOf(id); if(idx>-1) zoneProductMap[zone].splice(idx,1); else zoneProductMap[zone].push(id); saveConfig(); };
-        window.addWh = function() { const n=document.getElementById('newWhName').value.trim(); if(n){warehouseList.push(n); saveConfig(); openWarehouseManager();} };
-        window.deleteWh = function(i) { if(confirm('ยืนยันลบโซน?')){warehouseList.splice(i,1); saveConfig(); openWarehouseManager();} };
-        window.addPd = function() { const id=document.getElementById('newPdId').value.trim(), unit=document.getElementById('newPdUnit').value.trim(), name=document.getElementById('newPdName').value.trim(); if(id&&name&&unit){allProducts.push({id,name,unit}); saveConfig(); renderPdList(); renderMapping(); document.getElementById('newPdId').value=document.getElementById('newPdUnit').value=document.getElementById('newPdName').value='';} };
-        window.deletePd = function(i) { if(confirm('ยืนยันลบสินค้า?')){allProducts.splice(i,1); saveConfig(); renderPdList(); renderMapping();} };
+        window.renderWhList=function(){const c=document.getElementById('whListContainer');if(!c)return;c.innerHTML=warehouseList.map((w,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #f1f5f9;"><span style="font-weight:bold;">${w}</span><button onclick="deleteWh(${i})" style="color:var(--danger);background:none;border:none;cursor:pointer;">🗑️</button></div>`).join('');};
+        window.renderPdList=function(){const c=document.getElementById('pdMasterContainer');if(!c)return;c.innerHTML=allProducts.map((p,i)=>`<div style="font-size:12px;padding:8px;background:#f8fafc;margin-bottom:5px;display:flex;justify-content:space-between;border-radius:6px;border:1px solid #edf2f7;"><span><b>${p.id}</b> - ${p.name} (${p.unit})</span><span onclick="deletePd(${i})" style="cursor:pointer;color:#cbd5e1;">✕</span></div>`).join('');};
+        window.renderMapping=function(){const zone=document.getElementById('selectZoneMap').value,c=document.getElementById('mappingContainer');if(!zone||!c)return;const mapped=zoneProductMap[zone]||[];c.innerHTML=allProducts.map(p=>`<label style="display:flex;align-items:center;gap:12px;padding:15px;border:1px solid #e2e8f0;border-radius:12px;cursor:pointer;background:white;"><input type="checkbox" style="width:18px;height:18px;" ${mapped.includes(p.id)?'checked':''} onchange="togglePdMapping('${zone}','${p.id}')"><div style="font-size:13px;"><b>${p.id}</b><br><span style="color:#64748b;">${p.name}</span></div></label>`).join('');};
+        window.togglePdMapping=function(z,id){if(!zoneProductMap[z])zoneProductMap[z]=[];const i=zoneProductMap[z].indexOf(id);if(i>-1)zoneProductMap[z].splice(i,1);else zoneProductMap[z].push(id);saveConfig();};
+        window.addWh=function(){const n=document.getElementById('newWhName').value.trim();if(n){warehouseList.push(n);saveConfig();openWarehouseManager();}};
+        window.deleteWh=function(i){if(confirm('ยืนยันลบโซน?')){warehouseList.splice(i,1);saveConfig();openWarehouseManager();}};
+        window.addPd=function(){const id=document.getElementById('newPdId').value.trim(),unit=document.getElementById('newPdUnit').value.trim(),name=document.getElementById('newPdName').value.trim();if(id&&name&&unit){allProducts.push({id,name,unit});saveConfig();renderPdList();renderMapping();document.getElementById('newPdId').value=document.getElementById('newPdUnit').value=document.getElementById('newPdName').value='';}};
+        window.deletePd=function(i){if(confirm('ยืนยันลบสินค้า?')){allProducts.splice(i,1);saveConfig();renderPdList();renderMapping();}};
 
-        // ---- PERMISSIONS ----
-        window.applyPermissions = function() {
-            // ถ้าเป็น viewOnly ให้เห็นเมนูทุกอย่างเหมือน admin
-const effectivePerms = isViewOnly ? ["warehouse","tools","admin"] : perms;
-document.getElementById('warehouseMenu').classList.toggle('hidden',!effectivePerms.includes('warehouse'));
-document.getElementById('toolsMenu').classList.toggle('hidden',!effectivePerms.includes('tools'));
-document.getElementById('adminMenu').classList.toggle('hidden',!effectivePerms.includes('admin'));
-document.getElementById('bannerAdminSection').classList.toggle('hidden',!effectivePerms.includes('admin'));
-            document.getElementById('bannerAdminSection').classList.toggle('hidden',!perms.includes('admin'));
-            document.getElementById('viewOnlyAlert').classList.toggle('hidden',!isViewOnly);
-            let s=document.getElementById("viewOnlyStyle");
-            if(isViewOnly){if(!s){const st=document.createElement('style'); st.id="viewOnlyStyle"; st.innerHTML=`.btn-action,button:not(.no-print):not([onclick*="closeTool"]):not([onclick*="logout"]),input[type="number"],input[type="file"],.stock-table input{display:none!important;}`; document.head.appendChild(st);}} else if(s){s.remove();}
-            document.getElementById('roleStatusText').innerText="ฐานะ: "+role.toUpperCase();
-        };
-
-        window.checkToolExpiry = async function() {
-            const now=new Date().getTime(), perms=roleSettings[currentUser.role]?.menus||[], menu=document.getElementById('toolsMenu');
-            if(!perms.includes('tools')){menu.classList.add('hidden'); return;}
-            if(currentUser.role==='admin'){menu.classList.remove('hidden'); document.getElementById('timerDisplay').innerText="⏳ สิทธิ์: ถาวร"; return;}
-            try {
-                const snap=await getDoc(doc(db,'users',currentUser.username));
-                if(!snap.exists()){menu.classList.add('hidden'); return;}
-                const expiry=snap.data().toolExpiry||0;
-                if(now<expiry){
-                    menu.classList.remove('hidden');
-                    if(expiry>4000000000000){document.getElementById('timerDisplay').innerText="⏳ สิทธิ์: ถาวร";}
-                    else{const diff=Math.floor((expiry-now)/60000); document.getElementById('timerDisplay').innerText=`⏳ เหลือ: ${Math.floor(diff/60)}ชม. ${diff%60}น.`;}
-                } else {menu.classList.add('hidden');}
-            } catch(e){}
-        };
-
-        // ---- STOCK SUMMARY ----
-        window.openStockSummary = function() {
-            document.getElementById('dashboardView').classList.add('hidden');
-            const container = document.getElementById('toolAppContainer');
-            container.classList.remove('hidden');
-            let rows = "";
-            Object.keys(countData).forEach(id => {
-                const pd = allProducts.find(p=>p.id===id);
-                if(countData[id].total>0) rows+=`<tr><td style="padding:10px;">${id}</td><td>${countData[id].name}</td><td style="text-align:center;"><b>${countData[id].total}</b></td><td>${pd?pd.unit:''}</td><td style="font-size:11px;">${countData[id].lastUpdate}</td><td style="font-size:11px;">${countData[id].countedBy||'-'}</td></tr>`;
-            });
-            container.innerHTML = `
-                <div class="tool-header">
-                    <h2>📊 รายงานสต๊อกสินค้า</h2>
-                    <div class="no-print">
-                        <button onclick="exportAllStockData()" style="background:var(--success);color:white;padding:10px;border-radius:8px;cursor:pointer;">Export Excel</button>
-                        <button onclick="window.print()" style="background:var(--danger);color:white;padding:10px;border-radius:8px;cursor:pointer;">Print PDF</button>
-                        <button onclick="closeTool()" style="margin-left:10px;">✕</button>
-                    </div>
-                </div>
-                <table style="width:100%;border-collapse:collapse;background:white;border-radius:10px;overflow:hidden;">
-                    <thead style="background:var(--primary-dark);color:white;">
-                        <tr><th style="padding:12px;">SKU</th><th>ชื่อสินค้า</th><th>จำนวน</th><th>หน่วย</th><th>นับล่าสุด</th><th>คนนับ</th></tr>
-                    </thead>
-                    <tbody>${rows||'<tr><td colspan="6" style="text-align:center;padding:20px;">ไม่มีข้อมูล</td></tr>'}</tbody>
-                </table>`;
-        };
-
-        window.exportAllStockData = function() {
-            const data=[["รหัส","ชื่อสินค้า","จำนวน","หน่วย","เวลา","คนนับ"]];
-            Object.keys(countData).forEach(id=>{if(countData[id].total>0) data.push([id,countData[id].name,countData[id].total,"",countData[id].lastUpdate,countData[id].countedBy]);});
-            const ws=XLSX.utils.aoa_to_sheet(data), wb=XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb,ws,"Stock");
-            XLSX.writeFile(wb,`Stock_Report.xlsx`);
-        };
-
-        window.logout = function() { localStorage.removeItem("currentUser"); window.location.href = "login.html"; };
-        window.toggleSub = function(id) { const s=document.getElementById(id); s.style.display=(s.style.display==='block')?'none':'block'; };
-        window.closeTool = function() { if(Object.keys(tempCountData).length>0){if(!confirm("ยังไม่บันทึก ต้องการปิดจริงไหม?")) return;} document.getElementById('toolAppContainer').classList.add('hidden'); document.getElementById('dashboardView').classList.remove('hidden'); };
+        // ---- MISC ----
+        window.logout=function(){localStorage.removeItem("currentUser"); window.location.href="login.html";};
+        window.toggleSub=function(id){const s=document.getElementById(id);s.style.display=(s.style.display==='block')?'none':'block';};
+        window.closeTool=function(){if(Object.keys(tempCountData).length>0){if(!confirm("ยังไม่บันทึก ต้องการปิดจริงไหม?"))return;} document.getElementById('toolAppContainer').classList.add('hidden'); document.getElementById('dashboardView').classList.remove('hidden');};
     </script>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 </body>
