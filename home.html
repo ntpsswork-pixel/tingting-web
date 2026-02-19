@@ -61,9 +61,81 @@
             th, td { border: 1px solid #ddd !important; padding: 8px !important; }
             .history-card { break-inside: avoid; }
         }
+
+        /* ===== MOBILE RESPONSIVE (เพิ่มใหม่ ไม่กระทบคอม) ===== */
+        .hamburger {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 2000;
+            background: var(--primary-dark);
+            color: var(--accent-gold);
+            border: none;
+            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        .sidebar-overlay.open { display: block; }
+
+        @media (max-width: 768px) {
+            .hamburger { display: flex; }
+
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                z-index: 1001;
+            }
+            .sidebar.open { transform: translateX(0); }
+
+            .main-content {
+                margin-left: 0 !important;
+                width: 100% !important;
+            }
+
+            .banner-container { height: 200px; }
+
+            .app-container { padding: 15px; padding-top: 70px; }
+
+            .modal-box { width: 90vw; padding: 20px; }
+
+            .tool-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+                padding-top: 50px;
+            }
+            .tool-header button { align-self: flex-end; }
+
+            .filter-bar { flex-direction: column; }
+            .filter-bar select,
+            .filter-bar input[type="date"] { min-width: unset; width: 100%; box-sizing: border-box; }
+
+            .stock-row td { padding: 10px 8px; }
+
+            .history-card-header { flex-direction: column; align-items: flex-start; gap: 5px; }
+        }
+        /* ===== END MOBILE RESPONSIVE ===== */
     </style>
 </head>
 <body>
+    <!-- Hamburger button (มือถือเท่านั้น) -->
+    <button class="hamburger no-print" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+    <!-- Overlay สำหรับปิด sidebar (มือถือเท่านั้น) -->
+    <div class="sidebar-overlay no-print" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
     <div class="sidebar no-print">
         <div class="sidebar-brand"><h2>TINGTING</h2></div>
         <div class="user-info">
@@ -80,20 +152,20 @@
             <div id="warehouseMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subWH')">📦 คลังสินค้า ▾</div>
                 <div id="subWH" class="submenu">
-                    <div onclick="openStockSummary()" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
+                    <div onclick="openStockSummary();closeSidebar();" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
                 </div>
             </div>
             <div id="toolsMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subTools')" style="color:var(--success);">🛠️ เครื่องมือใช้งาน ▾</div>
                 <div id="subTools" class="submenu">
-                    <div onclick="openCentralStock()">● นับสต๊อกครัวกลาง</div>
+                    <div onclick="openCentralStock();closeSidebar();">● นับสต๊อกครัวกลาง</div>
                 </div>
             </div>
             <div id="adminMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subAdmin')" style="color:var(--accent-gold);">👤 จัดการระบบ ▾</div>
                 <div id="subAdmin" class="submenu">
-                    <div onclick="openUserManagement()">● จัดการพนักงาน & สิทธิ์</div>
-                    <div onclick="openWarehouseManager()" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
+                    <div onclick="openUserManagement();closeSidebar();">● จัดการพนักงาน & สิทธิ์</div>
+                    <div onclick="openWarehouseManager();closeSidebar();" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
                 </div>
             </div>
         </div>
@@ -860,6 +932,16 @@
         window.logout=function(){localStorage.removeItem("currentUser");window.location.href="login.html";};
         window.toggleSub=function(id){const s=document.getElementById(id);s.style.display=(s.style.display==='block')?'none':'block';};
         window.closeTool=function(){if(Object.keys(tempCountData).length>0){if(!confirm("ยังไม่บันทึก ต้องการปิดจริงไหม?"))return;}document.getElementById('toolAppContainer').classList.add('hidden');document.getElementById('dashboardView').classList.remove('hidden');};
+
+        // ---- MOBILE SIDEBAR TOGGLE (เพิ่มใหม่) ----
+        window.toggleSidebar = function() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+        };
+        window.closeSidebar = function() {
+            document.querySelector('.sidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('open');
+        };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 </body>
