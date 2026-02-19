@@ -1029,8 +1029,14 @@
             c.innerHTML=allProducts.map((p,i)=>{
                 const units=p.units||[{name:p.unit,rate:0},{name:p.subUnit||'',rate:0}].filter(u=>u.name);
                 const unitsStr=units.map((u,ui)=>u.name+(ui<units.length-1&&u.rate>0?' (×'+u.rate+')':'')).join(' → ');
+                const isFirst=i===0, isLast=i===allProducts.length-1;
                 return `<div style="padding:8px;background:#f8fafc;margin-bottom:6px;border-radius:8px;border:1px solid #edf2f7;">
                 <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="display:flex;flex-direction:column;gap:2px;margin-right:2px;">
+                        <button onclick="movePd(${i},-1)" ${isFirst?'disabled':''} style="background:${isFirst?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:4px;width:22px;height:18px;cursor:${isFirst?'default':'pointer'};font-size:10px;line-height:1;">▲</button>
+                        <button onclick="movePd(${i},1)" ${isLast?'disabled':''} style="background:${isLast?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:4px;width:22px;height:18px;cursor:${isLast?'default':'pointer'};font-size:10px;line-height:1;">▼</button>
+                    </div>
+                    <span style="font-size:10px;color:#cbd5e1;min-width:18px;text-align:center;">${i+1}</span>
                     <div style="flex:1;font-size:12px;"><b>${p.id}</b> - ${p.name}<br><span style="color:#94a3b8;font-size:11px;">${unitsStr}</span></div>
                     <button class="btn-sm" style="background:var(--info);color:white;" onclick="toggleEditPd(${i})">✏️</button>
                     <button class="btn-sm" style="background:var(--danger);color:white;" onclick="deletePd(${i})">✕</button>
@@ -1045,6 +1051,16 @@
                     </div>
                 </div>
             </div>`;}).join('');
+        };
+
+        window.movePd=function(i, dir){
+            const j=i+dir;
+            if(j<0||j>=allProducts.length) return;
+            // สลับตำแหน่ง
+            [allProducts[i], allProducts[j]] = [allProducts[j], allProducts[i]];
+            saveConfig();
+            renderPdList();
+            renderMapping();
         };
 
         window.toggleEditPd=function(i){
