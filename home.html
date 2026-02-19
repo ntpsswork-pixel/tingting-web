@@ -87,7 +87,6 @@
                 <div class="nav-item" onclick="toggleSub('subWH')">📦 คลังสินค้า ▾</div>
                 <div id="subWH" class="submenu">
                     <div onclick="openStockSummary()" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
-                    <div onclick="openStockSummary();setTimeout(()=>{const s=document.getElementById('reportMode');if(s){s.value='snapshot';switchReportMode();}},300)" style="color:var(--success);">📦 ยอดสต๊อกปัจจุบัน</div>
                 </div>
             </div>
             <div id="toolsMenu" class="hidden">
@@ -101,7 +100,6 @@
                 <div id="subAdmin" class="submenu">
                     <div onclick="openUserManagement()">● จัดการพนักงาน & สิทธิ์</div>
                     <div onclick="openWarehouseManager()" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
-                    <div onclick="openAuditLog()" style="color:#a78bfa;">● Audit Log การใช้งาน</div>
                 </div>
             </div>
         </div>
@@ -133,7 +131,6 @@
                 <div id="viewOnlyAlert" class="hidden" style="background:#fff7ed;color:#c2410c;padding:15px;border-radius:10px;border:1px solid #fdba74;margin-top:20px;">
                     ⚠️ <b>โหมดดูอย่างเดียว:</b> คุณสามารถดูข้อมูลได้ทั้งหมด แต่ไม่สามารถแก้ไขหรือบันทึกได้
                 </div>
-                <div id="dashboardSummary" style="margin-top:20px;"></div>
             </div>
         </div>
         <div id="toolAppContainer" class="app-container hidden"></div>
@@ -141,7 +138,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
         const firebaseConfig = {
@@ -244,215 +241,6 @@
             setInterval(checkHardBanStatus, 10000);
             initPresence();
             listenOnlineUsers();
-            await renderDashboardSummary();
-            checkExpiryWarning();
-            addAuditLog('login', 'เข้าสู่ระบบ role:'+currentUser.role);
-        };
-
-        // ============================================================
-        // ✅ ฟีเจอร์เพิ่มเติม 11 ข้อ
-        // ============================================================
-
-        // [1] SESSION TIMEOUT 30 นาที
-        (function(){
-            const T=30*60*1000, W=2*60*1000;
-            let t,w,shown=false;
-            function reset(){
-                clearTimeout(t);clearTimeout(w);shown=false;
-                const b=document.getElementById('_sessBanner');if(b)b.remove();
-                w=setTimeout(()=>{
-                    if(shown)return;shown=true;
-                    const el=document.createElement('div');el.id='_sessBanner';
-                    el.style.cssText='position:fixed;top:0;left:0;right:0;background:#f59e0b;color:#1e293b;padding:12px 20px;text-align:center;font-weight:bold;z-index:99998;font-size:14px;';
-                    el.innerHTML='⚠️ ไม่มีการใช้งาน — ระบบจะ logout อัตโนมัติใน 2 นาที <button onclick="document.getElementById('_sessBanner').remove();_resetSess();" style="margin-left:12px;background:#1e293b;color:white;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;">ฉันยังอยู่</button>';
-                    document.body.appendChild(el);
-                },T-W);
-                t=setTimeout(()=>{alert('⏰ หมดเวลา ระบบจะ logout อัตโนมัติ');window.logout();},T);
-            }
-            window._resetSess=reset;
-            ['click','keydown','touchstart','scroll'].forEach(e=>document.addEventListener(e,reset,{passive:true}));
-            reset();
-        })();
-
-        // [2] ตรวจสอบ session กับ Firebase ทุก 60 วิ
-        setInterval(async()=>{
-            if(!currentUser||currentUser.username==='admin')return;
-            try{
-                const s=await getDoc(doc(db,'users',currentUser.username));
-                if(!s.exists()||s.data().status==='suspended'){alert('🚫 บัญชีถูกระงับ');window.logout();}
-            }catch(e){}
-        },60000);
-
-        // [6] Dashboard Summary
-        async function renderDashboardSummary(){
-            const el=document.getElementById('dashboardSummary');
-            if(!el)return;
-            try{
-                const snap=await getDocs(collection(db,'stockHistory'));
-                let sessions=[];snap.forEach(d=>sessions.push(d.data()));
-                const today=new Date().toLocaleDateString('th-TH');
-                const todayCount=sessions.filter(s=>s.date===today).length;
-                const last=sessions.sort((a,b)=>b.timestamp-a.timestamp)[0];
-                el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
-                    <div style="background:white;border-radius:12px;padding:18px;border-left:4px solid var(--success);box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-                        <div style="font-size:26px;font-weight:bold;color:var(--success);">${todayCount}</div>
-                        <div style="color:#64748b;font-size:13px;margin-top:4px;">📋 นับสต๊อกวันนี้</div>
-                    </div>
-                    <div style="background:white;border-radius:12px;padding:18px;border-left:4px solid var(--info);box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-                        <div style="font-size:26px;font-weight:bold;color:var(--info);">${sessions.length}</div>
-                        <div style="color:#64748b;font-size:13px;margin-top:4px;">📊 ประวัติทั้งหมด</div>
-                    </div>
-                    <div style="background:white;border-radius:12px;padding:18px;border-left:4px solid #f59e0b;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-                        <div style="font-size:26px;font-weight:bold;color:#f59e0b;">${warehouseList.length}</div>
-                        <div style="color:#64748b;font-size:13px;margin-top:4px;">📦 คลังทั้งหมด</div>
-                    </div>
-                    <div style="background:white;border-radius:12px;padding:18px;border-left:4px solid #8b5cf6;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-                        <div style="font-size:26px;font-weight:bold;color:#8b5cf6;">${allProducts.length}</div>
-                        <div style="color:#64748b;font-size:13px;margin-top:4px;">🍎 สินค้าทั้งหมด</div>
-                    </div>
-                </div>
-                ${last?`<div style="margin-top:12px;background:white;padding:12px 18px;border-radius:10px;border:1px solid #e2e8f0;font-size:13px;color:#64748b;">
-                    🕐 นับล่าสุด: <b style="color:var(--primary-dark);">📦 ${last.zone}</b> — ${last.date} โดย <b>${last.countedBy||'-'}</b></div>`:''}`;
-            }catch(e){el.innerHTML='';}
-        }
-
-        // [7] แจ้งเตือนสิทธิ์ใกล้หมด
-        async function checkExpiryWarning(){
-            if(currentUser.role==='admin')return;
-            try{
-                const s=await getDoc(doc(db,'users',currentUser.username));
-                if(!s.exists())return;
-                const exp=s.data().toolExpiry||0,now=Date.now(),rem=exp-now;
-                if(rem>0&&rem<30*60*1000&&exp<4000000000000&&!window._expWarnShown){
-                    window._expWarnShown=true;
-                    const el=document.createElement('div');
-                    el.style.cssText='position:fixed;bottom:80px;right:20px;background:#f59e0b;color:#1e293b;padding:14px 18px;border-radius:12px;font-size:13px;font-weight:bold;z-index:9998;box-shadow:0 4px 15px rgba(0,0,0,0.2);max-width:260px;';
-                    el.innerHTML=`⏰ สิทธิ์เหลือ <b>${Math.ceil(rem/60000)} นาที</b><br><small style="font-weight:normal;">ติดต่อ Admin เพื่อต่ออายุ</small><br><button onclick="this.parentElement.remove()" style="margin-top:6px;background:#1e293b;color:white;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:11px;">ปิด</button>`;
-                    document.body.appendChild(el);
-                    setTimeout(()=>el.remove(),15000);
-                }
-            }catch(e){}
-        }
-
-        // [8] ค้นหาสินค้าในหน้านับสต๊อก
-        window.filterStockRows=function(q){
-            document.querySelectorAll('.stock-table .stock-row').forEach(row=>{
-                row.style.display=(!q||row.innerText.toLowerCase().includes(q.toLowerCase()))?'':'none';
-            });
-        };
-
-        // [10] AUDIT LOG
-        async function addAuditLog(action,detail){
-            try{await addDoc(collection(db,'auditLog'),{user:currentUser.name,username:currentUser.username,action,detail,timestamp:Date.now(),date:new Date().toLocaleString('th-TH')});}
-            catch(e){}
-        }
-        window._addAuditLog=addAuditLog;
-
-        window.openAuditLog=async function(){
-            if(currentUser.role!=='admin'){toast('⛔ เฉพาะ Admin','#c2410c');return;}
-            document.getElementById('dashboardView').classList.add('hidden');
-            const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
-            c.innerHTML=`<div class="tool-header"><h2>📋 Audit Log การใช้งาน</h2><button onclick="closeTool()">✕ ปิด</button></div>
-            <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:15px;">
-                    <b>Log ล่าสุด 200 รายการ</b>
-                    <input type="text" placeholder="🔍 ค้นหา..." oninput="document.querySelectorAll('.alog-row').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(this.value.toLowerCase())?'':'none')" style="padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
-                </div>
-                <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
-                    <thead><tr style="background:#f8fafc;">
-                        <th style="padding:10px;text-align:left;">วันเวลา</th>
-                        <th style="padding:10px;text-align:left;">ผู้ใช้</th>
-                        <th style="padding:10px;text-align:left;">การกระทำ</th>
-                        <th style="padding:10px;text-align:left;">รายละเอียด</th>
-                    </tr></thead>
-                    <tbody id="auditBody"><tr><td colspan="4" style="text-align:center;padding:20px;color:#94a3b8;">กำลังโหลด...</td></tr></tbody>
-                </table></div>
-            </div>`;
-            try{
-                const snap=await getDocs(collection(db,'auditLog'));
-                let logs=[];snap.forEach(d=>logs.push(d.data()));
-                logs.sort((a,b)=>b.timestamp-a.timestamp);logs=logs.slice(0,200);
-                document.getElementById('auditBody').innerHTML=logs.map(l=>`<tr class="alog-row" style="border-top:1px solid #f1f5f9;">
-                    <td style="padding:10px;color:#94a3b8;white-space:nowrap;">${l.date||'-'}</td>
-                    <td style="padding:10px;font-weight:bold;">${l.user||l.username||'-'}</td>
-                    <td style="padding:10px;"><span style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:5px;font-size:11px;">${l.action||'-'}</span></td>
-                    <td style="padding:10px;color:#475569;">${l.detail||'-'}</td>
-                </tr>`).join('');
-            }catch(e){document.getElementById('auditBody').innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--danger);padding:20px;">❌ โหลดไม่สำเร็จ</td></tr>';}
-        };
-
-        // [11] BACKUP & RESTORE
-        window.backupConfig=function(){
-            const data={warehouseList,allProducts,zoneProductMap,roleSettings,backupDate:new Date().toLocaleString('th-TH')};
-            const a=document.createElement('a');
-            a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
-            a.download=`TingTing_Backup_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.json`;
-            a.click();toast('✅ Backup สำเร็จ!','#059669');
-            addAuditLog('backup','Backup config');
-        };
-        window.restoreConfig=function(){
-            const inp=document.createElement('input');inp.type='file';inp.accept='.json';
-            inp.onchange=async function(e){
-                const file=e.target.files[0];if(!file)return;
-                try{
-                    const data=JSON.parse(await file.text());
-                    if(!data.warehouseList||!data.allProducts){toast('❌ ไฟล์ไม่ถูกต้อง','#c2410c');return;}
-                    if(!confirm(`⚠️ Restore จาก ${data.backupDate}?
-ข้อมูลปัจจุบันจะถูกแทนที่`))return;
-                    warehouseList=data.warehouseList;allProducts=data.allProducts;
-                    zoneProductMap=data.zoneProductMap||{};roleSettings=data.roleSettings||roleSettings;
-                    await saveConfig();
-                    toast('✅ Restore สำเร็จ! กำลัง reload...','#059669');
-                    addAuditLog('restore',`Restore จาก ${data.backupDate}`);
-                    setTimeout(()=>location.reload(),1500);
-                }catch(e){toast('❌ ไฟล์เสียหาย','#c2410c');}
-            };inp.click();
-        };
-
-        // [4] ลบประวัติ stockHistory — ฟังก์ชันเดี่ยว เรียกจาก history card
-        window.deleteHistorySession=async function(sid){
-            if(currentUser.role!=='admin'){toast('⛔ เฉพาะ Admin','#c2410c');return;}
-            if(!confirm('ลบรายการนับสต๊อกนี้ถาวร?'))return;
-            try{
-                await deleteDoc(doc(db,'stockHistory',sid));
-                addAuditLog('deleteHistory',`ลบ session: ${sid}`);
-                toast('🗑️ ลบเรียบร้อย','#059669');
-                loadCurrentReport();
-            }catch(e){toast('❌ ลบไม่สำเร็จ','#c2410c');}
-        };
-
-        // [5] แก้ไขยอดสต๊อก Admin only
-        window.openEditStockModal=function(productId){
-            if(currentUser.role!=='admin'){toast('⛔ เฉพาะ Admin','#c2410c');return;}
-            const p=allProducts.find(pd=>pd.id===productId);
-            const cur=countData[productId]?.total||0;
-            const modal=document.createElement('div');modal.className='modal-overlay';modal.id='editStockModal';
-            modal.innerHTML=`<div class="modal-box"><h3>✏️ แก้ไขยอดสต๊อก: ${productId}</h3>
-                <p style="color:#64748b;font-size:13px;margin-bottom:15px;">สินค้า: <b>${p?.name||productId}</b> — ยอดปัจจุบัน: <b style="color:var(--success);">${cur}</b></p>
-                <label style="font-size:12px;font-weight:bold;color:#475569;display:block;margin-bottom:6px;">ยอดใหม่</label>
-                <input type="number" id="editStockVal" value="${cur}" min="0" style="width:100%;padding:12px;border:2px solid var(--info);border-radius:10px;font-size:18px;font-weight:bold;text-align:center;box-sizing:border-box;margin-bottom:12px;">
-                <label style="font-size:12px;font-weight:bold;color:#475569;display:block;margin-bottom:6px;">เหตุผล</label>
-                <input type="text" id="editStockReason" placeholder="เช่น แก้ไขยอดผิดพลาด" style="width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:15px;">
-                <div style="display:flex;gap:10px;">
-                    <button onclick="saveEditStock('${productId}')" style="flex:1;background:var(--success);color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:bold;">✅ บันทึก</button>
-                    <button onclick="document.getElementById('editStockModal').remove()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
-                </div></div>`;
-            document.body.appendChild(modal);
-        };
-        window.saveEditStock=async function(productId){
-            const val=parseFloat(document.getElementById('editStockVal').value);
-            const reason=document.getElementById('editStockReason').value.trim();
-            if(isNaN(val)||val<0){toast('⚠️ กรุณากรอกยอดที่ถูกต้อง','#c2410c');return;}
-            if(!reason){toast('⚠️ กรุณาระบุเหตุผล','#c2410c');return;}
-            const old=countData[productId]?.total||0;
-            if(!countData[productId])countData[productId]={};
-            countData[productId].total=val;
-            countData[productId].lastUpdate=new Date().toLocaleString('th-TH');
-            countData[productId].countedBy=currentUser.name+' (แก้ไข)';
-            await saveCountData();
-            addAuditLog('editStock',`${productId}: ${old}→${val} (${reason})`);
-            document.getElementById('editStockModal').remove();
-            toast('✅ แก้ไขยอดเรียบร้อย','#059669');
         };
 
         // ---- ONLINE PRESENCE ----
@@ -824,10 +612,6 @@
             usSnap.forEach(d=>{const u=d.data();if(u.status!=='suspended')staffOpts+=`<option value="${u.name}" ${selectedStaff===u.name?'selected':''}>${u.name}</option>`;});
 
             c.innerHTML=`<div class="tool-header no-print"><h2>📦 นับสต๊อก: ${zone}</h2><button onclick="closeTool()">✕ ปิด</button></div>
-            <div class="no-print" style="margin-bottom:12px;">
-                <input type="text" placeholder="🔍 ค้นหาสินค้า (รหัส/ชื่อ)..." oninput="filterStockRows(this.value)"
-                    style="width:100%;padding:11px 16px;border:2px solid var(--info);border-radius:12px;font-size:14px;box-sizing:border-box;outline:none;">
-            </div>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px;" class="no-print">
                 <div class="input-group"><label>📦 เลือกโซน</label>
                     <select onchange="renderStockTool(this.value)" style="width:100%;border:none;font-weight:bold;outline:none;">
@@ -967,7 +751,6 @@
 
             tempCountData={};
             toast('✅ บันทึกสำเร็จ! ตัวเลขรีเซ็ตแล้ว','#059669');
-            addAuditLog('saveStock','บันทึกสต๊อก zone:'+zone+' โดย '+selectedStaff);
             renderStockTool(zone);
         };
 
@@ -1043,7 +826,6 @@
                                 <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
                                 <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">นับล่าสุด</th>
                                 <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">โดย</th>
-                                ${currentUser.role==='admin'?'<th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">แก้ไข</th>':''}
                             </tr></thead>
                             <tbody>${prods.map(p=>{
                                 const cd=countData[p.id]||{total:0};
@@ -1055,7 +837,6 @@
                                     <td style="padding:10px;text-align:center;color:#64748b;">${units[0]?.name||''}</td>
                                     <td style="padding:10px;text-align:center;font-size:12px;color:#94a3b8;">${cd.lastUpdate||'-'}</td>
                                     <td style="padding:10px;text-align:center;font-size:12px;color:#94a3b8;">${cd.countedBy||'-'}</td>
-                                    <td style="padding:10px;text-align:center;">${currentUser.role==='admin'?`<button onclick="openEditStockModal('${p.id}')" style="background:var(--info);color:white;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;">✏️ แก้ไข</button>`:''}</td>
                                 </tr>`;}).join('')}
                             </tbody>
                         </table>
@@ -1108,10 +889,7 @@
                     <div class="history-card-header">
                         <div><b style="font-size:15px;">📦 ${s.zone}</b>
                         <span style="margin-left:12px;color:#64748b;font-size:13px;">📅 ${s.date} ${s.countedBy?'• 👤 '+s.countedBy:''}</span></div>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <span style="font-size:11px;color:#94a3b8;">บันทึกโดย: ${s.recordedBy||'-'}</span>
-                            ${currentUser.role==='admin'?`<button onclick="deleteHistorySession('${s.id}')" style="background:var(--danger);color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;">🗑️ ลบ</button>`:''}
-                        </div>
+                        <span style="font-size:11px;color:#94a3b8;">บันทึกโดย: ${s.recordedBy||'-'}</span>
                     </div>
                     <table style="width:100%;border-collapse:collapse;">
                         <thead><tr style="background:#f8fafc;">
@@ -1164,11 +942,6 @@
             document.getElementById('dashboardView').classList.add('hidden');
             const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
             c.innerHTML=`<div class="tool-header"><h2>⚙️ ตั้งค่าคลังและสินค้าหลัก</h2><button onclick="closeTool()">✕ ปิด</button></div>
-            <div style="background:white;padding:15px 20px;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
-                <span style="font-size:13px;color:#64748b;flex:1;">💾 สำรอง/กู้คืนการตั้งค่าระบบทั้งหมด</span>
-                <button onclick="backupConfig()" style="background:var(--success);color:white;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;">📥 Backup JSON</button>
-                <button onclick="restoreConfig()" style="background:#f59e0b;color:#1e293b;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;">📤 Restore JSON</button>
-            </div>
             <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:25px;">
                 <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
                     <h4>📦 คลังสินค้า (Zones)</h4>
@@ -1344,7 +1117,6 @@
         window.logout=function(){
             // ลบ presence ก่อน logout
             try { const uid=currentUser?.username; if(uid){ set(ref(rtdb,`presence/${uid}`),null).catch(()=>{}); } } catch(e){}
-            try{addAuditLog('logout','ออกจากระบบ');}catch(e){}
             localStorage.removeItem("currentUser");
             window.location.href="login.html";
         };
