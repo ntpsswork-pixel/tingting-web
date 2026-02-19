@@ -414,14 +414,18 @@
                 const assignedZones=u.assignedZones||[];
                 const zoneInfo=isBranch?`<div style="font-size:11px;color:var(--info);margin-top:4px;">📍 คลัง: ${assignedZones.length>0?assignedZones.join(', '):'ยังไม่ได้ผูกคลัง'}</div>`:'';
                 html+=`<div class="user-card" style="${isSusp?'border:2px solid var(--danger);background:#fff5f5;':''} ${isPendDel?'opacity:0.6;':''}">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <b>${u.name}</b>
-                        <div style="display:flex;gap:5px;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                        <div>
+                            <b id="uname_${k}">${u.name}</b>
+                            <small style="color:#64748b;display:block;">ID: ${k}</small>
+                        </div>
+                        <div style="display:flex;gap:5px;align-items:center;">
                             ${isBranch?'<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:4px;">สาขา</span>':''}
-                            <span style="font-size:10px;background:#eee;padding:2px 6px;border-radius:4px;">${u.role}</span>
+                            <span id="urole_${k}" style="font-size:10px;background:#eee;padding:2px 6px;border-radius:4px;">${u.role}</span>
+                            <button onclick="openEditUserModal('${k}','${u.name}','${u.role}')" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;padding:3px 7px;cursor:pointer;font-size:11px;">✏️</button>
                         </div>
                     </div>
-                    <small style="color:#64748b;">ID: ${k}</small>${delInfo}${zoneInfo}
+                    ${delInfo}${zoneInfo}
                     <div style="margin:12px 0;font-size:12px;">สถานะ: ${isSusp?'<b style="color:var(--danger);">⛔ ถูกระงับ</b>':(active?'🟢 มีสิทธิ์':'⚪ หมดสิทธิ์')}</div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;" class="no-print">
                         <button onclick="grantAccess('${k}',5)" style="background:var(--info);color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">+5 ชม.</button>
@@ -465,6 +469,33 @@
         };
 
         window.adminResetPassword=async function(u){if(!confirm(`Reset Password ของ ${u} → "1234"?`))return;await setDoc(doc(db,'users',u),{password:await hashPassword('1234')},{merge:true});toast('✅ Reset เรียบร้อย Password ใหม่: 1234','#059669');};
+
+        window.openEditUserModal=function(uid,uname,urole){
+            const existing=document.getElementById('editUserModal');if(existing)existing.remove();
+            const roleOpts=Object.keys(roleSettings).map(r=>`<option value="${r}" ${r===urole?'selected':''}>${r}</option>`).join('');
+            const modal=document.createElement('div');modal.className='modal-overlay';modal.id='editUserModal';
+            modal.innerHTML=`<div class="modal-box"><h3>✏️ แก้ไขข้อมูลพนักงาน</h3>
+                <div style="font-size:12px;color:#64748b;margin-bottom:12px;">ID: ${uid}</div>
+                <label style="font-size:12px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">ชื่อ-นามสกุล</label>
+                <input type="text" id="editUserName" value="${uname}" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px;">
+                <label style="font-size:12px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">Role</label>
+                <select id="editUserRole" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin-bottom:20px;">${roleOpts}</select>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="saveEditUser('${uid}')" style="flex:1;background:var(--success);color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:bold;">✅ บันทึก</button>
+                    <button onclick="document.getElementById('editUserModal').remove()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
+                </div></div>`;
+            document.body.appendChild(modal);
+        };
+
+        window.saveEditUser=async function(uid){
+            const newName=document.getElementById('editUserName').value.trim();
+            const newRole=document.getElementById('editUserRole').value;
+            if(!newName){toast('⚠️ กรุณากรอกชื่อ','#c2410c');return;}
+            await setDoc(doc(db,'users',uid),{name:newName,role:newRole},{merge:true});
+            document.getElementById('editUserModal').remove();
+            toast('✅ แก้ไขข้อมูลเรียบร้อย','#059669');
+            renderUserCards();
+        };
         window.unbanUser=async function(u){await setDoc(doc(db,'users',u),{status:'active'},{merge:true});toast('🔓 ปลดระงับเรียบร้อย','#059669');renderUserCards();};
         window.requestDelete=async function(u){if(!confirm(`ลบบัญชี ${u}? (รอลบ 7 วัน)`))return;await setDoc(doc(db,'users',u),{deleteAt:new Date().getTime()},{merge:true});renderUserCards();};
         window.cancelDelete=async function(u){await setDoc(doc(db,'users',u),{deleteAt:null},{merge:true});toast('✅ กู้คืนบัญชีเรียบร้อย','#059669');renderUserCards();};
@@ -636,7 +667,8 @@
                 if((td['u1']||0)>0&&units[0]?.rate>0) totalInUnit1+=((td['u1']||0)/units[0].rate);
                 if((td['u2']||0)>0&&units[0]?.rate>0&&units[1]?.rate>0) totalInUnit1+=((td['u2']||0)/(units[0].rate*units[1].rate));
                 if(!countData[id])countData[id]={total:0,name:td.name};
-                countData[id].total=Math.round((countData[id].total+totalInUnit1)*1000)/1000;
+                // รีเซ็ตเป็น 0 แล้วใส่ยอดที่นับใหม่เท่านั้น (ไม่สะสม)
+                countData[id].total=Math.round(totalInUnit1*1000)/1000;
                 countData[id].lastUpdate=ts;
                 countData[id].countedBy=selectedStaff;
             });
@@ -740,9 +772,13 @@
             currentHistoryData.forEach(s=>{
                 (s.items||[]).forEach(it=>{
                     const amounts=it.amounts||[{amount:it.amountMain||it.amount||0,unit:it.unit||''},{amount:it.amountSub||0,unit:it.subUnit||''}].filter(a=>a.unit);
-                    const row=[s.date,s.zone,it.id,it.name];
-                    amounts.forEach(a=>{row.push(a.amount>0?a.amount:'');row.push(a.unit);});
-                    row.push(s.countedBy||'',s.recordedBy||'');
+                    // pad ให้ครบ 3 หน่วยเสมอ เพื่อให้คอลัมน์ตรง
+                    const padded=Array.from({length:3},(_,i)=>amounts[i]||{amount:0,unit:''});
+                    const row=[s.date,s.zone,it.id,it.name,
+                        padded[0].amount||0, padded[0].unit||'',
+                        padded[1].amount||0, padded[1].unit||'',
+                        padded[2].amount||0, padded[2].unit||'',
+                        s.countedBy||'',s.recordedBy||''];
                     rows.push(row);
                 });
             });
