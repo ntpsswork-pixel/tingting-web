@@ -531,40 +531,62 @@
                     </select></div>
                 <div class="input-group" style="background:#f1f5f9;"><label>📝 ผู้ทำรายการหลัก</label><b>${currentUser.name}</b></div>
             </div>
-            <p style="color:#64748b;font-size:13px;margin-bottom:5px;" class="no-print">💡 กรอกจำนวนแล้วกด <b>Enter</b> เพื่อเพิ่มสต๊อก</p>
             <table class="stock-table">${zoneProds.map(p=>{
-                const base=countData[p.id]?.total||0, added=tempCountData[p.id]?.added||0, lu=countData[p.id]?.lastUpdate||'-';
-                const subUnit=p.subUnit?` / ${p.subUnit}`:'';
-                return `<tr class="stock-row"><td><b style="font-size:16px;">${p.id}</b><br><span style="color:#475569;">${p.name}</span><br><small style="color:#94a3b8;font-size:10px;">นับล่าสุด: ${lu}</small></td>
-                <td style="text-align:right;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;">
-                    <div style="text-align:right;">
-                        <div style="font-weight:bold;font-size:18px;${added>0?'color:var(--info);':'color:var(--success);'}">${added>0?'รอยืนยัน: ':'สต๊อก: '} ${base+added}</div>
-                        <small style="color:#94a3b8;">หน่วย: ${p.unit}${subUnit}</small>
+                const base=countData[p.id]?.total||0, addedMain=tempCountData[p.id]?.addedMain||0, addedSub=tempCountData[p.id]?.addedSub||0, lu=countData[p.id]?.lastUpdate||'-';
+                const hasSub=p.subUnit&&p.subUnit.trim()!=='';
+                return `<tr class="stock-row">
+                <td><b style="font-size:16px;">${p.id}</b><br><span style="color:#475569;">${p.name}</span><br><small style="color:#94a3b8;font-size:10px;">นับล่าสุด: ${lu}</small></td>
+                <td style="text-align:right;">
+                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:15px;">
+                        <div style="text-align:right;">
+                            <div style="font-weight:bold;font-size:18px;${(addedMain>0||addedSub>0)?'color:var(--info);':'color:var(--success);'}">
+                                ${(addedMain>0||addedSub>0)?'รอยืนยัน':'สต๊อก'}: ${base+addedMain}
+                                ${addedSub>0?`<span style="font-size:13px;"> +${addedSub} ${p.subUnit}</span>`:''}
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:6px;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <small style="color:#64748b;width:40px;text-align:right;">${p.unit}:</small>
+                                <input type="number" id="inputMain-${p.id}" min="0" class="no-print viewonly-input"
+                                    style="width:80px;padding:8px;border-radius:8px;border:2px solid var(--info);text-align:center;font-weight:bold;font-size:15px;"
+                                    onkeydown="if(event.key==='Enter') addStock('${p.id}','${p.name}','${zone}','main')">
+                            </div>
+                            ${hasSub?`<div style="display:flex;align-items:center;gap:6px;">
+                                <small style="color:#7c3aed;width:40px;text-align:right;">${p.subUnit}:</small>
+                                <input type="number" id="inputSub-${p.id}" min="0" class="no-print viewonly-input"
+                                    style="width:80px;padding:8px;border-radius:8px;border:2px solid #a78bfa;text-align:center;font-weight:bold;font-size:15px;"
+                                    onkeydown="if(event.key==='Enter') addStock('${p.id}','${p.name}','${zone}','sub')">
+                            </div>`:''}
+                        </div>
+                        <button onclick="addStock('${p.id}','${p.name}','${zone}','both')" class="btn-action no-print" style="background:var(--info);font-size:20px;">＋</button>
                     </div>
-                    <input type="number" id="input-${p.id}" min="0" class="no-print viewonly-input"
-                        style="width:90px;padding:10px;border-radius:8px;border:2px solid var(--info);text-align:center;font-weight:bold;font-size:16px;"
-                        onkeydown="if(event.key==='Enter') addStock('${p.id}','${p.name}','${zone}')">
-                </div></td></tr>`;}).join('')}</table>
-            <div style="margin-top:40px;text-align:center;" class="no-print">
+                </td></tr>`;}).join('')}</table>
+            <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:5px;" class="no-print">💡 กรอกจำนวนแล้วกด Enter หรือปุ่ม ＋</p>
+            <div style="margin-top:25px;text-align:center;" class="no-print">
                 <button onclick="finalSaveStock('${zone}')" style="background:var(--success);color:white;padding:18px 60px;border:none;border-radius:15px;font-size:20px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">💾 ยืนยันและบันทึกข้อมูลทั้งหมด</button>
             </div>`;
         };
 
-        window.addStock=function(id,name,zone){
+        window.addStock=function(id,name,zone,type){
             const staffEl=document.getElementById('staffSelect');
             if(staffEl&&staffEl.value) selectedStaff=staffEl.value;
 
-            const el=document.getElementById(`input-${id}`);
-            const val=parseFloat(el.value);
-            if(!val||val<=0){
-                el.style.borderColor='var(--danger)';
-                setTimeout(()=>el.style.borderColor='var(--info)',1000);
+            const elMain=document.getElementById(`inputMain-${id}`);
+            const elSub=document.getElementById(`inputSub-${id}`);
+            const valMain=elMain?parseFloat(elMain.value)||0:0;
+            const valSub=elSub?parseFloat(elSub.value)||0:0;
+
+            // ถ้า type=main อ่านแค่ main, type=sub อ่านแค่ sub, type=both อ่านทั้งคู่
+            const useMain = (type==='main'||type==='both') ? valMain : (type==='sub'?0:valMain);
+            const useSub  = (type==='sub' ||type==='both') ? valSub  : (type==='main'?0:valSub);
+
+            if(useMain<=0&&useSub<=0){
+                if(elMain){elMain.style.borderColor='var(--danger)';setTimeout(()=>elMain.style.borderColor='var(--info)',1000);}
                 return;
             }
-            if(!tempCountData[id])tempCountData[id]={added:0,name};
-            tempCountData[id].added+=val;
-            el.value='';
-            el.style.borderColor='var(--success)';
+            if(!tempCountData[id])tempCountData[id]={addedMain:0,addedSub:0,name};
+            if(useMain>0){tempCountData[id].addedMain+=useMain;if(elMain){elMain.value='';elMain.style.borderColor='var(--success)';}}
+            if(useSub>0){tempCountData[id].addedSub+=useSub;if(elSub){elSub.value='';elSub.style.borderColor='#a78bfa';}}
             setTimeout(()=>{renderStockTool(zone);},400);
         };
 
@@ -574,7 +596,8 @@
             if(staffEl&&staffEl.value) selectedStaff=staffEl.value;
 
             if(!selectedStaff){toast('⚠️ กรุณาเลือกคนนับก่อน','#c2410c');return;}
-            if(Object.keys(tempCountData).length===0){toast('❌ ไม่พบข้อมูลการเปลี่ยนแปลง','#c2410c');return;}
+            const hasChanges=Object.keys(tempCountData).some(id=>(tempCountData[id].addedMain||0)>0||(tempCountData[id].addedSub||0)>0||(tempCountData[id].added||0)>0);
+            if(!hasChanges){toast('❌ ไม่พบข้อมูลการเปลี่ยนแปลง กรุณากรอกจำนวนและกด ＋ ก่อน','#c2410c');return;}
             if(!confirm(`ยืนยันการบันทึกโดยคุณ ${selectedStaff}?`))return;
 
             const now=new Date();
@@ -584,14 +607,17 @@
 
             Object.keys(tempCountData).forEach(id=>{
                 if(!countData[id])countData[id]={total:0,name:tempCountData[id].name};
-                countData[id].total+=tempCountData[id].added;
+                countData[id].total+=(tempCountData[id].addedMain||tempCountData[id].added||0);
                 countData[id].lastUpdate=ts;
                 countData[id].countedBy=selectedStaff;
             });
             await saveCountData();
 
             const sessionItems=Object.keys(tempCountData).map(id=>({
-                id,name:tempCountData[id].name,amount:tempCountData[id].added,
+                id,
+                name:tempCountData[id].name,
+                amountMain:tempCountData[id].addedMain||tempCountData[id].added||0,
+                amountSub:tempCountData[id].addedSub||0,
                 unit:allProducts.find(p=>p.id===id)?.unit||'',
                 subUnit:allProducts.find(p=>p.id===id)?.subUnit||''
             }));
@@ -666,9 +692,8 @@
                         <tbody>${(s.items||[]).map(it=>`<tr style="border-top:1px solid #f1f5f9;">
                             <td style="padding:10px;font-weight:bold;">${it.id}</td>
                             <td style="padding:10px;color:#475569;">${it.name}</td>
-                            <td style="padding:10px;text-align:center;font-weight:bold;color:var(--success);">${it.amount}</td>
-                            <td style="padding:10px;text-align:center;color:#94a3b8;">${it.unit||'-'}</td>
-                            <td style="padding:10px;text-align:center;color:#94a3b8;">${it.subUnit||'-'}</td>
+                            <td style="padding:10px;text-align:center;font-weight:bold;color:var(--success);">${it.amountMain||it.amount||0} ${it.unit||''}</td>
+                            <td style="padding:10px;text-align:center;color:#7c3aed;">${it.amountSub>0?(it.amountSub+' '+(it.subUnit||'')):'-'}</td>
                         </tr>`).join('')}</tbody>
                     </table>
                 </div>`).join('');
@@ -677,10 +702,10 @@
 
         window.exportExcelHistory=function(){
             if(!currentHistoryData||currentHistoryData.length===0){toast('❌ ไม่มีข้อมูลให้ export','#c2410c');return;}
-            const rows=[["วันที่","คลัง","รหัสสินค้า","ชื่อสินค้า","จำนวน","หน่วยหลัก","หน่วยย่อย","คนนับ","บันทึกโดย"]];
+            const rows=[["วันที่","คลัง","รหัสสินค้า","ชื่อสินค้า","จำนวน(หน่วยหลัก)","หน่วยหลัก","จำนวน(หน่วยย่อย)","หน่วยย่อย","คนนับ","บันทึกโดย"]];
             currentHistoryData.forEach(s=>{
                 (s.items||[]).forEach(it=>{
-                    rows.push([s.date,s.zone,it.id,it.name,it.amount,it.unit||'',it.subUnit||'',s.countedBy||'',s.recordedBy||'']);
+                    rows.push([s.date,s.zone,it.id,it.name,it.amountMain||it.amount||0,it.unit||'',it.amountSub||0,it.subUnit||'',s.countedBy||'',s.recordedBy||'']);
                 });
             });
             const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
