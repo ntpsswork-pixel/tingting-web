@@ -531,32 +531,41 @@
                     </select></div>
                 <div class="input-group" style="background:#f1f5f9;"><label>📝 ผู้ทำรายการหลัก</label><b>${currentUser.name}</b></div>
             </div>
+            <p style="color:#64748b;font-size:13px;margin-bottom:5px;" class="no-print">💡 กรอกจำนวนแล้วกด <b>Enter</b> เพื่อเพิ่มสต๊อก</p>
             <table class="stock-table">${zoneProds.map(p=>{
-                const base=countData[p.id]?.total||0,added=tempCountData[p.id]?.added||0,lu=countData[p.id]?.lastUpdate||'-';
+                const base=countData[p.id]?.total||0, added=tempCountData[p.id]?.added||0, lu=countData[p.id]?.lastUpdate||'-';
                 const subUnit=p.subUnit?` / ${p.subUnit}`:'';
                 return `<tr class="stock-row"><td><b style="font-size:16px;">${p.id}</b><br><span style="color:#475569;">${p.name}</span><br><small style="color:#94a3b8;font-size:10px;">นับล่าสุด: ${lu}</small></td>
                 <td style="text-align:right;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;">
-                    <div style="text-align:right;"><div style="font-weight:bold;font-size:18px;${added>0?'color:var(--info);':'color:var(--success);'}">${added>0?'รอยืนยัน: ':'สต๊อก: '} ${base+added}</div>
-                    <small style="color:#94a3b8;">หน่วย: ${p.unit}${subUnit}</small></div>
-                    <input type="number" id="input-${p.id}" class="no-print viewonly-input" style="width:70px;padding:10px;border-radius:8px;border:1px solid #cbd5e1;text-align:center;font-weight:bold;" placeholder="0">
-                    <button onclick="updateStockTemp(event,'${p.id}','${p.name}','${zone}')" class="btn-action" style="background:var(--info);">＋</button>
+                    <div style="text-align:right;">
+                        <div style="font-weight:bold;font-size:18px;${added>0?'color:var(--info);':'color:var(--success);'}">${added>0?'รอยืนยัน: ':'สต๊อก: '} ${base+added}</div>
+                        <small style="color:#94a3b8;">หน่วย: ${p.unit}${subUnit}</small>
+                    </div>
+                    <input type="number" id="input-${p.id}" min="0" class="no-print viewonly-input"
+                        style="width:90px;padding:10px;border-radius:8px;border:2px solid var(--info);text-align:center;font-weight:bold;font-size:16px;"
+                        onkeydown="if(event.key==='Enter') addStock('${p.id}','${p.name}','${zone}')">
                 </div></td></tr>`;}).join('')}</table>
             <div style="margin-top:40px;text-align:center;" class="no-print">
                 <button onclick="finalSaveStock('${zone}')" style="background:var(--success);color:white;padding:18px 60px;border:none;border-radius:15px;font-size:20px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">💾 ยืนยันและบันทึกข้อมูลทั้งหมด</button>
             </div>`;
         };
 
-        window.updateStockTemp=function(event,id,name,zone){
-            // อ่านค่า selectedStaff จาก DOM ตรงๆ เพื่อป้องกัน reset
+        window.addStock=function(id,name,zone){
             const staffEl=document.getElementById('staffSelect');
             if(staffEl&&staffEl.value) selectedStaff=staffEl.value;
 
-            const btn=event.currentTarget,el=document.getElementById(`input-${id}`),val=parseFloat(el.value)||0;
-            if(val===0)return;
+            const el=document.getElementById(`input-${id}`);
+            const val=parseFloat(el.value);
+            if(!val||val<=0){
+                el.style.borderColor='var(--danger)';
+                setTimeout(()=>el.style.borderColor='var(--info)',1000);
+                return;
+            }
             if(!tempCountData[id])tempCountData[id]={added:0,name};
             tempCountData[id].added+=val;
-            btn.innerText="OK";btn.style.background="#059669";
-            setTimeout(()=>{btn.innerText="＋";btn.style.background="var(--info)";el.value="";renderStockTool(zone);},350);
+            el.value='';
+            el.style.borderColor='var(--success)';
+            setTimeout(()=>{renderStockTool(zone);},400);
         };
 
         window.finalSaveStock=async function(zone){
