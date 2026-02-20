@@ -66,10 +66,37 @@
             th, td { border: 1px solid #ddd !important; padding: 8px !important; }
             .history-card { break-inside: avoid; }
         }
+        /* ---- MOBILE RESPONSIVE ---- */
+        .hamburger { display:none; position:fixed; top:14px; left:14px; z-index:2000; background:var(--primary-dark); border:none; border-radius:10px; padding:10px 13px; cursor:pointer; flex-direction:column; gap:5px; }
+        .hamburger span { display:block; width:22px; height:2px; background:var(--accent-gold); border-radius:2px; transition:0.3s; }
+        .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; }
+        @media (max-width: 768px) {
+            .hamburger { display:flex; }
+            .sidebar { transform:translateX(-100%); transition:transform 0.3s ease; z-index:1000; }
+            .sidebar.open { transform:translateX(0); }
+            .sidebar-overlay.open { display:block; }
+            .main-content { margin-left:0 !important; width:100% !important; }
+            .app-container { padding:16px !important; }
+            .tool-header { flex-direction:column; gap:10px; padding-top:50px; }
+            .filter-bar { flex-direction:column; }
+            .filter-bar select, .filter-bar input[type="date"] { min-width:unset; width:100%; }
+            .stock-row td { padding:10px 8px; }
+            .user-card { padding:14px; }
+            #dashSummaryCards { grid-template-columns:1fr 1fr !important; }
+            .history-card-header { flex-direction:column; gap:6px; }
+        }
+        @media (max-width: 480px) {
+            #dashSummaryCards { grid-template-columns:1fr !important; }
+        }
     </style>
 </head>
 <body>
-    <div class="sidebar no-print">
+    <!-- Mobile hamburger -->
+    <button class="hamburger no-print" onclick="toggleSidebar()" aria-label="เมนู">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar no-print" id="mainSidebar">
         <div class="sidebar-brand"><h2>TINGTING</h2></div>
         <div class="user-info">
             <small>ผู้ใช้งาน:</small>
@@ -104,7 +131,7 @@
             </div>
         </div>
         <div class="nav-item" onclick="logout()" style="color:var(--danger);border-top:1px solid rgba(255,255,255,0.05);margin-top:auto;padding:20px;">🚪 ออกจากระบบ</div>
-    </div>
+    </div>  <!-- end sidebar -->
 
     <div class="main-content">
         <div id="dashboardView" class="no-print">
@@ -992,6 +1019,7 @@
                                     <td style="padding:10px;text-align:center;color:#64748b;">${units[0]?.name||''}</td>
                                     <td style="padding:10px;text-align:center;font-size:12px;color:#94a3b8;">${cd.lastUpdate||'-'}</td>
                                     <td style="padding:10px;text-align:center;font-size:12px;color:#94a3b8;">${cd.countedBy||'-'}</td>
+                                    <td style="padding:8px;text-align:center;">${currentUser.role==='admin'?`<button onclick="openEditStockModal('${p.id}')" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;color:#475569;">✏️ แก้</button>`:''}</td>
                                 </tr>`;}).join('')}
                             </tbody>
                         </table>
@@ -1100,6 +1128,13 @@
             document.getElementById('dashboardView').classList.add('hidden');
             const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
             c.innerHTML=`<div class="tool-header"><h2>⚙️ ตั้งค่าคลังและสินค้าหลัก</h2><button onclick="closeTool()">✕ ปิด</button></div>
+            <div style="display:flex;gap:10px;margin-bottom:20px;">
+                <button onclick="backupConfig()" style="background:#0f172a;color:white;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:bold;display:flex;align-items:center;gap:8px;">💾 Backup Config</button>
+                <label style="background:#0891b2;color:white;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:bold;display:flex;align-items:center;gap:8px;">
+                    📂 Restore Config<input type="file" accept=".json" onchange="restoreConfig(this)" style="display:none;">
+                </label>
+                <small style="color:#94a3b8;align-self:center;font-size:11px;">สำรอง/กู้คืน คลัง, สินค้า, mapping ทั้งหมด</small>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:25px;">
                 <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
                     <h4>📦 คลังสินค้า (Zones)</h4>
@@ -1294,6 +1329,86 @@
             clearTimeout(window._sessionTimer);
             clearTimeout(window._sessionWarnTimer);
             window.location.href="login.html";
+        };
+
+        // ---- MOBILE SIDEBAR ----
+        window.toggleSidebar=function(){
+            document.getElementById('mainSidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+        };
+
+        // ---- BACKUP & RESTORE CONFIG ----
+        window.backupConfig=function(){
+            const data={warehouseList,allProducts,zoneProductMap,roleSettings,_backup:{date:new Date().toISOString(),by:currentUser.name}};
+            const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+            const a=document.createElement('a');
+            a.href=URL.createObjectURL(blob);
+            a.download=`tingting_config_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.json`;
+            a.click();
+            toast('✅ Backup สำเร็จ','#059669');
+        };
+
+        window.restoreConfig=async function(input){
+            const file=input.files[0]; if(!file)return;
+            if(!confirm('⚠️ Restore จะเขียนทับ Config ปัจจุบันทั้งหมด ยืนยัน?'))return;
+            try{
+                const text=await file.text();
+                const data=JSON.parse(text);
+                if(data.warehouseList) warehouseList=data.warehouseList;
+                if(data.allProducts)   allProducts=data.allProducts;
+                if(data.zoneProductMap)zoneProductMap=data.zoneProductMap;
+                if(data.roleSettings)  roleSettings=data.roleSettings;
+                await saveConfig();
+                toast(`✅ Restore สำเร็จ (Backup วันที่ ${data._backup?.date?.slice(0,10)||'?'})`, '#059669');
+                openWarehouseManager();
+            }catch(e){toast('❌ ไฟล์ไม่ถูกต้อง','#c2410c');console.error(e);}
+            input.value='';
+        };
+
+        // ---- EDIT STOCK (ย้อนหลัง) ----
+        window.openEditStockModal=function(productId){
+            if(currentUser.role!=='admin'){toast('⛔ เฉพาะ Admin','#c2410c');return;}
+            const p=allProducts.find(pd=>pd.id===productId);
+            const cd=countData[productId]||{total:0};
+            const units=p?.units||[{name:p?.unit||''}];
+            const existing=document.getElementById('editStockModal');if(existing)existing.remove();
+            const modal=document.createElement('div');modal.className='modal-overlay';modal.id='editStockModal';
+            modal.innerHTML=`<div class="modal-box">
+                <h3>✏️ แก้ไขยอดสต๊อก</h3>
+                <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:#c2410c;">
+                    ⚠️ การแก้ไขยอดย้อนหลังจะถูกบันทึก Audit Log ทุกครั้ง
+                </div>
+                <div style="font-size:13px;color:#64748b;margin-bottom:16px;"><b>${productId}</b> — ${p?.name||''}<br>ยอดปัจจุบัน: <b style="color:var(--success)">${cd.total||0} ${units[0]?.name||''}</b></div>
+                <label style="font-size:12px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">ยอดใหม่ (${units[0]?.name||'หน่วย'})</label>
+                <input type="number" id="editStockNewVal" value="${cd.total||0}" min="0" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:16px;font-weight:bold;box-sizing:border-box;margin-bottom:12px;">
+                <label style="font-size:12px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">เหตุผลที่แก้ไข <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="editStockReason" placeholder="เช่น นับผิด / ปรับยอดหลังตรวจสอบ" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
+                <div style="display:flex;gap:10px;">
+                    <button onclick="saveEditStock('${productId}')" style="flex:1;background:var(--success);color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:bold;">✅ บันทึก</button>
+                    <button onclick="document.getElementById('editStockModal').remove()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+        };
+
+        window.saveEditStock=async function(productId){
+            const newVal=parseFloat(document.getElementById('editStockNewVal').value);
+            const reason=document.getElementById('editStockReason').value.trim();
+            if(isNaN(newVal)||newVal<0){toast('⚠️ กรุณากรอกยอดที่ถูกต้อง','#c2410c');return;}
+            if(!reason){toast('⚠️ กรุณาระบุเหตุผล','#c2410c');return;}
+            const oldVal=countData[productId]?.total||0;
+            if(!countData[productId])countData[productId]={total:0,name:productId};
+            countData[productId].total=newVal;
+            countData[productId].lastUpdate=new Date().toLocaleDateString('th-TH')+' '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+            countData[productId].countedBy=currentUser.name;
+            await saveCountData();
+            // Audit log
+            await addDoc(collection(db,'auditLog'),{
+                type:'editStock', productId, oldVal, newVal, reason,
+                by:currentUser.name, at:new Date().toISOString()
+            });
+            document.getElementById('editStockModal').remove();
+            toast(`✅ แก้ไขยอด ${productId}: ${oldVal} → ${newVal}`, '#059669');
         };
 
         // ---- SEARCH IN STOCK TOOL ----
