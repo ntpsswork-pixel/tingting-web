@@ -115,6 +115,7 @@
                 <div id="subWH" class="submenu">
                     <div onclick="openStockSummary()" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
                     <div onclick="openInventoryCheck()" style="color:#10b981;">📋 ใบนับสต๊อกคงเหลือ</div>
+                    <div onclick="openPurchaseOrder()" style="color:#ef4444;">🛒 สรุปยอดสั่งซื้อ</div>
                 </div>
             </div>
             <div id="toolsMenu" class="hidden">
@@ -158,6 +159,8 @@
                     ⚠️ <b>โหมดดูอย่างเดียว:</b> คุณสามารถดูข้อมูลได้ทั้งหมด แต่ไม่สามารถแก้ไขหรือบันทึกได้
                 </div>
 
+                <!-- alert banner -->
+                <div id="dashAlertBanner"></div>
                 <!-- greeting -->
                 <div style="margin-bottom:24px;">
                     <h2 style="margin:0;color:var(--primary-dark);" id="greetingText">สวัสดี...</h2>
@@ -221,7 +224,8 @@
         };
         let tempCountData = {};
         let selectedStaff = "";
-        let selectedDate = new Date().toISOString().split('T')[0]; // วันที่ปัจจุบัน default
+        let selectedDate = new Date().toISOString().split('T')[0];
+        let productMinMax = {}; // { "zone__productId": { min, max } }
 
         // ---- UTILS ----
         async function hashPassword(p) {
@@ -247,12 +251,13 @@
                     if (d.allProducts)    allProducts    = d.allProducts;
                     if (d.zoneProductMap) zoneProductMap = d.zoneProductMap;
                     if (d.roleSettings)   roleSettings   = d.roleSettings;
+                    if (d.productMinMax)  productMinMax  = d.productMinMax;
                 }
             } catch(e) { console.error(e); }
         }
 
         async function saveConfig() {
-            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings }, { merge:true }); }
+            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax }, { merge:true }); }
             catch(e) { toast('❌ บันทึก config ไม่สำเร็จ','#c2410c'); }
         }
 
@@ -314,6 +319,7 @@
             await loadCountData();
             renderSummaryCards();
             await loadDashHistory();
+            renderStockAlerts();
         }
 
         function renderSummaryCards() {
@@ -1175,13 +1181,24 @@
             <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                     <h4 style="margin:0;">🔗 จับคู่สินค้าเข้าสู่โซน</h4>
-                    <select id="selectZoneMap" onchange="renderMapping()" style="padding:12px;border-radius:8px;min-width:300px;border:2px solid var(--primary-dark);font-weight:bold;"></select>
+                    <select id="selectZoneMap" onchange="renderMapping();renderMinMaxTable()" style="padding:12px;border-radius:8px;min-width:300px;border:2px solid var(--primary-dark);font-weight:bold;"></select>
                 </div>
                 <div id="mappingContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;"></div>
+            </div>
+            <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <div>
+                        <h4 style="margin:0;">📊 กำหนด Min / Max สต๊อกต่อคลัง</h4>
+                        <small style="color:#94a3b8;">Min = ยอดต่ำสุดที่ต้องมี | Max = ยอดเป้าหมาย (ใช้คำนวณยอดสั่งซื้อ)</small>
+                    </div>
+                    <button onclick="saveAllMinMax()" style="background:var(--success);color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:bold;">💾 บันทึก Min/Max ทั้งหมด</button>
+                </div>
+                <div id="minMaxContainer"></div>
             </div>`;
             renderWhList(); renderPdList();
             document.getElementById('selectZoneMap').innerHTML=warehouseList.map(w=>`<option value="${w}">${w}</option>`).join('');
             renderMapping();
+            renderMinMaxTable();
         };
 
         window.renderWhList=function(){
@@ -1649,6 +1666,227 @@ ${it.zone}`);
             const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb,ws,'InventoryHistory');
             XLSX.writeFile(wb,`Inventory_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
+        };
+
+        // ======== MIN/MAX & PURCHASE ORDER ========
+
+        window.renderMinMaxTable=function(){
+            const zone=document.getElementById('selectZoneMap')?.value||warehouseList[0]||'';
+            const c=document.getElementById('minMaxContainer');
+            if(!c||!zone)return;
+            const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            if(!zoneProds.length){c.innerHTML='<p style="color:#94a3b8;font-size:13px;">เลือกคลังและจับคู่สินค้าก่อนนะครับ</p>';return;}
+            c.innerHTML=`<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#f8fafc;">
+                    <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">รหัส</th>
+                    <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">ชื่อสินค้า</th>
+                    <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">หน่วย</th>
+                    <th style="padding:10px;text-align:center;font-size:12px;color:#ef4444;">🔴 Min (ต่ำสุด)</th>
+                    <th style="padding:10px;text-align:center;font-size:12px;color:#10b981;">🟢 Max (เป้าหมาย)</th>
+                </tr></thead>
+                <tbody>${zoneProds.map(p=>{
+                    const key=`${zone}__${p.id}`;
+                    const mm=productMinMax[key]||{min:'',max:''};
+                    const u=(p.units||[{name:p.unit||''}])[0]?.name||'';
+                    return `<tr style="border-top:1px solid #f1f5f9;">
+                        <td style="padding:10px;font-weight:bold;font-size:13px;">${p.id}</td>
+                        <td style="padding:10px;color:#475569;font-size:13px;">${p.name}</td>
+                        <td style="padding:10px;color:#94a3b8;font-size:12px;">${u}</td>
+                        <td style="padding:10px;text-align:center;">
+                            <input type="number" id="mm_min_${p.id}" value="${mm.min}" min="0" placeholder="0"
+                                style="width:80px;padding:8px;border:2px solid #fca5a5;border-radius:8px;text-align:center;font-weight:bold;font-size:14px;outline:none;">
+                        </td>
+                        <td style="padding:10px;text-align:center;">
+                            <input type="number" id="mm_max_${p.id}" value="${mm.max}" min="0" placeholder="0"
+                                style="width:80px;padding:8px;border:2px solid #6ee7b7;border-radius:8px;text-align:center;font-weight:bold;font-size:14px;outline:none;">
+                        </td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>`;
+        };
+
+        window.saveAllMinMax=function(){
+            const zone=document.getElementById('selectZoneMap')?.value||'';
+            if(!zone){toast('⚠️ กรุณาเลือกคลังก่อน','#c2410c');return;}
+            const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            let count=0;
+            zoneProds.forEach(p=>{
+                const minEl=document.getElementById(`mm_min_${p.id}`);
+                const maxEl=document.getElementById(`mm_max_${p.id}`);
+                const minV=parseFloat(minEl?.value)||0;
+                const maxV=parseFloat(maxEl?.value)||0;
+                if(minV>0||maxV>0){
+                    const key=`${zone}__${p.id}`;
+                    productMinMax[key]={min:minV,max:maxV,zone,productId:p.id};
+                    count++;
+                }
+            });
+            saveConfig();
+            toast(`✅ บันทึก Min/Max ${count} รายการสำเร็จ`,'#059669');
+        };
+
+        // ---- Purchase Order Page ----
+        window.openPurchaseOrder=async function(){
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
+            await loadCountData();
+            // โหลด inventory ล่าสุดของแต่ละคลัง
+            const invSnap=await getDocs(collection(db,'inventoryHistory'));
+            const latestInv={};
+            invSnap.forEach(d=>{
+                const data=d.data();
+                if(!latestInv[data.zone]||data.timestamp>latestInv[data.zone].timestamp) latestInv[data.zone]=data;
+            });
+
+            const visibleZones=getVisibleWarehouses();
+
+            // สร้างรายการสินค้าที่ต้องสั่ง
+            const orderItems=[];
+            visibleZones.forEach(zone=>{
+                const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+                zoneProds.forEach(p=>{
+                    const key=`${zone}__${p.id}`;
+                    const mm=productMinMax[key];
+                    if(!mm||(!mm.min&&!mm.max))return;
+                    // หายอดคงเหลือล่าสุด (จาก inventoryHistory ก่อน แล้ว fallback countData)
+                    const invItem=latestInv[zone]?.items?.find(it=>it.id===p.id);
+                    const balance=invItem?.balance??countData[p.id]?.total??0;
+                    const u=(p.units||[{name:p.unit||''}])[0]?.name||'';
+                    const needOrder=mm.min>0&&balance<=mm.min;
+                    const suggestQty=mm.max>0?Math.max(0,mm.max-balance):0;
+                    const status=balance<=mm.min?'🔴 ต่ำกว่า Min':balance<=(mm.min*1.2)?'🟡 ใกล้ถึง Min':'🟢 ปกติ';
+                    orderItems.push({zone,id:p.id,name:p.name,unit:u,balance,min:mm.min,max:mm.max,suggestQty,needOrder,status});
+                });
+            });
+
+            const urgent=orderItems.filter(it=>it.needOrder);
+            const warning=orderItems.filter(it=>!it.needOrder&&it.status.includes('🟡'));
+            const normal=orderItems.filter(it=>it.status.includes('🟢'));
+
+            c.innerHTML=`
+            <div class="tool-header no-print">
+                <h2>🛒 สรุปยอดสั่งซื้อ</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="exportPurchaseExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+
+            <!-- summary badges -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;">
+                <div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:14px;padding:20px;text-align:center;">
+                    <div style="font-size:32px;font-weight:bold;color:#ef4444;">${urgent.length}</div>
+                    <div style="color:#ef4444;font-weight:bold;font-size:13px;">🔴 ต้องสั่งด่วน (ต่ำกว่า Min)</div>
+                </div>
+                <div style="background:#fffbeb;border:2px solid #fcd34d;border-radius:14px;padding:20px;text-align:center;">
+                    <div style="font-size:32px;font-weight:bold;color:#f59e0b;">${warning.length}</div>
+                    <div style="color:#f59e0b;font-weight:bold;font-size:13px;">🟡 ใกล้ถึง Min (เฝ้าระวัง)</div>
+                </div>
+                <div style="background:#f0fdf4;border:2px solid #6ee7b7;border-radius:14px;padding:20px;text-align:center;">
+                    <div style="font-size:32px;font-weight:bold;color:#10b981;">${normal.length}</div>
+                    <div style="color:#10b981;font-weight:bold;font-size:13px;">🟢 สต๊อกปกติ</div>
+                </div>
+            </div>
+
+            <!-- order table -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
+                <div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+                    <h4 style="margin:0;">รายการสินค้า</h4>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="filterOrder('all')" id="obtn_all" style="padding:6px 14px;border-radius:8px;border:2px solid var(--primary-dark);background:var(--primary-dark);color:white;cursor:pointer;font-size:12px;font-weight:bold;">ทั้งหมด</button>
+                        <button onclick="filterOrder('urgent')" id="obtn_urgent" style="padding:6px 14px;border-radius:8px;border:2px solid #ef4444;background:white;color:#ef4444;cursor:pointer;font-size:12px;font-weight:bold;">ต้องสั่งด่วน</button>
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;" id="orderTable">
+                        <thead><tr style="background:#f8fafc;">
+                            <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;">สถานะ</th>
+                            <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;">คลัง</th>
+                            <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;">รหัส</th>
+                            <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;">ชื่อสินค้า</th>
+                            <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">คงเหลือ</th>
+                            <th style="padding:12px;text-align:center;font-size:12px;color:#ef4444;">Min</th>
+                            <th style="padding:12px;text-align:center;font-size:12px;color:#10b981;">Max</th>
+                            <th style="padding:12px;text-align:center;font-size:12px;color:#7c3aed;">แนะนำสั่ง</th>
+                            <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
+                            <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">ยอดสั่งจริง</th>
+                        </tr></thead>
+                        <tbody>${[...urgent,...warning,...normal].map(it=>`
+                        <tr class="order-row" data-urgent="${it.needOrder}" style="border-top:1px solid #f1f5f9;${it.needOrder?'background:#fff5f5;':''}">
+                            <td style="padding:12px;">${it.status}</td>
+                            <td style="padding:12px;font-size:12px;color:#64748b;">${it.zone}</td>
+                            <td style="padding:12px;font-weight:bold;font-size:13px;">${it.id}</td>
+                            <td style="padding:12px;color:#475569;font-size:13px;">${it.name}</td>
+                            <td style="padding:12px;text-align:center;font-weight:bold;font-size:15px;color:${it.needOrder?'#ef4444':'var(--success)'};">${it.balance}</td>
+                            <td style="padding:12px;text-align:center;color:#ef4444;font-weight:bold;">${it.min||'-'}</td>
+                            <td style="padding:12px;text-align:center;color:#10b981;font-weight:bold;">${it.max||'-'}</td>
+                            <td style="padding:12px;text-align:center;font-weight:bold;color:#7c3aed;font-size:15px;">${it.suggestQty||'-'}</td>
+                            <td style="padding:12px;text-align:center;color:#64748b;font-size:12px;">${it.unit}</td>
+                            <td style="padding:12px;text-align:center;">
+                                <input type="number" id="order_${it.zone}_${it.id}" value="${it.suggestQty||''}" min="0" placeholder="0"
+                                    style="width:80px;padding:7px;border:2px solid #e2e8f0;border-radius:8px;text-align:center;font-weight:bold;font-size:14px;outline:none;">
+                            </td>
+                        </tr>`).join('')}</tbody>
+                    </table>
+                </div>
+            </div>`;
+
+            window._orderItems=[...urgent,...warning,...normal];
+        };
+
+        window.filterOrder=function(mode){
+            document.querySelectorAll('.order-row').forEach(r=>{
+                r.style.display=(mode==='all'||r.dataset.urgent==='true')?'':'none';
+            });
+            document.getElementById('obtn_all').style.background=mode==='all'?'var(--primary-dark)':'white';
+            document.getElementById('obtn_all').style.color=mode==='all'?'white':'var(--primary-dark)';
+            document.getElementById('obtn_urgent').style.background=mode==='urgent'?'#ef4444':'white';
+            document.getElementById('obtn_urgent').style.color=mode==='urgent'?'white':'#ef4444';
+        };
+
+        window.exportPurchaseExcel=function(){
+            if(!window._orderItems?.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
+            const rows=[['สถานะ','คลัง','รหัส','ชื่อสินค้า','คงเหลือ','Min','Max','แนะนำสั่ง','ยอดสั่งจริง','หน่วย']];
+            window._orderItems.forEach(it=>{
+                const actual=document.getElementById(`order_${it.zone}_${it.id}`)?.value||it.suggestQty||0;
+                rows.push([it.status,it.zone,it.id,it.name,it.balance,it.min||'',it.max||'',it.suggestQty||'',actual,it.unit]);
+            });
+            const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,'PurchaseOrder');
+            XLSX.writeFile(wb,`PurchaseOrder_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
+        };
+
+        // ---- Dashboard alert badges ----
+        window.renderStockAlerts=async function(){
+            await loadCountData();
+            const invSnap=await getDocs(collection(db,'inventoryHistory'));
+            const latestInv={};
+            invSnap.forEach(d=>{const data=d.data();if(!latestInv[data.zone]||data.timestamp>latestInv[data.zone].timestamp)latestInv[data.zone]=data;});
+            let urgentCount=0;
+            getVisibleWarehouses().forEach(zone=>{
+                allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id)).forEach(p=>{
+                    const key=`${zone}__${p.id}`;
+                    const mm=productMinMax[key];
+                    if(!mm||!mm.min)return;
+                    const invItem=latestInv[zone]?.items?.find(it=>it.id===p.id);
+                    const balance=invItem?.balance??countData[p.id]?.total??0;
+                    if(balance<=mm.min)urgentCount++;
+                });
+            });
+            const alertEl=document.getElementById('dashAlertBanner');
+            if(!alertEl)return;
+            if(urgentCount>0){
+                alertEl.innerHTML=`<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:14px;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:24px;">🔴</span>
+                        <div><b style="color:#ef4444;font-size:15px;">สินค้า ${urgentCount} รายการ ต่ำกว่า Min!</b><br>
+                        <span style="color:#64748b;font-size:13px;">ควรสั่งซื้อเพิ่มโดยด่วน</span></div>
+                    </div>
+                    <button onclick="openPurchaseOrder()" style="background:#ef4444;color:white;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">🛒 ดูใบสั่งซื้อ</button>
+                </div>`;
+            } else {
+                alertEl.innerHTML='';
+            }
         };
 
         window.logout=function(){
