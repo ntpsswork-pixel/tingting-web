@@ -116,12 +116,13 @@
                     <div onclick="openStockSummary()" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
                     <div onclick="openInventoryCheck()" style="color:#10b981;">📋 ใบนับสต๊อกคงเหลือ</div>
                     <div onclick="openPurchaseOrder()" style="color:#ef4444;">🛒 สรุปยอดสั่งซื้อ</div>
+                    <div onclick="openImportProducts()" style="color:#8b5cf6;">📥 Import สินค้าจาก Excel</div>
                 </div>
             </div>
             <div id="toolsMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subTools')" style="color:var(--success);">🛠️ เครื่องมือใช้งาน ▾</div>
                 <div id="subTools" class="submenu">
-                    <div onclick="openCentralStock()">● ใบนับสต๊อก</div>
+                    <div onclick="openCentralStock()">● นับสต๊อกครัวกลาง</div>
                 </div>
             </div>
             <div id="adminMenu" class="hidden">
@@ -1796,7 +1797,9 @@ ${it.zone}`);
             <div class="tool-header no-print">
                 <h2>🛒 สรุปยอดสั่งซื้อ</h2>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="exportPurchaseExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                    <button onclick="exportPurchasePDF()" style="background:#ef4444;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ PDF ใบสั่งซื้อ</button>
+                    <button onclick="exportPurchaseExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Excel</button>
+                    <button onclick="exportTRCloudFormat()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🔗 TRCloud Format</button>
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
@@ -1916,6 +1919,280 @@ ${it.zone}`);
             } else {
                 alertEl.innerHTML='';
             }
+        };
+
+        // ======== PDF PURCHASE ORDER ========
+        window.exportPurchasePDF=function(){
+            if(!window._orderItems?.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
+            const urgentOnly=window._orderItems.filter(it=>it.needOrder||it.status.includes('🟡'));
+            if(!urgentOnly.length){toast('✅ ไม่มีสินค้าที่ต้องสั่ง','#059669');return;}
+
+            const now=new Date();
+            const dateStr=now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+            const poNumber=`PO-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+
+            const rows=urgentOnly.map((it,i)=>{
+                const actual=document.getElementById(`order_${it.zone}_${it.id}`)?.value||it.suggestQty||0;
+                return `<tr style="${i%2===0?'background:#f8fafc':''}">
+                    <td style="padding:10px;text-align:center;color:#64748b;">${i+1}</td>
+                    <td style="padding:10px;font-weight:bold;">${it.id}</td>
+                    <td style="padding:10px;">${it.name}</td>
+                    <td style="padding:10px;text-align:center;color:#64748b;">${it.zone}</td>
+                    <td style="padding:10px;text-align:center;color:#ef4444;font-weight:bold;">${it.balance}</td>
+                    <td style="padding:10px;text-align:center;color:#10b981;font-weight:bold;">${it.min||'-'}</td>
+                    <td style="padding:10px;text-align:center;font-weight:bold;color:#7c3aed;font-size:16px;">${actual}</td>
+                    <td style="padding:10px;text-align:center;color:#64748b;">${it.unit}</td>
+                    <td style="padding:10px;"></td>
+                </tr>`;
+            }).join('');
+
+            const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                body{font-family:'Sarabun',sans-serif;margin:0;padding:30px;color:#1e293b;font-size:13px;}
+                .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px;padding-bottom:20px;border-bottom:3px solid #1e293b;}
+                .company{font-size:22px;font-weight:bold;color:#1e293b;}
+                .po-badge{background:#1e293b;color:white;padding:10px 20px;border-radius:10px;text-align:right;}
+                .po-badge .po-num{font-size:16px;font-weight:bold;}
+                .po-badge .po-date{font-size:12px;color:#94a3b8;margin-top:4px;}
+                table{width:100%;border-collapse:collapse;margin-top:20px;}
+                thead tr{background:#1e293b;color:white;}
+                th{padding:10px;text-align:left;font-size:12px;}
+                td{border-bottom:1px solid #e2e8f0;vertical-align:middle;}
+                .footer{margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:30px;}
+                .sign-box{text-align:center;padding-top:50px;border-top:1px solid #334155;}
+                .sign-label{font-size:11px;color:#64748b;}
+                @media print{body{padding:15px;}}
+            </style>
+            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+            </head><body>
+            <div class="header">
+                <div>
+                    <div class="company">🏢 TingTing Bingsu</div>
+                    <div style="color:#64748b;margin-top:4px;font-size:12px;">ใบสั่งซื้อสินค้า (Purchase Order)</div>
+                </div>
+                <div class="po-badge">
+                    <div class="po-num">${poNumber}</div>
+                    <div class="po-date">วันที่: ${dateStr}</div>
+                    <div class="po-date">จัดทำโดย: ${window.currentUser?.name||''}</div>
+                </div>
+            </div>
+            <table>
+                <thead><tr>
+                    <th style="width:40px;text-align:center;">#</th>
+                    <th style="width:100px;">รหัสสินค้า</th>
+                    <th>ชื่อสินค้า</th>
+                    <th style="width:100px;text-align:center;">คลัง</th>
+                    <th style="width:70px;text-align:center;">คงเหลือ</th>
+                    <th style="width:60px;text-align:center;">Min</th>
+                    <th style="width:80px;text-align:center;">จำนวนสั่ง</th>
+                    <th style="width:60px;text-align:center;">หน่วย</th>
+                    <th style="width:100px;">หมายเหตุ</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            <div style="margin-top:20px;padding:15px;background:#f8fafc;border-radius:8px;font-size:12px;color:#64748b;">
+                รายการทั้งหมด: <b>${urgentOnly.length} รายการ</b> &nbsp;|&nbsp; จัดทำจากระบบ TingTing Dashboard
+            </div>
+            <div class="footer">
+                <div class="sign-box"><div class="sign-label">ผู้จัดทำ / Prepared by</div></div>
+                <div class="sign-box"><div class="sign-label">ผู้อนุมัติ / Approved by</div></div>
+                <div class="sign-box"><div class="sign-label">ผู้รับสินค้า / Received by</div></div>
+            </div>
+            </body></html>`;
+
+            const w=window.open('','_blank','width=900,height=700');
+            w.document.write(html);
+            w.document.close();
+            setTimeout(()=>w.print(),800);
+        };
+
+        // ======== TRCLOUD FORMAT EXPORT ========
+        window.exportTRCloudFormat=function(){
+            if(!window._orderItems?.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
+            const items=window._orderItems.filter(it=>it.needOrder||it.status.includes('🟡'));
+            if(!items.length){toast('✅ ไม่มีสินค้าที่ต้องสั่ง','#059669');return;}
+
+            // TRCloud Purchase Order Import format
+            // columns: ProductCode, ProductName, Qty, Unit, PricePerUnit, Discount, WarehouseCode, Note
+            const now=new Date();
+            const docDate=`${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()+543}`;
+            const header=[
+                ['*** TRCloud Purchase Order Import Format ***'],
+                ['วันที่เอกสาร',docDate,'','','','','จัดทำโดย',window.currentUser?.name||''],
+                [],
+                ['รหัสสินค้า','ชื่อสินค้า','จำนวน','หน่วย','ราคาต่อหน่วย','ส่วนลด','คลัง/โซน','หมายเหตุ']
+            ];
+            const rows=items.map(it=>{
+                const actual=parseFloat(document.getElementById(`order_${it.zone}_${it.id}`)?.value)||it.suggestQty||0;
+                return [it.id, it.name, actual, it.unit, '', '0', it.zone, `คงเหลือ ${it.balance} (Min:${it.min})`];
+            });
+
+            const allRows=[...header,...rows];
+            const ws=XLSX.utils.aoa_to_sheet(allRows);
+            // style header rows
+            ws['!cols']=[{wch:15},{wch:35},{wch:10},{wch:10},{wch:15},{wch:10},{wch:20},{wch:30}];
+            const wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,'PO_TRCloud');
+            XLSX.writeFile(wb,`TRCloud_PO_${docDate.replace(/\//g,'-')}.xlsx`);
+            toast('✅ Export TRCloud Format สำเร็จ','#059669');
+        };
+
+        // ======== IMPORT PRODUCTS FROM EXCEL ========
+        window.openImportProducts=function(){
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
+            c.innerHTML=`
+            <div class="tool-header no-print">
+                <h2>📥 Import สินค้าจาก Excel</h2>
+                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+                <!-- Step 1: Download Template -->
+                <div style="background:white;border-radius:14px;padding:24px;border:2px solid #e2e8f0;">
+                    <div style="font-size:18px;font-weight:bold;color:var(--primary-dark);margin-bottom:8px;">① ดาวน์โหลด Template</div>
+                    <p style="color:#64748b;font-size:13px;margin:0 0 16px;">ดาวน์โหลด Excel template แล้วกรอกข้อมูลสินค้าตามรูปแบบที่กำหนด</p>
+                    <div style="background:#f8fafc;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#475569;">
+                        <b>คอลัมน์ที่ต้องกรอก:</b><br>
+                        <span style="color:#ef4444;">*</span> ProductCode — รหัสสินค้า (เช่น SM000138)<br>
+                        <span style="color:#ef4444;">*</span> ProductName — ชื่อสินค้า<br>
+                        Unit1 — หน่วยที่ 1 (เช่น ลัง)<br>
+                        Rate1 — 1 ลัง = กี่ หน่วย2<br>
+                        Unit2 — หน่วยที่ 2 (เช่น ถุง)<br>
+                        Rate2 — 1 ถุง = กี่ หน่วย3<br>
+                        Unit3 — หน่วยที่ 3 (เช่น กรัม)
+                    </div>
+                    <button onclick="downloadImportTemplate()" style="width:100%;background:var(--primary-dark);color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:bold;">⬇️ ดาวน์โหลด Template.xlsx</button>
+                </div>
+
+                <!-- Step 2: Upload -->
+                <div style="background:white;border-radius:14px;padding:24px;border:2px solid #e2e8f0;">
+                    <div style="font-size:18px;font-weight:bold;color:var(--primary-dark);margin-bottom:8px;">② อัปโหลด Excel</div>
+                    <p style="color:#64748b;font-size:13px;margin:0 0 16px;">เลือกไฟล์ Excel ที่กรอกข้อมูลแล้ว ระบบจะแสดง Preview ก่อน import จริง</p>
+                    <div style="border:2px dashed #e2e8f0;border-radius:10px;padding:30px;text-align:center;margin-bottom:16px;cursor:pointer;transition:border 0.2s;"
+                        onclick="document.getElementById('importFile').click()"
+                        ondragover="event.preventDefault();this.style.borderColor='var(--info)'"
+                        ondragleave="this.style.borderColor='#e2e8f0'"
+                        ondrop="event.preventDefault();handleImportDrop(event)">
+                        <div style="font-size:32px;margin-bottom:8px;">📂</div>
+                        <div style="color:#64748b;font-size:13px;">คลิกหรือลากไฟล์มาวางที่นี่</div>
+                        <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleImportFile(this)">
+                    </div>
+                    <div id="importFileLabel" style="font-size:12px;color:#94a3b8;text-align:center;">ยังไม่ได้เลือกไฟล์</div>
+                </div>
+            </div>
+
+            <!-- Preview table -->
+            <div id="importPreview" style="display:none;background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h4 style="margin:0;">🔍 Preview ก่อน Import</h4>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="confirmImportProducts()" id="confirmImportBtn" style="background:var(--success);color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:bold;">✅ ยืนยัน Import</button>
+                        <button onclick="document.getElementById('importPreview').style.display='none'" style="background:#f1f5f9;color:#475569;border:none;padding:10px 16px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
+                    </div>
+                </div>
+                <div id="importPreviewTable"></div>
+            </div>`;
+        };
+
+        window.downloadImportTemplate=function(){
+            const rows=[
+                ['ProductCode','ProductName','Unit1','Rate1','Unit2','Rate2','Unit3'],
+                ['SM000001','ตัวอย่างสินค้า A','ลัง',12,'ถุง',500,'กรัม'],
+                ['SM000002','ตัวอย่างสินค้า B','กล่อง',24,'ชิ้น','',''],
+                ['SM000003','ตัวอย่างสินค้า C (หน่วยเดียว)','กระป๋อง','','','',''],
+            ];
+            const ws=XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols']=[{wch:15},{wch:35},{wch:10},{wch:8},{wch:10},{wch:8},{wch:10}];
+            const wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,'Products');
+            XLSX.writeFile(wb,'TingTing_Import_Template.xlsx');
+        };
+
+        window.handleImportDrop=function(e){
+            const file=e.dataTransfer.files[0];
+            if(file) processImportFile(file);
+        };
+        window.handleImportFile=function(input){
+            if(input.files[0]) processImportFile(input.files[0]);
+        };
+
+        window._importData=[];
+        window.processImportFile=function(file){
+            document.getElementById('importFileLabel').innerText=`📄 ${file.name}`;
+            const reader=new FileReader();
+            reader.onload=function(e){
+                const wb=XLSX.read(e.target.result,{type:'array'});
+                const ws=wb.Sheets[wb.SheetNames[0]];
+                const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+                if(!data.length){toast('❌ ไม่พบข้อมูล','#c2410c');return;}
+
+                window._importData=data.map(row=>({
+                    id:String(row.ProductCode||'').trim(),
+                    name:String(row.ProductName||'').trim(),
+                    units:[
+                        row.Unit1?{name:String(row.Unit1).trim(),rate:parseFloat(row.Rate1)||0}:null,
+                        row.Unit2?{name:String(row.Unit2).trim(),rate:parseFloat(row.Rate2)||0}:null,
+                        row.Unit3?{name:String(row.Unit3).trim(),rate:0}:null,
+                    ].filter(u=>u&&u.name)
+                })).filter(p=>p.id&&p.name);
+
+                renderImportPreview();
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        window.renderImportPreview=function(){
+            const data=window._importData;
+            const existing=new Set(allProducts.map(p=>p.id));
+            const preview=document.getElementById('importPreview');
+            const table=document.getElementById('importPreviewTable');
+            if(!preview||!table)return;
+
+            preview.style.display='block';
+            const newCount=data.filter(p=>!existing.has(p.id)).length;
+            const dupCount=data.filter(p=>existing.has(p.id)).length;
+
+            table.innerHTML=`
+            <div style="display:flex;gap:12px;margin-bottom:16px;">
+                <div style="background:#f0fdf4;border:1px solid #6ee7b7;border-radius:8px;padding:10px 16px;font-size:13px;color:#059669;font-weight:bold;">✅ ใหม่ ${newCount} รายการ</div>
+                ${dupCount?`<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:10px 16px;font-size:13px;color:#c2410c;font-weight:bold;">⚠️ ซ้ำ ${dupCount} รายการ (จะข้ามไป)</div>`:''}
+            </div>
+            <div style="max-height:300px;overflow-y:auto;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#f8fafc;">
+                    <th style="padding:8px;font-size:11px;color:#64748b;text-align:left;">สถานะ</th>
+                    <th style="padding:8px;font-size:11px;color:#64748b;text-align:left;">รหัส</th>
+                    <th style="padding:8px;font-size:11px;color:#64748b;text-align:left;">ชื่อสินค้า</th>
+                    <th style="padding:8px;font-size:11px;color:#64748b;text-align:left;">หน่วย</th>
+                </tr></thead>
+                <tbody>${data.map(p=>{
+                    const isDup=existing.has(p.id);
+                    const unitStr=p.units.map(u=>u.name+(u.rate?`(×${u.rate})`:'') ).join(' → ');
+                    return `<tr style="border-top:1px solid #f1f5f9;${isDup?'opacity:0.5':''}">
+                        <td style="padding:8px;">${isDup?'⚠️ ซ้ำ':'🆕 ใหม่'}</td>
+                        <td style="padding:8px;font-weight:bold;font-size:12px;">${p.id}</td>
+                        <td style="padding:8px;font-size:12px;">${p.name}</td>
+                        <td style="padding:8px;font-size:11px;color:#64748b;">${unitStr||'-'}</td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table></div>`;
+        };
+
+        window.confirmImportProducts=async function(){
+            const data=window._importData;
+            if(!data?.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
+            const existing=new Set(allProducts.map(p=>p.id));
+            const toAdd=data.filter(p=>!existing.has(p.id));
+            if(!toAdd.length){toast('⚠️ ไม่มีสินค้าใหม่ที่จะ import','#c2410c');return;}
+            if(!confirm(`ยืนยัน Import สินค้าใหม่ ${toAdd.length} รายการ?`))return;
+
+            allProducts.push(...toAdd);
+            await saveConfig();
+            toast(`✅ Import สำเร็จ ${toAdd.length} รายการ`,'#059669');
+            document.getElementById('importPreview').style.display='none';
+            document.getElementById('importFileLabel').innerText='ยังไม่ได้เลือกไฟล์';
+            window._importData=[];
         };
 
         window.logout=function(){
