@@ -119,6 +119,15 @@
                     <div onclick="openImportProducts()" style="color:#8b5cf6;">📥 Import สินค้าจาก Excel</div>
                 </div>
             </div>
+            <div id="requisitionMenu" class="hidden">
+                <div class="nav-item" onclick="toggleSub('subReq')" style="color:#f59e0b;">📋 ระบบเบิกสินค้า ▾</div>
+                <div id="subReq" class="submenu">
+                    <div onclick="openCreateRequisition()" style="color:#f59e0b;">✏️ สร้างใบเบิกใหม่</div>
+                    <div onclick="openMyRequisitions()">📄 ใบเบิกของฉัน</div>
+                    <div id="reqApproveMenu" class="hidden" onclick="openPendingRequisitions()" style="color:#ef4444;">🔔 รออนุมัติ <span id="reqBadge" style="background:#ef4444;color:white;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;"></span></div>
+                    <div id="reqAllMenu" class="hidden" onclick="openAllRequisitions()">📊 ใบเบิกทั้งหมด</div>
+                </div>
+            </div>
             <div id="toolsMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subTools')" style="color:var(--success);">🛠️ เครื่องมือใช้งาน ▾</div>
                 <div id="subTools" class="submenu">
@@ -219,9 +228,9 @@
         let zoneProductMap = {};
         let countData      = {};
         let roleSettings   = {
-            admin:     { menus: ["warehouse","tools","admin"], viewOnly: false },
-            warehouse: { menus: ["warehouse","tools"],         viewOnly: false },
-            staff:     { menus: ["tools"],                     viewOnly: false }
+            admin:     { menus: ["warehouse","tools","admin","requisition"], viewOnly: false },
+            warehouse: { menus: ["warehouse","tools","requisition"],         viewOnly: false },
+            staff:     { menus: ["tools","requisition"],                     viewOnly: false }
         };
         let tempCountData = {};
         let selectedStaff = "";
@@ -300,7 +309,8 @@
             initPresence();
             listenOnlineUsers();
             initDashboard();
-            resetSessionTimer(); // เริ่มนับ session timeout
+            resetSessionTimer();
+            loadReqBadge();
         };
 
         // ---- DASHBOARD ----
@@ -471,6 +481,15 @@
             const role       = currentUser.role || 'guest';
             const perms      = roleSettings[role]?.menus || [];
             const isViewOnly = roleSettings[role]?.viewOnly || false;
+            // requisition menu visibility
+            const reqMenu = document.getElementById('requisitionMenu');
+            if(reqMenu) reqMenu.classList.toggle('hidden', !perms.includes('requisition'));
+            // approve/all tabs only for warehouse/admin
+            const canApprove = ['admin','warehouse'].includes(role);
+            const reqApprove = document.getElementById('reqApproveMenu');
+            const reqAll = document.getElementById('reqAllMenu');
+            if(reqApprove) reqApprove.classList.toggle('hidden', !canApprove);
+            if(reqAll) reqAll.classList.toggle('hidden', !canApprove);
             const effectivePerms = isViewOnly ? ["warehouse","tools","admin"] : perms;
 
             document.getElementById('warehouseMenu').classList.toggle('hidden', !effectivePerms.includes('warehouse'));
@@ -2006,35 +2025,88 @@ ${it.zone}`);
             setTimeout(()=>w.print(),800);
         };
 
-        // ======== TRCLOUD FORMAT EXPORT ========
+        // ======== TRCLOUD PR FORMAT - OPEN MODAL FIRST ========
         window.exportTRCloudFormat=function(){
             if(!window._orderItems?.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
             const items=window._orderItems.filter(it=>it.needOrder||it.status.includes('🟡'));
             if(!items.length){toast('✅ ไม่มีสินค้าที่ต้องสั่ง','#059669');return;}
 
-            // TRCloud Purchase Order Import format
-            // columns: ProductCode, ProductName, Qty, Unit, PricePerUnit, Discount, WarehouseCode, Note
+            const existing=document.getElementById('trcloudModal');if(existing)existing.remove();
             const now=new Date();
-            const docDate=`${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()+543}`;
-            const header=[
-                ['*** TRCloud Purchase Order Import Format ***'],
-                ['วันที่เอกสาร',docDate,'','','','','จัดทำโดย',window.currentUser?.name||''],
-                [],
-                ['รหัสสินค้า','ชื่อสินค้า','จำนวน','หน่วย','ราคาต่อหน่วย','ส่วนลด','คลัง/โซน','หมายเหตุ']
+            const todayISO=now.toISOString().slice(0,10);
+            const modal=document.createElement('div');modal.className='modal-overlay';modal.id='trcloudModal';
+            modal.innerHTML=`<div class="modal-box" style="max-width:560px;">
+                <h3 style="margin-top:0;">🔗 ตั้งค่า PR สำหรับ TRCloud</h3>
+                <p style="color:#64748b;font-size:13px;margin-bottom:16px;">กรอกข้อมูลหัวเอกสาร PR ก่อน Export — ระบบจะสร้าง Excel ตรง format TRCloud</p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">หมวดหมู่</label>
+                        <input id="tr_cat" placeholder="เช่น วัตถุดิบ" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">แผนก</label>
+                        <input id="tr_dept" placeholder="เช่น ครัวกลาง" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">โครงการ</label>
+                        <input id="tr_proj" placeholder="เช่น TingTing 2026" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">คลังสินค้า (TRCloud)</label>
+                        <input id="tr_wh" placeholder="เช่น Main Warehouse" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">รหัสคู่ค้า (Supplier)</label>
+                        <input id="tr_sup_code" placeholder="รหัสใน TRCloud" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">ชื่อคู่ค้า / บริษัท</label>
+                        <input id="tr_sup_name" placeholder="ชื่อ Supplier" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">วันที่เอกสาร</label>
+                        <input id="tr_doc_date" type="date" value="${todayISO}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">กำหนดส่งของ</label>
+                        <input id="tr_due_date" type="date" value="${todayISO}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                </div>
+                <div style="margin-bottom:16px;"><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">หมายเหตุ</label>
+                    <textarea id="tr_note" placeholder="หมายเหตุ (ถ้ามี)" rows="2" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;resize:none;"></textarea>
+                </div>
+                <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#0369a1;">
+                    💡 จะ Export เฉพาะสินค้าที่ <b>ต้องสั่ง ${items.length} รายการ</b> — เลขที่เอกสาร PR จะออก AUTO ใน TRCloud
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="doExportTRCloud()" style="flex:1;background:#7c3aed;color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:bold;">📥 Export TRCloud PR.xlsx</button>
+                    <button onclick="document.getElementById('trcloudModal').remove()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+        };
+
+        window.doExportTRCloud=function(){
+            const items=window._orderItems.filter(it=>it.needOrder||it.status.includes('🟡'));
+            const g=id=>document.getElementById(id)?.value||'';
+            const docDateRaw=g('tr_doc_date');
+            const dueDateRaw=g('tr_due_date');
+            const fmtDate=s=>{if(!s)return '';const[y,m,d]=s.split('-');return `${d}/${m}/${parseInt(y)+543}`;};
+
+            // Sheet 1: Header (หัวเอกสาร PR)
+            const headerSheet=[
+                ['=== TRCloud PR Import — Header ==='],
+                ['Field','Value','','Field','Value'],
+                ['หมวดหมู่',g('tr_cat'),'','คู่ค้า (รหัส)',g('tr_sup_code')],
+                ['แผนก',g('tr_dept'),'','คู่ค้า (ชื่อ)',g('tr_sup_name')],
+                ['โครงการ',g('tr_proj'),'','วันที่เอกสาร',fmtDate(docDateRaw)],
+                ['คลังสินค้า',g('tr_wh'),'','กำหนดส่งของ',fmtDate(dueDateRaw)],
+                ['จัดทำโดย',window.currentUser?.name||'','','เลขที่เอกสาร','AUTO'],
+                ['หมายเหตุ',g('tr_note')],
             ];
-            const rows=items.map(it=>{
+
+            // Sheet 2: รายการสินค้า PR format
+            const itemHeader=[['#','รหัสสินค้า','ชื่อสินค้า','จำนวน','หน่วย','ราคาต่อหน่วย','ส่วนลด(%)','VAT/GST','มูลค่าก่อนภาษี','คลัง/โซน','หมายเหตุ']];
+            const itemRows=items.map((it,i)=>{
                 const actual=parseFloat(document.getElementById(`order_${it.zone}_${it.id}`)?.value)||it.suggestQty||0;
-                return [it.id, it.name, actual, it.unit, '', '0', it.zone, `คงเหลือ ${it.balance} (Min:${it.min})`];
+                return [i+1, it.id, it.name, actual, it.unit, '', '0', '7%', '', it.zone, `คงเหลือ:${it.balance} Min:${it.min}`];
             });
 
-            const allRows=[...header,...rows];
-            const ws=XLSX.utils.aoa_to_sheet(allRows);
-            // style header rows
-            ws['!cols']=[{wch:15},{wch:35},{wch:10},{wch:10},{wch:15},{wch:10},{wch:20},{wch:30}];
             const wb=XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb,ws,'PO_TRCloud');
-            XLSX.writeFile(wb,`TRCloud_PO_${docDate.replace(/\//g,'-')}.xlsx`);
-            toast('✅ Export TRCloud Format สำเร็จ','#059669');
+            const ws1=XLSX.utils.aoa_to_sheet(headerSheet);
+            const ws2=XLSX.utils.aoa_to_sheet([...itemHeader,...itemRows]);
+            ws1['!cols']=[{wch:18},{wch:30},{wch:4},{wch:18},{wch:30}];
+            ws2['!cols']=[{wch:4},{wch:15},{wch:35},{wch:10},{wch:10},{wch:15},{wch:12},{wch:8},{wch:18},{wch:20},{wch:30}];
+            XLSX.utils.book_append_sheet(wb,ws1,'PR_Header');
+            XLSX.utils.book_append_sheet(wb,ws2,'PR_Items');
+            XLSX.writeFile(wb,`TRCloud_PR_${fmtDate(docDateRaw).replace(/\//g,'-')}.xlsx`);
+            document.getElementById('trcloudModal').remove();
+            toast('✅ Export TRCloud PR สำเร็จ','#059669');
         };
 
         // ======== IMPORT PRODUCTS FROM EXCEL ========
@@ -2194,6 +2266,434 @@ ${it.zone}`);
             document.getElementById('importFileLabel').innerText='ยังไม่ได้เลือกไฟล์';
             window._importData=[];
         };
+
+        // ======== REQUISITION SYSTEM ========
+        // Firestore: requisitions/{id} = {
+        //   mrNumber, date, requestedBy, department, zone, purpose,
+        //   items:[{id,name,unit,qtyRequested,qtyIssued}],
+        //   status: 'pending'|'approved'|'issued'|'rejected',
+        //   approvedBy, approvedAt, issuedBy, issuedAt, note,
+        //   timestamp
+        // }
+
+        const MR_STATUS = {
+            pending:  { label:'รออนุมัติ',  color:'#f59e0b', bg:'#fffbeb' },
+            approved: { label:'อนุมัติแล้ว', color:'#3b82f6', bg:'#eff6ff' },
+            issued:   { label:'จ่ายแล้ว',   color:'#10b981', bg:'#f0fdf4' },
+            rejected: { label:'ไม่อนุมัติ', color:'#ef4444', bg:'#fef2f2' },
+        };
+
+        async function genMRNumber() {
+            const now = new Date();
+            const prefix = `MR-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+            const snap = await getDocs(collection(db,'requisitions'));
+            const todayDocs = [];
+            snap.forEach(d=>{ if(d.id.startsWith(prefix)) todayDocs.push(d.id); });
+            const seq = String(todayDocs.length+1).padStart(3,'0');
+            return `${prefix}-${seq}`;
+        }
+
+        // ---- สร้างใบเบิกใหม่ ----
+        window.openCreateRequisition = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            const visibleZones = getVisibleWarehouses();
+            const usSnap = await getDocs(collection(db,'users'));
+            let staffOpts = '';
+            usSnap.forEach(d=>{ const u=d.data(); if(u.status!=='suspended') staffOpts+=`<option value="${u.name}">${u.name}</option>`; });
+            const today = new Date().toISOString().slice(0,10);
+
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <h2>✏️ สร้างใบเบิกสินค้า (MR)</h2>
+                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;">
+                <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่ขอเบิก (บังคับ)</label>
+                    <input type="date" id="mr_date" value="${today}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+                </div>
+                <div class="input-group" style="border:2px solid var(--info);"><label>👤 ผู้ขอเบิก</label>
+                    <select id="mr_requester" style="width:100%;border:none;font-weight:bold;outline:none;">
+                        <option value="${currentUser.name}">${currentUser.name} (คุณ)</option>${staffOpts}
+                    </select>
+                </div>
+                <div class="input-group"><label>🏭 แผนก / ฝ่าย</label>
+                    <input type="text" id="mr_dept" placeholder="เช่น ฝ่ายผลิต" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+                </div>
+                <div class="input-group"><label>📦 เบิกจากคลัง</label>
+                    <select id="mr_zone" onchange="renderMRItems()" style="width:100%;border:none;font-weight:bold;outline:none;">
+                        ${visibleZones.map(z=>`<option value="${z}">${z}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="input-group" style="grid-column:span 2;"><label>📝 วัตถุประสงค์การเบิก</label>
+                    <input type="text" id="mr_purpose" placeholder="เช่น ผลิตเมนู Mochi วันที่ 21/02/2569" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <input type="text" id="mr_search" placeholder="🔍 ค้นหาสินค้า..." oninput="filterMRRows(this.value)"
+                    style="width:100%;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
+            </div>
+
+            <div id="mrItemsContainer"></div>
+
+            <div style="margin-top:24px;display:flex;gap:12px;justify-content:center;" class="no-print">
+                <button onclick="submitRequisition()" style="background:var(--success);color:white;padding:16px 48px;border:none;border-radius:12px;font-size:17px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.3);">
+                    📤 ส่งคำขอเบิก
+                </button>
+            </div>`;
+
+            renderMRItems();
+        };
+
+        window.renderMRItems = function() {
+            const zone = document.getElementById('mr_zone')?.value || '';
+            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const c = document.getElementById('mrItemsContainer'); if(!c) return;
+            c.innerHTML = `
+            <table class="stock-table" id="mrTable">
+                <thead><tr style="background:#f8fafc;">
+                    <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;">รหัส / ชื่อสินค้า</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">คงเหลือ (ระบบ)</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">จำนวนที่ขอเบิก</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
+                    <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;">หมายเหตุ</th>
+                </tr></thead>
+                <tbody>${zoneProds.map(p=>{
+                    const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
+                    const bal = countData[p.id]?.total??'-';
+                    const balColor = typeof bal==='number'&&bal<=0?'#ef4444':typeof bal==='number'&&bal<10?'#f59e0b':'var(--success)';
+                    return `<tr class="stock-row mr-row" data-id="${p.id}" data-name="${p.name.toLowerCase()} ${p.id.toLowerCase()}">
+                        <td style="padding:12px;">
+                            <b style="font-size:14px;">${p.id}</b><br>
+                            <span style="color:#475569;font-size:13px;">${p.name}</span>
+                        </td>
+                        <td style="padding:12px;text-align:center;font-weight:bold;font-size:16px;color:${balColor};">${bal}</td>
+                        <td style="padding:12px;text-align:center;">
+                            <input type="number" id="mr_qty_${p.id}" min="0" placeholder="0"
+                                style="width:80px;padding:8px;border:2px solid #e2e8f0;border-radius:8px;text-align:center;font-weight:bold;font-size:15px;outline:none;"
+                                onfocus="this.style.borderColor='var(--info)'" onblur="this.style.borderColor='#e2e8f0'">
+                        </td>
+                        <td style="padding:12px;text-align:center;color:#64748b;">${u}</td>
+                        <td style="padding:12px;">
+                            <input type="text" id="mr_note_${p.id}" placeholder="หมายเหตุ"
+                                style="width:100%;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                        </td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>`;
+        };
+
+        window.filterMRRows = function(q) {
+            q = q.toLowerCase().trim();
+            document.querySelectorAll('.mr-row').forEach(row=>{
+                row.style.display = (!q||row.dataset.name.includes(q)) ? '' : 'none';
+            });
+        };
+
+        window.submitRequisition = async function() {
+            const date  = document.getElementById('mr_date')?.value;
+            const by    = document.getElementById('mr_requester')?.value;
+            const dept  = document.getElementById('mr_dept')?.value||'';
+            const zone  = document.getElementById('mr_zone')?.value;
+            const purp  = document.getElementById('mr_purpose')?.value||'';
+            if(!date||!zone){toast('⚠️ กรุณากรอกข้อมูลให้ครบ','#c2410c');return;}
+
+            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const items = zoneProds.map(p=>{
+                const qty = parseFloat(document.getElementById(`mr_qty_${p.id}`)?.value)||0;
+                const note = document.getElementById(`mr_note_${p.id}`)?.value||'';
+                const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
+                return qty>0 ? {id:p.id,name:p.name,unit:u,qtyRequested:qty,qtyIssued:0,note} : null;
+            }).filter(Boolean);
+
+            if(!items.length){toast('⚠️ กรุณากรอกจำนวนอย่างน้อย 1 รายการ','#c2410c');return;}
+            if(!confirm(`ยืนยันส่งใบเบิก ${items.length} รายการ จากคลัง ${zone}?`))return;
+
+            const [y,m,d] = date.split('-');
+            const dateStr = `${d}/${m}/${parseInt(y)+543}`;
+            const mrNumber = await genMRNumber();
+
+            await addDoc(collection(db,'requisitions'),{
+                mrNumber, date:dateStr, timestamp:Date.now(),
+                requestedBy:by, department:dept, zone, purpose:purp,
+                items, status:'pending',
+                approvedBy:'', approvedAt:'', issuedBy:'', issuedAt:'', rejectReason:''
+            });
+
+            toast(`✅ ส่งใบเบิก ${mrNumber} เรียบร้อยแล้ว`,'#059669');
+            loadReqBadge();
+            openMyRequisitions();
+        };
+
+        // ---- ใบเบิกของฉัน ----
+        window.openMyRequisitions = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            c.innerHTML = `<div class="tool-header"><h2>📄 ใบเบิกของฉัน</h2><div style="display:flex;gap:8px;">
+                <button onclick="openCreateRequisition()" style="background:#f59e0b;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">✏️ สร้างใบเบิกใหม่</button>
+                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+            </div></div>
+            <div id="myReqList"><p style="text-align:center;color:#94a3b8;padding:40px;">กำลังโหลด...</p></div>`;
+
+            const snap = await getDocs(collection(db,'requisitions'));
+            let docs = [];
+            snap.forEach(d=>docs.push({id:d.id,...d.data()}));
+            docs = docs.filter(d=>d.requestedBy===currentUser.name || currentUser.role==='admin');
+            docs.sort((a,b)=>b.timestamp-a.timestamp);
+            renderReqList('myReqList', docs, false);
+        };
+
+        // ---- รออนุมัติ (warehouse/admin) ----
+        window.openPendingRequisitions = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            c.innerHTML = `<div class="tool-header"><h2>🔔 ใบเบิกรออนุมัติ / จ่ายของ</h2>
+                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:16px;">
+                <button onclick="filterReqStatus('pending')" id="rsbtn_pending" style="padding:7px 16px;border-radius:8px;border:2px solid #f59e0b;background:#f59e0b;color:white;cursor:pointer;font-size:12px;font-weight:bold;">รออนุมัติ</button>
+                <button onclick="filterReqStatus('approved')" id="rsbtn_approved" style="padding:7px 16px;border-radius:8px;border:2px solid #3b82f6;background:white;color:#3b82f6;cursor:pointer;font-size:12px;font-weight:bold;">อนุมัติแล้ว รอจ่าย</button>
+                <button onclick="filterReqStatus('all')" id="rsbtn_all" style="padding:7px 16px;border-radius:8px;border:2px solid #64748b;background:white;color:#64748b;cursor:pointer;font-size:12px;font-weight:bold;">ทั้งหมด</button>
+            </div>
+            <div id="pendingReqList"><p style="text-align:center;color:#94a3b8;padding:40px;">กำลังโหลด...</p></div>`;
+
+            const snap = await getDocs(collection(db,'requisitions'));
+            let docs = [];
+            snap.forEach(d=>docs.push({id:d.id,...d.data()}));
+            docs.sort((a,b)=>b.timestamp-a.timestamp);
+            window._allReqDocs = docs;
+            filterReqStatus('pending');
+        };
+
+        window.filterReqStatus = function(status) {
+            const docs = window._allReqDocs||[];
+            const filtered = status==='all' ? docs : docs.filter(d=>d.status===status);
+            renderReqList('pendingReqList', filtered, true);
+            ['pending','approved','all'].forEach(s=>{
+                const btn = document.getElementById(`rsbtn_${s}`);
+                if(!btn) return;
+                const colors = {pending:'#f59e0b',approved:'#3b82f6',all:'#64748b'};
+                btn.style.background = s===status ? colors[s] : 'white';
+                btn.style.color = s===status ? 'white' : colors[s];
+            });
+        };
+
+        window.openAllRequisitions = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            c.innerHTML = `<div class="tool-header"><h2>📊 ใบเบิกทั้งหมด</h2><div style="display:flex;gap:8px;">
+                <button onclick="exportReqExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+            </div></div>
+            <div id="allReqList"><p style="text-align:center;color:#94a3b8;padding:40px;">กำลังโหลด...</p></div>`;
+
+            const snap = await getDocs(collection(db,'requisitions'));
+            let docs = [];
+            snap.forEach(d=>docs.push({id:d.id,...d.data()}));
+            docs.sort((a,b)=>b.timestamp-a.timestamp);
+            window._allReqDocs = docs;
+            renderReqList('allReqList', docs, true);
+        };
+
+        // ---- Render รายการใบเบิก ----
+        function renderReqList(containerId, docs, showActions) {
+            const c = document.getElementById(containerId); if(!c) return;
+            if(!docs.length){c.innerHTML='<p style="text-align:center;color:#94a3b8;padding:40px;">ไม่มีรายการ</p>';return;}
+            c.innerHTML = docs.map(d=>{
+                const st = MR_STATUS[d.status]||MR_STATUS.pending;
+                const canApprove = showActions && d.status==='pending' && ['admin','warehouse'].includes(currentUser.role);
+                const canIssue   = showActions && d.status==='approved' && ['admin','warehouse'].includes(currentUser.role);
+                const canReject  = showActions && d.status==='pending' && ['admin','warehouse'].includes(currentUser.role);
+                return `<div class="history-card" style="margin-bottom:16px;border-left:4px solid ${st.color};background:${st.bg};">
+                    <div class="history-card-header">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span style="font-weight:bold;font-size:15px;color:var(--primary-dark);">${d.mrNumber}</span>
+                            <span style="background:${st.color};color:white;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:bold;">${st.label}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:12px;color:#64748b;">📅 ${d.date} • 👤 ${d.requestedBy} • 📦 ${d.zone}</span>
+                            ${canApprove?`<button onclick="approveReq('${d.id}')" style="background:#3b82f6;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">✅ อนุมัติ</button>`:''}
+                            ${canReject?`<button onclick="rejectReq('${d.id}')" style="background:#ef4444;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">❌ ไม่อนุมัติ</button>`:''}
+                            ${canIssue?`<button onclick="issueReq('${d.id}')" style="background:#10b981;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">📦 จ่ายของแล้ว</button>`:''}
+                            <button onclick="printReq('${d.id}')" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">🖨️ พิมพ์</button>
+                        </div>
+                    </div>
+                    ${d.purpose?`<div style="padding:8px 0;font-size:13px;color:#475569;">📝 ${d.purpose}</div>`:''}
+                    <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+                        <thead><tr style="background:rgba(0,0,0,0.04);">
+                            <th style="padding:8px;text-align:left;font-size:11px;color:#64748b;">รหัส</th>
+                            <th style="padding:8px;text-align:left;font-size:11px;color:#64748b;">ชื่อสินค้า</th>
+                            <th style="padding:8px;text-align:center;font-size:11px;color:#64748b;">ขอเบิก</th>
+                            <th style="padding:8px;text-align:center;font-size:11px;color:#64748b;">จ่ายจริง</th>
+                            <th style="padding:8px;text-align:center;font-size:11px;color:#64748b;">หน่วย</th>
+                            <th style="padding:8px;text-align:left;font-size:11px;color:#64748b;">หมายเหตุ</th>
+                        </tr></thead>
+                        <tbody>${(d.items||[]).map(it=>`
+                        <tr style="border-top:1px solid rgba(0,0,0,0.06);">
+                            <td style="padding:8px;font-weight:bold;font-size:12px;">${it.id}</td>
+                            <td style="padding:8px;font-size:12px;">${it.name}</td>
+                            <td style="padding:8px;text-align:center;font-weight:bold;color:var(--info);">${it.qtyRequested}</td>
+                            <td style="padding:8px;text-align:center;font-weight:bold;color:${it.qtyIssued>0?'var(--success)':'#94a3b8'};">${it.qtyIssued||'-'}</td>
+                            <td style="padding:8px;text-align:center;color:#64748b;font-size:12px;">${it.unit}</td>
+                            <td style="padding:8px;color:#64748b;font-size:11px;">${it.note||'-'}</td>
+                        </tr>`).join('')}</tbody>
+                    </table>
+                    ${d.approvedBy?`<div style="margin-top:8px;font-size:11px;color:#64748b;">✅ อนุมัติโดย: ${d.approvedBy} เมื่อ ${d.approvedAt}</div>`:''}
+                    ${d.issuedBy?`<div style="font-size:11px;color:#64748b;">📦 จ่ายโดย: ${d.issuedBy} เมื่อ ${d.issuedAt}</div>`:''}
+                    ${d.rejectReason?`<div style="font-size:11px;color:#ef4444;">❌ เหตุผล: ${d.rejectReason}</div>`:''}
+                </div>`;
+            }).join('');
+        }
+
+        // ---- Actions ----
+        window.approveReq = async function(docId) {
+            if(!confirm('ยืนยันอนุมัติใบเบิกนี้?'))return;
+            const {updateDoc} = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+            const now = new Date();
+            await updateDoc(doc(db,'requisitions',docId),{
+                status:'approved', approvedBy:currentUser.name,
+                approvedAt:`${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}`
+            });
+            toast('✅ อนุมัติแล้ว','#059669');
+            loadReqBadge();
+            openPendingRequisitions();
+        };
+
+        window.rejectReq = async function(docId) {
+            const reason = prompt('ระบุเหตุผลที่ไม่อนุมัติ:');
+            if(reason===null)return;
+            const {updateDoc} = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+            await updateDoc(doc(db,'requisitions',docId),{
+                status:'rejected', approvedBy:currentUser.name, rejectReason:reason||'ไม่ระบุ'
+            });
+            toast('❌ ไม่อนุมัติแล้ว','#c2410c');
+            loadReqBadge();
+            openPendingRequisitions();
+        };
+
+        window.issueReq = async function(docId) {
+            if(!confirm('ยืนยันจ่ายของครบแล้ว?'))return;
+            const {updateDoc} = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+            const snap = await getDoc(doc(db,'requisitions',docId));
+            const data = snap.data();
+            const now = new Date();
+            // อัปเดตสถานะ
+            await updateDoc(doc(db,'requisitions',docId),{
+                status:'issued', issuedBy:currentUser.name,
+                issuedAt:`${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}`,
+                'items': data.items.map(it=>({...it, qtyIssued:it.qtyRequested}))
+            });
+            toast('📦 บันทึกจ่ายของแล้ว','#059669');
+            loadReqBadge();
+            openPendingRequisitions();
+        };
+
+        // ---- Print PDF ----
+        window.printReq = async function(docId) {
+            const snap = await getDoc(doc(db,'requisitions',docId));
+            if(!snap.exists())return;
+            const d = snap.data();
+            const st = MR_STATUS[d.status]||MR_STATUS.pending;
+            const rows = (d.items||[]).map((it,i)=>`<tr style="${i%2===0?'background:#f8fafc':''}">
+                <td style="padding:9px;text-align:center;color:#64748b;">${i+1}</td>
+                <td style="padding:9px;font-weight:bold;">${it.id}</td>
+                <td style="padding:9px;">${it.name}</td>
+                <td style="padding:9px;text-align:center;font-weight:bold;color:#3b82f6;">${it.qtyRequested}</td>
+                <td style="padding:9px;text-align:center;font-weight:bold;color:#10b981;">${it.qtyIssued||'-'}</td>
+                <td style="padding:9px;text-align:center;color:#64748b;">${it.unit}</td>
+                <td style="padding:9px;color:#64748b;">${it.note||''}</td>
+            </tr>`).join('');
+
+            const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                body{font-family:'Sarabun',sans-serif;margin:0;padding:30px;color:#1e293b;font-size:13px;}
+                .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #1e293b;}
+                .badge{padding:6px 16px;border-radius:20px;font-weight:bold;font-size:13px;background:${st.color};color:white;}
+                table{width:100%;border-collapse:collapse;margin-top:16px;}
+                thead tr{background:#1e293b;color:white;}
+                th{padding:10px;text-align:left;font-size:12px;}
+                td{border-bottom:1px solid #e2e8f0;vertical-align:middle;}
+                .meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;}
+                .meta-box{background:#f8fafc;border-radius:8px;padding:12px;}
+                .meta-label{font-size:10px;color:#94a3b8;font-weight:bold;}
+                .meta-val{font-weight:bold;margin-top:2px;}
+                .footer{margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:30px;}
+                .sign-box{text-align:center;padding-top:50px;border-top:1px solid #334155;}
+                @media print{body{padding:15px;}}
+            </style>
+            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+            </head><body>
+            <div class="header">
+                <div>
+                    <div style="font-size:20px;font-weight:bold;">🏢 TingTing Bingsu</div>
+                    <div style="color:#64748b;font-size:13px;margin-top:4px;">ใบขอเบิกสินค้า (Material Requisition)</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:18px;font-weight:bold;">${d.mrNumber}</div>
+                    <div class="badge">${st.label}</div>
+                </div>
+            </div>
+            <div class="meta">
+                <div class="meta-box"><div class="meta-label">วันที่</div><div class="meta-val">${d.date}</div></div>
+                <div class="meta-box"><div class="meta-label">ผู้ขอเบิก</div><div class="meta-val">${d.requestedBy}</div></div>
+                <div class="meta-box"><div class="meta-label">แผนก</div><div class="meta-val">${d.department||'-'}</div></div>
+                <div class="meta-box"><div class="meta-label">เบิกจากคลัง</div><div class="meta-val">${d.zone}</div></div>
+                <div class="meta-box" style="grid-column:span 2;"><div class="meta-label">วัตถุประสงค์</div><div class="meta-val">${d.purpose||'-'}</div></div>
+            </div>
+            <table>
+                <thead><tr>
+                    <th style="width:35px;text-align:center;">#</th>
+                    <th style="width:110px;">รหัสสินค้า</th>
+                    <th>ชื่อสินค้า</th>
+                    <th style="width:80px;text-align:center;">ขอเบิก</th>
+                    <th style="width:80px;text-align:center;">จ่ายจริง</th>
+                    <th style="width:60px;text-align:center;">หน่วย</th>
+                    <th>หมายเหตุ</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            ${d.approvedBy?`<div style="margin-top:12px;padding:10px;background:#eff6ff;border-radius:8px;font-size:12px;">✅ อนุมัติโดย: <b>${d.approvedBy}</b> เมื่อ ${d.approvedAt}</div>`:''}
+            ${d.issuedBy?`<div style="margin-top:6px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:12px;">📦 จ่ายของโดย: <b>${d.issuedBy}</b> เมื่อ ${d.issuedAt}</div>`:''}
+            <div class="footer">
+                <div class="sign-box"><div style="font-size:11px;color:#64748b;">ผู้ขอเบิก</div></div>
+                <div class="sign-box"><div style="font-size:11px;color:#64748b;">ผู้อนุมัติ</div></div>
+                <div class="sign-box"><div style="font-size:11px;color:#64748b;">ผู้จ่ายสินค้า</div></div>
+            </div>
+            </body></html>`;
+
+            const w=window.open('','_blank','width=900,height=700');
+            w.document.write(html); w.document.close();
+            setTimeout(()=>w.print(),800);
+        };
+
+        // ---- Export Excel ----
+        window.exportReqExcel = function() {
+            const docs = window._allReqDocs||[];
+            if(!docs.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
+            const rows=[['เลขที่ MR','วันที่','ผู้ขอเบิก','แผนก','คลัง','วัตถุประสงค์','รหัสสินค้า','ชื่อสินค้า','ขอเบิก','จ่ายจริง','หน่วย','สถานะ']];
+            docs.forEach(d=>{
+                const st=MR_STATUS[d.status]?.label||d.status;
+                (d.items||[]).forEach(it=>{
+                    rows.push([d.mrNumber,d.date,d.requestedBy,d.department||'',d.zone,d.purpose||'',it.id,it.name,it.qtyRequested,it.qtyIssued||0,it.unit,st]);
+                });
+            });
+            const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,'Requisitions');
+            XLSX.writeFile(wb,`MR_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
+        };
+
+        // ---- Badge counter ----
+        async function loadReqBadge() {
+            try {
+                const snap = await getDocs(collection(db,'requisitions'));
+                let pending = 0;
+                snap.forEach(d=>{ if(d.data().status==='pending') pending++; });
+                const badge = document.getElementById('reqBadge');
+                if(badge) { badge.innerText = pending>0?pending:''; badge.style.display=pending>0?'':'none'; }
+            } catch(e){}
+        }
 
         window.logout=function(){
             try { const uid=currentUser?.username; if(uid){ set(ref(rtdb,`presence/${uid}`),null).catch(()=>{}); } } catch(e){}
