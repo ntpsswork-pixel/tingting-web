@@ -139,8 +139,10 @@
                 <div id="subAdmin" class="submenu">
                     <div onclick="openUserManagement()">● จัดการพนักงาน & สิทธิ์</div>
                     <div onclick="openWarehouseManager()" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
+                    <div onclick="openRequisitionSettings()" style="color:#f59e0b;">● ตั้งค่าใบเบิก</div>
                 </div>
             </div>
+            <div class="nav-item" onclick="openHelpGuide()" style="color:#7c3aed;border-top:1px solid rgba(255,255,255,0.05);padding:14px 20px;">📖 คู่มือการใช้งาน</div>
         </div>
         <div class="nav-item" onclick="logout()" style="color:var(--danger);border-top:1px solid rgba(255,255,255,0.05);margin-top:auto;padding:20px;">🚪 ออกจากระบบ</div>
     </div>  <!-- end sidebar -->
@@ -236,6 +238,7 @@
         let selectedStaff = "";
         let selectedDate = new Date().toISOString().split('T')[0];
         let productMinMax = {}; // { "zone__productId": { min, max } }
+        let reqTemplates  = {}; // { templateId: { name, dept, zone, items:[{id,name,unit}], color } }
 
         // ---- UTILS ----
         async function hashPassword(p) {
@@ -262,6 +265,7 @@
                     if (d.zoneProductMap) zoneProductMap = d.zoneProductMap;
                     if (d.roleSettings)   roleSettings   = d.roleSettings;
                     if (d.productMinMax)  productMinMax  = d.productMinMax;
+                    if (d.reqTemplates)   reqTemplates   = d.reqTemplates;
                     // --- migrate: เพิ่ม requisition ให้ทุก role ที่ยังไม่มี ---
                     let needSave = false;
                     const reqDefaults = {
@@ -284,7 +288,7 @@
         }
 
         async function saveConfig() {
-            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax }, { merge:true }); }
+            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates }, { merge:true }); }
             catch(e) { toast('❌ บันทึก config ไม่สำเร็จ','#c2410c'); }
         }
 
@@ -2320,11 +2324,31 @@ ${it.zone}`);
             usSnap.forEach(d=>{ const u=d.data(); if(u.status!=='suspended') staffOpts+=`<option value="${u.name}">${u.name}</option>`; });
             const today = new Date().toISOString().slice(0,10);
 
+            // build template buttons
+            const tmplEntries = Object.entries(reqTemplates);
+            const tmplBar = tmplEntries.length ? `
+            <div style="margin-bottom:16px;">
+                <div style="font-size:12px;font-weight:bold;color:#64748b;margin-bottom:8px;">⚡ ใช้ Template สำเร็จรูป:</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${tmplEntries.map(([id,t])=>`
+                    <button onclick="applyReqTemplate('${id}')" style="background:white;border:2px solid ${t.color};color:${t.color};padding:7px 16px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:bold;transition:all 0.15s;"
+                        onmouseover="this.style.background='${t.color}';this.style.color='white'"
+                        onmouseout="this.style.background='white';this.style.color='${t.color}'">
+                        ${t.name}
+                    </button>`).join('')}
+                    <button onclick="openRequisitionSettings()" style="background:white;border:2px dashed #e2e8f0;color:#94a3b8;padding:7px 14px;border-radius:20px;cursor:pointer;font-size:12px;">
+                        + จัดการ Template
+                    </button>
+                </div>
+            </div>` : '';
+
             c.innerHTML = `
             <div class="tool-header no-print">
                 <h2>✏️ สร้างใบเบิกสินค้า (MR)</h2>
                 <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
             </div>
+
+            ${tmplBar}
 
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;">
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่ขอเบิก (บังคับ)</label>
@@ -2407,6 +2431,24 @@ ${it.zone}`);
             document.querySelectorAll('.mr-row').forEach(row=>{
                 row.style.display = (!q||row.dataset.name.includes(q)) ? '' : 'none';
             });
+        };
+
+        window.applyReqTemplate = function(tid) {
+            const t = reqTemplates[tid]; if(!t) return;
+            // set zone
+            const zoneEl = document.getElementById('mr_zone');
+            if(zoneEl) { zoneEl.value = t.zone; renderMRItems(); }
+            // set dept
+            const deptEl = document.getElementById('mr_dept');
+            if(deptEl) deptEl.value = t.dept||'';
+            // wait for renderMRItems then check boxes
+            setTimeout(()=>{
+                (t.items||[]).forEach(it=>{
+                    const input = document.getElementById(`mr_qty_${it.id}`);
+                    if(input && !input.value) input.focus();
+                });
+                toast(`✅ ใช้ Template "${t.name}" แล้ว — กรอกจำนวนได้เลย`,'#059669');
+            }, 200);
         };
 
         window.submitRequisition = async function() {
@@ -2711,6 +2753,281 @@ ${it.zone}`);
                 if(badge) { badge.innerText = pending>0?pending:''; badge.style.display=pending>0?'':'none'; }
             } catch(e){}
         }
+
+        // ======== REQUISITION SETTINGS ========
+        const TEMPLATE_COLORS = ['#f59e0b','#3b82f6','#10b981','#7c3aed','#ef4444','#ec4899','#06b6d4','#84cc16'];
+
+        window.openRequisitionSettings = function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            renderReqSettingsPage(c);
+        };
+
+        function renderReqSettingsPage(c) {
+            const tmplList = Object.entries(reqTemplates);
+            c.innerHTML = `
+            <div class="tool-header">
+                <h2>⚙️ ตั้งค่าใบเบิก (Template)</h2>
+                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+            </div>
+            <p style="color:#64748b;font-size:13px;margin-bottom:20px;">สร้าง Template ใบเบิกสำเร็จรูปสำหรับแต่ละแผนก เช่น "ใบเบิกแผนกบิงซู" ฝ่ายผลิตกดใช้ได้เลยไม่ต้องกรอกใหม่ทุกครั้ง</p>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px;">
+                ${tmplList.map(([id,t])=>`
+                <div style="background:white;border-radius:14px;border:3px solid ${t.color};padding:20px;position:relative;">
+                    <div style="position:absolute;top:12px;right:12px;display:flex;gap:6px;">
+                        <button onclick="editTemplate('${id}')" style="background:#f1f5f9;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;">✏️ แก้ไข</button>
+                        <button onclick="deleteTemplate('${id}')" style="background:#fef2f2;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#ef4444;">🗑️</button>
+                    </div>
+                    <div style="font-size:18px;font-weight:bold;color:${t.color};margin-bottom:4px;">${t.name}</div>
+                    <div style="font-size:12px;color:#64748b;margin-bottom:8px;">📦 ${t.zone} • 🏭 ${t.dept||'ไม่ระบุแผนก'}</div>
+                    <div style="font-size:12px;color:#94a3b8;">${(t.items||[]).length} รายการสินค้า</div>
+                    <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px;">
+                        ${(t.items||[]).slice(0,4).map(it=>`<span style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;padding:2px 10px;font-size:11px;">${it.name}</span>`).join('')}
+                        ${(t.items||[]).length>4?`<span style="color:#94a3b8;font-size:11px;">+${(t.items||[]).length-4} รายการ</span>`:''}
+                    </div>
+                </div>`).join('')}
+
+                <!-- Add new card -->
+                <div onclick="openNewTemplateForm()" style="background:white;border-radius:14px;border:3px dashed #e2e8f0;padding:20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:140px;transition:border 0.2s;"
+                    onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='#e2e8f0'">
+                    <div style="font-size:36px;color:#cbd5e1;">+</div>
+                    <div style="color:#94a3b8;font-size:13px;margin-top:4px;">สร้าง Template ใหม่</div>
+                </div>
+            </div>
+
+            <div id="templateFormArea"></div>`;
+        }
+
+        window.openNewTemplateForm = function(editId) {
+            const c = document.getElementById('toolAppContainer');
+            const existing = editId ? reqTemplates[editId] : null;
+            const tid = editId || `tmpl_${Date.now()}`;
+            const visibleZones = getVisibleWarehouses();
+
+            document.getElementById('templateFormArea').innerHTML = `
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:24px;margin-top:8px;">
+                <h4 style="margin-top:0;">${existing?'✏️ แก้ไข Template':'➕ สร้าง Template ใหม่'}</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">ชื่อ Template <span style="color:#ef4444;">*</span></label>
+                        <input id="tf_name" value="${existing?.name||''}" placeholder="เช่น ใบเบิกแผนกบิงซู"
+                            style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;font-weight:bold;"></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">แผนก</label>
+                        <input id="tf_dept" value="${existing?.dept||''}" placeholder="เช่น ฝ่ายผลิตบิงซู"
+                            style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">เบิกจากคลัง <span style="color:#ef4444;">*</span></label>
+                        <select id="tf_zone" onchange="renderTemplateItems()" style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:bold;">
+                            ${visibleZones.map(z=>`<option value="${z}" ${existing?.zone===z?'selected':''}>${z}</option>`).join('')}
+                        </select></div>
+                </div>
+                <div style="margin-bottom:12px;"><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:6px;">สีประจำ Template</label>
+                    <div style="display:flex;gap:8px;">
+                        ${TEMPLATE_COLORS.map(col=>`<div onclick="selectTmplColor('${col}')" id="tcolor_${col.replace('#','')}"
+                            style="width:28px;height:28px;border-radius:50%;background:${col};cursor:pointer;border:3px solid ${existing?.color===col?'#1e293b':'transparent'};transition:border 0.15s;"></div>`).join('')}
+                    </div>
+                    <input type="hidden" id="tf_color" value="${existing?.color||TEMPLATE_COLORS[0]}">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:6px;">เลือกสินค้าที่ใช้บ่อย (ติ๊กเพื่อใส่ใน Template)</label>
+                    <input type="text" placeholder="🔍 ค้นหาสินค้า..." oninput="filterTmplItems(this.value)"
+                        style="width:100%;padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:10px;outline:none;">
+                    <div id="templateItemsList" style="max-height:280px;overflow-y:auto;border:1px solid #f1f5f9;border-radius:10px;"></div>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button onclick="saveTemplate('${tid}')" style="background:#7c3aed;color:white;border:none;padding:10px 28px;border-radius:10px;cursor:pointer;font-weight:bold;">💾 บันทึก Template</button>
+                    <button onclick="document.getElementById('templateFormArea').innerHTML=''" style="background:#f1f5f9;color:#475569;border:none;padding:10px 18px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
+                </div>
+            </div>`;
+
+            window._editingTemplateId = tid;
+            window._editingTemplateExisting = existing;
+            renderTemplateItems();
+            document.getElementById('templateFormArea').scrollIntoView({behavior:'smooth'});
+        };
+
+        window.selectTmplColor = function(col) {
+            document.getElementById('tf_color').value = col;
+            TEMPLATE_COLORS.forEach(c=>{
+                const el = document.getElementById(`tcolor_${c.replace('#','')}`);
+                if(el) el.style.border = `3px solid ${c===col?'#1e293b':'transparent'}`;
+            });
+        };
+
+        window.renderTemplateItems = function() {
+            const zone = document.getElementById('tf_zone')?.value||'';
+            const existing = window._editingTemplateExisting;
+            const checkedIds = new Set((existing?.items||[]).map(i=>i.id));
+            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const c = document.getElementById('templateItemsList'); if(!c) return;
+            c.innerHTML = zoneProds.map(p=>{
+                const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
+                return `<label class="tmpl-item-row" data-search="${p.id.toLowerCase()} ${p.name.toLowerCase()}"
+                    style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #f8fafc;cursor:pointer;">
+                    <input type="checkbox" id="titem_${p.id}" value="${p.id}" ${checkedIds.has(p.id)?'checked':''}
+                        style="width:16px;height:16px;accent-color:#7c3aed;cursor:pointer;">
+                    <span style="font-weight:bold;font-size:13px;min-width:90px;">${p.id}</span>
+                    <span style="color:#475569;font-size:13px;flex:1;">${p.name}</span>
+                    <span style="color:#94a3b8;font-size:11px;">${u}</span>
+                </label>`;
+            }).join('') || '<p style="color:#94a3b8;padding:16px;text-align:center;">ไม่มีสินค้าในคลังนี้</p>';
+        };
+
+        window.filterTmplItems = function(q) {
+            q = q.toLowerCase().trim();
+            document.querySelectorAll('.tmpl-item-row').forEach(row=>{
+                row.style.display = (!q||row.dataset.search.includes(q)) ? '' : 'none';
+            });
+        };
+
+        window.saveTemplate = function(tid) {
+            const name = document.getElementById('tf_name')?.value.trim();
+            const dept = document.getElementById('tf_dept')?.value.trim()||'';
+            const zone = document.getElementById('tf_zone')?.value;
+            const color = document.getElementById('tf_color')?.value||TEMPLATE_COLORS[0];
+            if(!name){toast('⚠️ กรุณาใส่ชื่อ Template','#c2410c');return;}
+
+            const items = allProducts.filter(p=>{
+                const cb = document.getElementById(`titem_${p.id}`);
+                return cb?.checked && (zoneProductMap[zone]||[]).includes(p.id);
+            }).map(p=>({id:p.id, name:p.name, unit:(p.units||[{name:p.unit||''}])[0]?.name||''}));
+
+            reqTemplates[tid] = {name, dept, zone, color, items};
+            saveConfig();
+            toast(`✅ บันทึก Template "${name}" แล้ว`,'#059669');
+            const c = document.getElementById('toolAppContainer');
+            renderReqSettingsPage(c);
+        };
+
+        window.editTemplate = function(id) {
+            window._editingTemplateExisting = reqTemplates[id];
+            openNewTemplateForm(id);
+        };
+
+        window.deleteTemplate = function(id) {
+            if(!confirm(`ลบ Template "${reqTemplates[id]?.name}"?`))return;
+            delete reqTemplates[id];
+            saveConfig();
+            const c = document.getElementById('toolAppContainer');
+            renderReqSettingsPage(c);
+            toast('🗑️ ลบ Template แล้ว','#64748b');
+        };
+
+        // ======== HELP GUIDE ========
+        window.openHelpGuide = function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+
+            const sections = [
+                {
+                    icon:'🏠', title:'Dashboard',
+                    color:'#3b82f6',
+                    items:[
+                        {q:'Dashboard แสดงอะไรบ้าง?', a:'แสดงภาพรวมสต๊อกทุกคลัง, แนวโน้มการนับ 7 วันล่าสุด, session ล่าสุด และถ้ามีสินค้าต่ำกว่า Min จะขึ้น banner แดงแจ้งเตือนทันที'},
+                        {q:'เปลี่ยน Password ได้ที่ไหน?', a:'ด้านซ้ายบน ใต้ชื่อผู้ใช้ มีปุ่ม 🔑 เปลี่ยน Password'},
+                        {q:'ระบบ logout อัตโนมัติเมื่อไหร่?', a:'ไม่มีการใช้งาน 30 นาที ระบบจะแจ้งเตือนก่อน 2 นาที กด "ฉันยังอยู่" เพื่อต่ออายุ Session'},
+                    ]
+                },
+                {
+                    icon:'📦', title:'คลังสินค้า',
+                    color:'#f59e0b',
+                    items:[
+                        {q:'ประวัติ & Export รายงาน คืออะไร?', a:'ดูประวัติการนับสต๊อกทุกครั้ง Export เป็น Excel ได้ 2 แบบ: (1) ประวัติย้อนหลัง (2) ยอดล่าสุด Snapshot'},
+                        {q:'ใบนับสต๊อกคงเหลือ ต่างจากนับสต๊อกปกติอย่างไร?', a:'นับสต๊อกปกติคือ "ของที่รับเข้ามา" ส่วนใบนับสต๊อกคงเหลือคือ "ของที่เหลืออยู่จริง" ใช้คำนวณว่าใช้ไปเท่าไหร่ และดูกราฟ trend การใช้งาน'},
+                        {q:'สรุปยอดสั่งซื้อทำงานอย่างไร?', a:'ระบบเปรียบยอดคงเหลือกับ Min/Max ที่ตั้งไว้ ถ้าต่ำกว่า Min จะขึ้น 🔴 ต้องสั่งด่วน พร้อมแนะนำจำนวนสั่ง = Max - คงเหลือ'},
+                        {q:'Export TRCloud Format ใช้ทำอะไร?', a:'Export Excel ที่มี format ตรงกับใบ PR ของ TRCloud กรอกข้อมูลหัวเอกสารแล้วนำไปอ้างอิงตอนคีย์ใน TRCloud ได้เลย'},
+                    ]
+                },
+                {
+                    icon:'📋', title:'ระบบเบิกสินค้า (MR)',
+                    color:'#f59e0b',
+                    items:[
+                        {q:'ขั้นตอนการเบิกสินค้าเป็นอย่างไร?', a:'(1) ฝ่ายผลิตสร้างใบเบิก → (2) ฝ่ายคลังกด "อนุมัติ" → (3) จ่ายของแล้วกด "จ่ายแล้ว" → (4) พิมพ์ PDF ให้ผู้บริหารเซ็น (ถ้าต้องการ)'},
+                        {q:'Template ใบเบิกคืออะไร?', a:'สร้างรายการสินค้าที่เบิกบ่อย เช่น "ใบเบิกแผนกบิงซู" ครั้งถัดไปกดใช้ Template ได้เลย ไม่ต้องเลือกสินค้าใหม่ทุกครั้ง'},
+                        {q:'ใครสามารถอนุมัติใบเบิกได้?', a:'Role warehouse และ admin เท่านั้น Staff/ฝ่ายผลิตสามารถสร้างและดูใบเบิกของตัวเองได้ แต่ไม่สามารถอนุมัติได้'},
+                        {q:'ถ้าสั่งผิดแก้ไขได้ไหม?', a:'ใบเบิกที่ยังเป็น "รออนุมัติ" ฝ่ายคลังสามารถ "ไม่อนุมัติ" พร้อมระบุเหตุผล แล้วให้ฝ่ายผลิตสร้างใบเบิกใหม่'},
+                    ]
+                },
+                {
+                    icon:'🛠️', title:'นับสต๊อกครัวกลาง',
+                    color:'#10b981',
+                    items:[
+                        {q:'วิธีนับสต๊อก?', a:'เลือกโซน → เลือกวันที่ (บังคับ) → เลือกชื่อคนนับ → กรอกจำนวนแล้วกด Enter หรือปุ่ม + → กด "ยืนยันและบันทึก"'},
+                        {q:'ถ้ากรอกผิดแก้ได้ไหม?', a:'Admin สามารถแก้ยอดสต๊อกได้จากหน้า Export → ยอดสต๊อกล่าสุด กดปุ่ม ✏️ แล้วระบุเหตุผล ทุกการแก้ไขจะถูกบันทึกใน Audit Log'},
+                        {q:'ระบบ 3 หน่วยทำงานอย่างไร?', a:'กำหนดได้ถึง 3 หน่วยต่อสินค้า เช่น ลัง → ถุง → กรัม พร้อม rate การแปลง ระบบคำนวณยอดรวมเป็นหน่วยเล็กสุดอัตโนมัติ'},
+                    ]
+                },
+                {
+                    icon:'👤', title:'จัดการระบบ (Admin)',
+                    color:'#7c3aed',
+                    items:[
+                        {q:'เพิ่มพนักงานใหม่ทำอย่างไร?', a:'จัดการระบบ → จัดการพนักงาน & สิทธิ์ → กด + เพิ่มพนักงาน ใส่ชื่อ, Password, Role และกำหนดโซนที่เข้าถึงได้'},
+                        {q:'Role มีอะไรบ้าง?', a:'admin = เข้าถึงทุกอย่าง | warehouse = คลังสินค้า+เบิก+นับ | staff = นับสต๊อก+เบิกสินค้า สามารถสร้าง Role เพิ่มเองได้'},
+                        {q:'ตั้งค่า Min/Max ทำอย่างไร?', a:'ตั้งค่าคลังและสินค้า → เลื่อนลงล่าง → กำหนด Min/Max สต๊อกต่อคลัง เลือกคลังจาก Tab แล้วกรอก กด "บันทึก Min/Max คลังนี้"'},
+                        {q:'Backup/Restore ข้อมูลทำอย่างไร?', a:'ตั้งค่าคลังและสินค้า → ปุ่ม 💾 Backup Config / 📂 Restore Config บันทึกเป็น JSON ไว้ใช้กรณีฉุกเฉิน'},
+                    ]
+                },
+            ];
+
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <h2>📖 คู่มือการใช้งาน TingTing Dashboard</h2>
+                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+            </div>
+
+            <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:16px;padding:24px;margin-bottom:24px;color:white;">
+                <div style="font-size:20px;font-weight:bold;margin-bottom:6px;">👋 ยินดีต้อนรับ!</div>
+                <div style="color:#94a3b8;font-size:13px;line-height:1.6;">คู่มือนี้รวบรวมคำถามที่พบบ่อยในแต่ละส่วนของระบบ คลิกที่คำถามเพื่อดูคำตอบได้เลยครับ</div>
+                <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                    ${sections.map(s=>`<button onclick="scrollToSection('help_${s.title}')"
+                        style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;">
+                        ${s.icon} ${s.title}</button>`).join('')}
+                </div>
+            </div>
+
+            ${sections.map(s=>`
+            <div id="help_${s.title}" style="background:white;border-radius:14px;border:1px solid #e2e8f0;margin-bottom:16px;overflow:hidden;">
+                <div style="background:${s.color};padding:14px 20px;display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:20px;">${s.icon}</span>
+                    <span style="font-weight:bold;color:white;font-size:15px;">${s.title}</span>
+                </div>
+                <div style="padding:4px 0;">
+                    ${s.items.map((item,i)=>`
+                    <div style="border-bottom:1px solid #f8fafc;">
+                        <button onclick="toggleHelp('h${s.title}${i}')"
+                            style="width:100%;text-align:left;padding:14px 20px;background:none;border:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:bold;color:#1e293b;">
+                            <span>❓ ${item.q}</span>
+                            <span id="harrow_h${s.title}${i}" style="color:#94a3b8;font-size:16px;transition:transform 0.2s;">▼</span>
+                        </button>
+                        <div id="h${s.title}${i}" style="display:none;padding:0 20px 14px;font-size:13px;color:#475569;line-height:1.7;background:#f8fafc;">
+                            💡 ${item.a}
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>`).join('')}
+
+            <div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">
+                TingTing Dashboard v2.0 • พัฒนาสำหรับ TTG Food
+            </div>`;
+        };
+
+        window.toggleHelp = function(id) {
+            const el = document.getElementById(id);
+            const arrow = document.getElementById('harrow_'+id);
+            if(!el) return;
+            const open = el.style.display === 'none';
+            el.style.display = open ? 'block' : 'none';
+            if(arrow) arrow.style.transform = open ? 'rotate(180deg)' : '';
+        };
+
+        window.scrollToSection = function(id) {
+            document.getElementById(id)?.scrollIntoView({behavior:'smooth'});
+        };
+
+        // ---- Use template in Create Requisition ----
+        window.openCreateRequisitionWithTemplate = function(tid) {
+            window._useTemplate = reqTemplates[tid];
+            openCreateRequisition();
+        };
 
         window.logout=function(){
             try { const uid=currentUser?.username; if(uid){ set(ref(rtdb,`presence/${uid}`),null).catch(()=>{}); } } catch(e){}
