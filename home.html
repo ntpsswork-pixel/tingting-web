@@ -109,12 +109,15 @@
     <div class="main-content">
         <div id="dashboardView" class="no-print">
             <!-- BANNER ADMIN (admin only, hidden by default) -->
-            <div id="bannerAdminSection" class="app-container hidden" style="padding-bottom:0;">
+            <div id="bannerAdminSection" class="hidden" style="padding:20px 30px 0;">
                 <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
-                    <h3 style="margin-top:0;">📸 จัดการแบนเนอร์ (Admin Only)</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <h3 style="margin:0;">📸 จัดการแบนเนอร์</h3>
+                        <button onclick="document.getElementById('bannerAdminSection').classList.add('hidden')" style="background:#f1f5f9;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;color:#64748b;">✕ ปิด</button>
+                    </div>
                     <div style="display:flex;gap:10px;margin-bottom:10px;">
                         <input type="file" id="bannerFile" accept="image/*" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;">
-                        <button onclick="uploadBanner()" style="background:var(--success);color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;">+ เพิ่มแบนเนอร์</button>
+                        <button onclick="uploadBanner()" style="background:var(--success);color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;">+ เพิ่ม</button>
                     </div>
                     <div class="upload-progress" id="uploadProgress"><div class="upload-progress-bar" id="uploadProgressBar"></div></div>
                     <div id="thumbList" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:15px;"></div>
@@ -263,6 +266,7 @@
             initPresence();
             listenOnlineUsers();
             initDashboard();
+            resetSessionTimer(); // เริ่มนับ session timeout
         };
 
         // ---- DASHBOARD ----
@@ -802,6 +806,11 @@
                     </div>
                 </td></tr>`;}).join('')}</table>
             <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:5px;" class="no-print">💡 กรอกจำนวนแล้วกด Enter ในช่องนั้น หรือกด ＋ เพื่อเพิ่มทุกช่องพร้อมกัน</p>
+            <div class="no-print" style="margin-bottom:12px;">
+                <input type="text" id="stockSearch" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ)..." oninput="filterStockRows(this.value)"
+                    style="width:100%;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;transition:border 0.2s;"
+                    onfocus="this.style.borderColor='var(--info)'" onblur="this.style.borderColor='#e2e8f0'">
+            </div>
             <div style="margin-top:25px;text-align:center;" class="no-print">
                 <button onclick="finalSaveStock('${zone}')" style="background:var(--success);color:white;padding:18px 60px;border:none;border-radius:15px;font-size:20px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">💾 ยืนยันและบันทึกข้อมูลทั้งหมด</button>
             </div>`;
@@ -1035,7 +1044,10 @@
                     <div class="history-card-header">
                         <div><b style="font-size:15px;">📦 ${s.zone}</b>
                         <span style="margin-left:12px;color:#64748b;font-size:13px;">📅 ${s.date} ${s.countedBy?'• 👤 '+s.countedBy:''}</span></div>
-                        <span style="font-size:11px;color:#94a3b8;">บันทึกโดย: ${s.recordedBy||'-'}</span>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:11px;color:#94a3b8;">บันทึกโดย: ${s.recordedBy||'-'}</span>
+                            ${currentUser.role==='admin'?`<button onclick="deleteHistorySession('${s.id}')" style="background:#fee2e2;color:#ef4444;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;">🗑️ ลบ</button>`:''}
+                        </div>
                     </div>
                     <table style="width:100%;border-collapse:collapse;">
                         <thead><tr style="background:#f8fafc;">
@@ -1277,11 +1289,67 @@
 
         // ---- MISC ----
         window.logout=function(){
-            // ลบ presence ก่อน logout
             try { const uid=currentUser?.username; if(uid){ set(ref(rtdb,`presence/${uid}`),null).catch(()=>{}); } } catch(e){}
             localStorage.removeItem("currentUser");
+            clearTimeout(window._sessionTimer);
+            clearTimeout(window._sessionWarnTimer);
             window.location.href="login.html";
         };
+
+        // ---- SEARCH IN STOCK TOOL ----
+        window.filterStockRows=function(q){
+            q=q.toLowerCase().trim();
+            document.querySelectorAll('.stock-row').forEach(row=>{
+                const text=row.innerText.toLowerCase();
+                row.style.display=(!q||text.includes(q))?'':'none';
+            });
+        };
+
+        // ---- DELETE HISTORY (Admin only) ----
+        window.deleteHistorySession=async function(sessionId){
+            if(currentUser.role!=='admin'){toast('⛔ เฉพาะ Admin เท่านั้น','#c2410c');return;}
+            if(!confirm('ยืนยันลบประวัติการนับนี้? ไม่สามารถกู้คืนได้'))return;
+            try{
+                const {deleteDoc}=await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+                await deleteDoc(doc(db,'stockHistory',sessionId));
+                toast('✅ ลบประวัติเรียบร้อย','#059669');
+                loadHistory();
+                loadDashHistory();
+            }catch(e){toast('❌ ลบไม่สำเร็จ','#c2410c');console.error(e);}
+        };
+
+        // ---- SESSION TIMEOUT ----
+        let _lastActivity = Date.now();
+        const SESSION_TIMEOUT = 30 * 60 * 1000;  // 30 นาที
+        const SESSION_WARN   =  2 * 60 * 1000;   // เตือนก่อน 2 นาที
+
+        function resetSessionTimer(){
+            _lastActivity = Date.now();
+            clearTimeout(window._sessionTimer);
+            clearTimeout(window._sessionWarnTimer);
+            // เตือนก่อน 2 นาที
+            window._sessionWarnTimer = setTimeout(()=>{
+                const existing = document.getElementById('sessionWarnBanner');
+                if(existing) return;
+                const banner = document.createElement('div');
+                banner.id = 'sessionWarnBanner';
+                banner.innerHTML = `<div style="position:fixed;bottom:80px;right:30px;background:#f59e0b;color:white;padding:16px 24px;border-radius:14px;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:flex;align-items:center;gap:12px;">
+                    <span style="font-size:20px;">⚠️</span>
+                    <div><b>ใกล้หมด Session</b><br><span style="font-size:12px;">ระบบจะ logout อัตโนมัติใน 2 นาที</span></div>
+                    <button onclick="resetSessionTimer();document.getElementById('sessionWarnBanner').remove();" style="background:white;color:#f59e0b;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;margin-left:8px;">ฉันยังอยู่</button>
+                </div>`;
+                document.body.appendChild(banner);
+            }, SESSION_TIMEOUT - SESSION_WARN);
+            // logout จริง
+            window._sessionTimer = setTimeout(()=>{
+                alert('⏰ Session หมดอายุ กรุณา Login ใหม่');
+                logout();
+            }, SESSION_TIMEOUT);
+        }
+        // รีเซ็ต timer เมื่อมีการใช้งาน
+        ['click','keydown','mousemove','touchstart'].forEach(ev=>{
+            document.addEventListener(ev, ()=>resetSessionTimer(), {passive:true});
+        });
         window.toggleSub=function(id){const s=document.getElementById(id);s.style.display=(s.style.display==='block')?'none':'block';};
         window.closeTool=function(){if(Object.keys(tempCountData).length>0){if(!confirm("ยังไม่บันทึก ต้องการปิดจริงไหม?"))return;}document.getElementById('toolAppContainer').classList.add('hidden');document.getElementById('dashboardView').classList.remove('hidden');};
     </script>
