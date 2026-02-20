@@ -1186,13 +1186,16 @@
                 <div id="mappingContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;"></div>
             </div>
             <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                     <div>
                         <h4 style="margin:0;">📊 กำหนด Min / Max สต๊อกต่อคลัง</h4>
-                        <small style="color:#94a3b8;">Min = ยอดต่ำสุดที่ต้องมี | Max = ยอดเป้าหมาย (ใช้คำนวณยอดสั่งซื้อ)</small>
+                        <small style="color:#94a3b8;">Min = ยอดต่ำสุดที่ต้องมี | Max = ยอดเป้าหมาย | <b style="color:var(--info);">ค่าแตกต่างกันได้ทุกคลัง — เลือกคลังแล้วกรอก จากนั้นบันทึกก่อนเปลี่ยนคลัง</b></small>
                     </div>
-                    <button onclick="saveAllMinMax()" style="background:var(--success);color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:bold;">💾 บันทึก Min/Max ทั้งหมด</button>
+                    <button onclick="saveAllMinMax()" style="background:var(--success);color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:bold;">💾 บันทึก Min/Max คลังนี้</button>
                 </div>
+                <!-- zone tabs -->
+                <div id="minMaxZoneTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f1f5f9;"></div>
+                <div id="minMaxZoneLabel" style="font-size:13px;color:#64748b;margin-bottom:10px;"></div>
                 <div id="minMaxContainer"></div>
             </div>`;
             renderWhList(); renderPdList();
@@ -1670,12 +1673,35 @@ ${it.zone}`);
 
         // ======== MIN/MAX & PURCHASE ORDER ========
 
-        window.renderMinMaxTable=function(){
-            const zone=document.getElementById('selectZoneMap')?.value||warehouseList[0]||'';
+        window.renderMinMaxTable=function(forceZone){
+            const zone=forceZone||document.getElementById('selectZoneMap')?.value||warehouseList[0]||'';
             const c=document.getElementById('minMaxContainer');
+            const label=document.getElementById('minMaxZoneLabel');
             if(!c||!zone)return;
+
+            // render zone tabs
+            const tabs=document.getElementById('minMaxZoneTabs');
+            if(tabs){
+                tabs.innerHTML=warehouseList.map(z=>{
+                    const hasData=allProducts.some(p=>{
+                        const key=`${z}__${p.id}`;
+                        const mm=productMinMax[key];
+                        return mm&&(mm.min>0||mm.max>0);
+                    });
+                    const isActive=z===zone;
+                    return `<button onclick="renderMinMaxTable('${z}')"
+                        style="padding:7px 16px;border-radius:8px;border:2px solid ${isActive?'var(--primary-dark)':'#e2e8f0'};
+                        background:${isActive?'var(--primary-dark)':'white'};color:${isActive?'white':'#475569'};
+                        cursor:pointer;font-size:12px;font-weight:bold;position:relative;">
+                        ${z}${hasData?'<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--success);"></span>':''}
+                    </button>`;
+                }).join('');
+            }
+
+            if(label) label.innerHTML=`<b style="color:var(--primary-dark);">📦 ${zone}</b> — กรอกค่าแล้วกด "บันทึก Min/Max คลังนี้" ก่อนเปลี่ยนคลัง`;
+
             const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
-            if(!zoneProds.length){c.innerHTML='<p style="color:#94a3b8;font-size:13px;">เลือกคลังและจับคู่สินค้าก่อนนะครับ</p>';return;}
+            if(!zoneProds.length){c.innerHTML='<p style="color:#94a3b8;font-size:13px;">ยังไม่มีสินค้าในคลังนี้ — จับคู่สินค้าเข้าสู่โซนก่อนนะครับ</p>';return;}
             c.innerHTML=`<table style="width:100%;border-collapse:collapse;">
                 <thead><tr style="background:#f8fafc;">
                     <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">รหัส</th>
@@ -1693,20 +1719,22 @@ ${it.zone}`);
                         <td style="padding:10px;color:#475569;font-size:13px;">${p.name}</td>
                         <td style="padding:10px;color:#94a3b8;font-size:12px;">${u}</td>
                         <td style="padding:10px;text-align:center;">
-                            <input type="number" id="mm_min_${p.id}" value="${mm.min}" min="0" placeholder="0"
+                            <input type="number" id="mm_min_${p.id}" value="${mm.min||''}" min="0" placeholder="0"
                                 style="width:80px;padding:8px;border:2px solid #fca5a5;border-radius:8px;text-align:center;font-weight:bold;font-size:14px;outline:none;">
                         </td>
                         <td style="padding:10px;text-align:center;">
-                            <input type="number" id="mm_max_${p.id}" value="${mm.max}" min="0" placeholder="0"
+                            <input type="number" id="mm_max_${p.id}" value="${mm.max||''}" min="0" placeholder="0"
                                 style="width:80px;padding:8px;border:2px solid #6ee7b7;border-radius:8px;text-align:center;font-weight:bold;font-size:14px;outline:none;">
                         </td>
                     </tr>`;
                 }).join('')}</tbody>
             </table>`;
+            // store current zone for saveAllMinMax to use
+            window._currentMinMaxZone=zone;
         };
 
         window.saveAllMinMax=function(){
-            const zone=document.getElementById('selectZoneMap')?.value||'';
+            const zone=window._currentMinMaxZone||document.getElementById('selectZoneMap')?.value||'';
             if(!zone){toast('⚠️ กรุณาเลือกคลังก่อน','#c2410c');return;}
             const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
             let count=0;
@@ -1722,7 +1750,8 @@ ${it.zone}`);
                 }
             });
             saveConfig();
-            toast(`✅ บันทึก Min/Max ${count} รายการสำเร็จ`,'#059669');
+            toast(`✅ บันทึก Min/Max ${count} รายการ (${zone}) สำเร็จ`,'#059669');
+            renderMinMaxTable(zone); // refresh tabs + green dots
         };
 
         // ---- Purchase Order Page ----
