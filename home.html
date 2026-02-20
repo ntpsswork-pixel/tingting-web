@@ -481,20 +481,20 @@
             const role       = currentUser.role || 'guest';
             const perms      = roleSettings[role]?.menus || [];
             const isViewOnly = roleSettings[role]?.viewOnly || false;
-            // requisition menu visibility
+            const effectivePerms = isViewOnly ? ["warehouse","tools","admin","requisition"] : perms;
+
+            document.getElementById('warehouseMenu').classList.toggle('hidden', !effectivePerms.includes('warehouse'));
+            document.getElementById('toolsMenu').classList.toggle('hidden', !effectivePerms.includes('tools'));
+            document.getElementById('adminMenu').classList.toggle('hidden', !effectivePerms.includes('admin'));
+            // requisition menu
             const reqMenu = document.getElementById('requisitionMenu');
-            if(reqMenu) reqMenu.classList.toggle('hidden', !perms.includes('requisition'));
-            // approve/all tabs only for warehouse/admin
+            if(reqMenu) reqMenu.classList.toggle('hidden', !effectivePerms.includes('requisition'));
+            // approve/all sub-items only for warehouse/admin
             const canApprove = ['admin','warehouse'].includes(role);
             const reqApprove = document.getElementById('reqApproveMenu');
             const reqAll = document.getElementById('reqAllMenu');
             if(reqApprove) reqApprove.classList.toggle('hidden', !canApprove);
             if(reqAll) reqAll.classList.toggle('hidden', !canApprove);
-            const effectivePerms = isViewOnly ? ["warehouse","tools","admin"] : perms;
-
-            document.getElementById('warehouseMenu').classList.toggle('hidden', !effectivePerms.includes('warehouse'));
-            document.getElementById('toolsMenu').classList.toggle('hidden', !effectivePerms.includes('tools'));
-            document.getElementById('adminMenu').classList.toggle('hidden', !effectivePerms.includes('admin'));
             document.getElementById('bannerAdminSection').classList.toggle('hidden', !effectivePerms.includes('admin'));
             document.getElementById('viewOnlyAlert').classList.toggle('hidden', !isViewOnly);
 
