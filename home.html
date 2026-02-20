@@ -114,6 +114,7 @@
                 <div class="nav-item" onclick="toggleSub('subWH')">📦 คลังสินค้า ▾</div>
                 <div id="subWH" class="submenu">
                     <div onclick="openStockSummary()" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
+                    <div onclick="openInventoryCheck()" style="color:#10b981;">📋 ใบนับสต๊อกคงเหลือ</div>
                 </div>
             </div>
             <div id="toolsMenu" class="hidden">
@@ -1323,6 +1324,333 @@
         window.deletePd=function(i){if(confirm('ยืนยันลบสินค้า?')){allProducts.splice(i,1);saveConfig();renderPdList();renderMapping();}};
 
         // ---- MISC ----
+        // ======== INVENTORY CHECK SYSTEM ========
+        // Firestore collection: inventoryHistory
+        // แต่ละ doc = { zone, date, timestamp, countedBy, recordedBy, items:[{id,name,balance,unit,note}] }
+
+        window.openInventoryCheck=async function(){
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
+            const visibleZones=getVisibleWarehouses();
+            const today=new Date().toISOString().slice(0,10);
+            const usSnap=await getDocs(collection(db,'users'));
+            let staffOpts='';
+            usSnap.forEach(d=>{const u=d.data();if(u.status!=='suspended')staffOpts+=`<option value="${u.name}">${u.name}</option>`;});
+
+            c.innerHTML=`
+            <div class="tool-header no-print">
+                <h2>📋 ใบนับสต๊อกคงเหลือ</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openInventoryAnalysis()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📈 วิเคราะห์ & กราฟ</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px;" class="no-print">
+                <div class="input-group"><label>📦 เลือกคลัง</label>
+                    <select id="invZone" onchange="renderInventoryRows()" style="width:100%;border:none;font-weight:bold;outline:none;">
+                        ${visibleZones.map(z=>`<option value="${z}">${z}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ (บังคับ)</label>
+                    <input type="date" id="invDate" value="${today}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+                </div>
+                <div class="input-group" style="border:2px solid var(--info);"><label>👤 ผู้นับ</label>
+                    <select id="invStaff" style="width:100%;border:none;font-weight:bold;outline:none;">
+                        <option value="">-- กรุณาเลือก --</option>${staffOpts}
+                    </select>
+                </div>
+                <div class="input-group" style="background:#f1f5f9;"><label>📝 ผู้บันทึก</label><b>${currentUser.name}</b></div>
+            </div>
+
+            <div style="margin-bottom:12px;" class="no-print">
+                <input type="text" id="invSearch" placeholder="🔍 ค้นหาสินค้า..." oninput="filterInvRows(this.value)"
+                    style="width:100%;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
+            </div>
+
+            <div id="invTableContainer"></div>
+
+            <div style="margin-top:25px;text-align:center;" class="no-print">
+                <button onclick="saveInventorySheet()" style="background:var(--success);color:white;padding:18px 60px;border:none;border-radius:15px;font-size:18px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">
+                    💾 บันทึกใบนับสต๊อกคงเหลือ
+                </button>
+            </div>`;
+
+            renderInventoryRows();
+        };
+
+        window.renderInventoryRows=async function(){
+            const zone=document.getElementById('invZone')?.value||'';
+            const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const c=document.getElementById('invTableContainer');
+            if(!c)return;
+
+            // โหลด inventory ล่าสุดของคลังนี้เพื่อแสดง prev balance
+            const invSnap=await getDocs(collection(db,'inventoryHistory'));
+            let prevSheet=null; let prevTs=0;
+            invSnap.forEach(d=>{
+                const data=d.data();
+                if(data.zone===zone && data.timestamp>prevTs){prevTs=data.timestamp;prevSheet=data;}
+            });
+
+            const borderColors=['var(--info)','#a78bfa','#f59e0b'];
+            c.innerHTML=`
+            <table class="stock-table" id="invTable">
+                <thead><tr style="background:#f8fafc;">
+                    <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;width:35%;">สินค้า</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">คงเหลือครั้งก่อน</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">คงเหลือจริงวันนี้</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">ผลต่าง (ใช้ไป)</th>
+                    <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;">หมายเหตุ</th>
+                </tr></thead>
+                <tbody>${zoneProds.map(p=>{
+                    const units=p.units||[{name:p.unit||'',rate:0}].filter(u=>u.name);
+                    const u0=units[0]?.name||'';
+                    const prevItem=prevSheet?.items?.find(it=>it.id===p.id);
+                    const prevBal=prevItem?.balance??'-';
+                    return `<tr class="stock-row inv-row" data-search="${p.id.toLowerCase()} ${p.name.toLowerCase()}">
+                        <td style="padding:12px;">
+                            <b style="font-size:14px;">${p.id}</b><br>
+                            <span style="color:#475569;font-size:13px;">${p.name}</span><br>
+                            <small style="color:#94a3b8;font-size:10px;">หน่วย: ${u0}${prevSheet?` • นับล่าสุด: ${prevSheet.date}`:''}</small>
+                        </td>
+                        <td style="padding:12px;text-align:center;">
+                            <span style="font-size:18px;font-weight:bold;color:#94a3b8;">${prevBal}</span>
+                            ${prevBal!=='-'?`<br><small style="color:#cbd5e1;font-size:10px;">${u0}</small>`:''}
+                        </td>
+                        <td style="padding:12px;text-align:center;">
+                            <input type="number" id="inv_${p.id}" min="0" placeholder="0"
+                                oninput="calcDiff('${p.id}',${typeof prevBal==='number'?prevBal:'null'})"
+                                style="width:90px;padding:8px;border-radius:8px;border:2px solid var(--info);text-align:center;font-weight:bold;font-size:16px;">
+                            <br><small style="color:#64748b;font-size:10px;">${u0}</small>
+                        </td>
+                        <td style="padding:12px;text-align:center;" id="diff_${p.id}">
+                            <span style="color:#cbd5e1;font-size:13px;">—</span>
+                        </td>
+                        <td style="padding:12px;">
+                            <input type="text" id="note_${p.id}" placeholder="หมายเหตุ (ถ้ามี)"
+                                style="width:100%;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                        </td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>`;
+        };
+
+        window.calcDiff=function(id, prevBal){
+            const val=parseFloat(document.getElementById(`inv_${id}`)?.value)||0;
+            const diffEl=document.getElementById(`diff_${id}`);
+            if(!diffEl)return;
+            if(prevBal===null||prevBal===undefined||isNaN(prevBal)){
+                diffEl.innerHTML='<span style="color:#94a3b8;font-size:12px;">ไม่มีข้อมูลก่อนหน้า</span>';return;
+            }
+            const diff=prevBal-val;
+            const color=diff>0?'var(--danger)':diff<0?'var(--success)':'#64748b';
+            const label=diff>0?`ใช้ไป ${diff}`:diff<0?`เพิ่มขึ้น ${Math.abs(diff)}`:'คงเดิม';
+            diffEl.innerHTML=`<span style="font-size:15px;font-weight:bold;color:${color};">${diff>0?'-':''}${Math.abs(diff)}</span><br><small style="color:${color};font-size:10px;">${label}</small>`;
+        };
+
+        window.filterInvRows=function(q){
+            q=q.toLowerCase().trim();
+            document.querySelectorAll('.inv-row').forEach(row=>{
+                row.style.display=(!q||row.dataset.search.includes(q))?'':'none';
+            });
+        };
+
+        window.saveInventorySheet=async function(){
+            const zone=document.getElementById('invZone')?.value;
+            const date=document.getElementById('invDate')?.value;
+            const staff=document.getElementById('invStaff')?.value;
+            if(!zone||!date){toast('⚠️ กรุณาเลือกคลังและวันที่','#c2410c');return;}
+            if(!staff){toast('⚠️ กรุณาเลือกผู้นับ','#c2410c');return;}
+
+            const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const hasAny=zoneProds.some(p=>document.getElementById(`inv_${p.id}`)?.value!=='');
+            if(!hasAny){toast('⚠️ กรุณากรอกยอดคงเหลืออย่างน้อย 1 รายการ','#c2410c');return;}
+
+            if(!confirm(`ยืนยันบันทึกใบนับสต๊อก ${zone} วันที่ ${date}?`))return;
+
+            const [yr,mo,dy]=date.split('-');
+            const dateStr=`${dy}/${mo}/${parseInt(yr)+543}`;
+            const items=zoneProds.map(p=>{
+                const units=p.units||[{name:p.unit||''}];
+                const val=document.getElementById(`inv_${p.id}`)?.value;
+                const balance=val!==''?parseFloat(val):null;
+                const note=document.getElementById(`note_${p.id}`)?.value||'';
+                return {id:p.id,name:p.name,balance,unit:units[0]?.name||'',note};
+            }).filter(it=>it.balance!==null);
+
+            await addDoc(collection(db,'inventoryHistory'),{
+                zone,date:dateStr,timestamp:Date.now(),
+                countedBy:staff,recordedBy:currentUser.name,items
+            });
+
+            toast('✅ บันทึกใบนับสต๊อกคงเหลือสำเร็จ','#059669');
+            // รีเซ็ต input
+            zoneProds.forEach(p=>{
+                const el=document.getElementById(`inv_${p.id}`);
+                const nl=document.getElementById(`note_${p.id}`);
+                if(el)el.value='';
+                if(nl)nl.value='';
+                const diff=document.getElementById(`diff_${p.id}`);
+                if(diff)diff.innerHTML='<span style="color:#cbd5e1;font-size:13px;">—</span>';
+            });
+            renderInventoryRows(); // reload เพื่อแสดง prev ใหม่
+        };
+
+        // ======== INVENTORY ANALYSIS ========
+        window.openInventoryAnalysis=async function(){
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
+            const visibleZones=getVisibleWarehouses();
+
+            c.innerHTML=`
+            <div class="tool-header no-print">
+                <h2>📈 วิเคราะห์สต๊อกคงเหลือ</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="exportInventoryExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                    <button onclick="openInventoryCheck()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📋 ใบนับสต๊อก</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;" class="no-print">
+                <div class="input-group" style="min-width:220px;"><label>📦 เลือกคลัง</label>
+                    <select id="anaZone" onchange="loadInventoryAnalysis()" style="width:100%;border:none;font-weight:bold;outline:none;">
+                        <option value="">— ทุกคลัง —</option>
+                        ${visibleZones.map(z=>`<option value="${z}">${z}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="input-group" style="min-width:220px;"><label>🍎 เลือกสินค้า</label>
+                    <select id="anaProd" onchange="loadInventoryAnalysis()" style="width:100%;border:none;font-weight:bold;outline:none;">
+                        <option value="">— ทุกสินค้า —</option>
+                        ${allProducts.map(p=>`<option value="${p.id}">${p.id} - ${p.name}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+                <div style="background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;">
+                    <h4 style="margin:0 0 16px;color:var(--primary-dark);">📊 ยอดคงเหลือ (Trend)</h4>
+                    <canvas id="balanceChart" height="200"></canvas>
+                </div>
+                <div style="background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;">
+                    <h4 style="margin:0 0 16px;color:var(--primary-dark);">📉 ยอดที่ใช้ไปแต่ละรอบ</h4>
+                    <canvas id="usageChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <div style="background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;">
+                <h4 style="margin:0 0 16px;color:var(--primary-dark);">📋 ตารางประวัติการนับคงเหลือ</h4>
+                <div id="invHistoryTable"><p style="color:#94a3b8;text-align:center;padding:20px;">กำลังโหลด...</p></div>
+            </div>`;
+
+            await loadInventoryAnalysis();
+        };
+
+        let _invBalChart=null, _invUseChart=null;
+
+        window.loadInventoryAnalysis=async function(){
+            const zone=document.getElementById('anaZone')?.value||'';
+            const prodId=document.getElementById('anaProd')?.value||'';
+
+            const snap=await getDocs(collection(db,'inventoryHistory'));
+            let sheets=[];
+            snap.forEach(d=>sheets.push({id:d.id,...d.data()}));
+            if(zone) sheets=sheets.filter(s=>s.zone===zone);
+            sheets.sort((a,b)=>a.timestamp-b.timestamp);
+
+            // กรองตามสินค้า
+            const filteredItems=[];
+            sheets.forEach(s=>{
+                (s.items||[]).forEach(it=>{
+                    if(!prodId||it.id===prodId){
+                        filteredItems.push({date:s.date,zone:s.zone,countedBy:s.countedBy,...it,sheetId:s.id});
+                    }
+                });
+            });
+
+            // สร้าง label-balance-usage arrays
+            const labels=filteredItems.map(it=>`${it.date}
+${it.zone}`);
+            const balances=filteredItems.map(it=>it.balance||0);
+            const usages=filteredItems.map((it,i)=>{
+                if(i===0)return 0;
+                const prev=filteredItems[i-1];
+                if(prev.id!==it.id||prev.zone!==it.zone)return 0;
+                return Math.max(0,(prev.balance||0)-(it.balance||0));
+            });
+
+            // render charts
+            if(_invBalChart)_invBalChart.destroy();
+            if(_invUseChart)_invUseChart.destroy();
+            const bc=document.getElementById('balanceChart');
+            const uc=document.getElementById('usageChart');
+            if(bc&&labels.length){
+                _invBalChart=new Chart(bc,{type:'line',data:{labels,datasets:[{
+                    label:'ยอดคงเหลือ',data:balances,
+                    borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',
+                    borderWidth:2,tension:0.3,fill:true,pointRadius:4,
+                }]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}},x:{grid:{display:false},ticks:{maxRotation:45}}}}});
+            } else if(bc){bc.parentElement.innerHTML='<p style="color:#94a3b8;text-align:center;padding:40px;">ยังไม่มีข้อมูล</p>';}
+
+            if(uc&&labels.length){
+                _invUseChart=new Chart(uc,{type:'bar',data:{labels,datasets:[{
+                    label:'ใช้ไป',data:usages,
+                    backgroundColor:'rgba(239,68,68,0.15)',borderColor:'#ef4444',
+                    borderWidth:2,borderRadius:6,
+                }]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}},x:{grid:{display:false},ticks:{maxRotation:45}}}}});
+            } else if(uc){uc.parentElement.innerHTML='<p style="color:#94a3b8;text-align:center;padding:40px;">ยังไม่มีข้อมูล</p>';}
+
+            // render table
+            const tbl=document.getElementById('invHistoryTable');
+            if(!tbl)return;
+            if(!filteredItems.length){tbl.innerHTML='<p style="color:#94a3b8;text-align:center;padding:40px;">ยังไม่มีข้อมูล — บันทึกใบนับสต๊อกคงเหลือก่อนเลยครับ</p>';return;}
+            tbl.innerHTML=`<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#f8fafc;">
+                    <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">วันที่</th>
+                    <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">คลัง</th>
+                    <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">รหัส</th>
+                    <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">ชื่อสินค้า</th>
+                    <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">คงเหลือ</th>
+                    <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
+                    <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">ใช้ไปจากรอบก่อน</th>
+                    <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">หมายเหตุ</th>
+                    <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">ผู้นับ</th>
+                </tr></thead>
+                <tbody>${filteredItems.map((it,i)=>{
+                    const usage=usages[i];
+                    const usageColor=usage>0?'var(--danger)':usage<0?'var(--success)':'#94a3b8';
+                    const usageText=usage>0?`-${usage}`:usage<0?`+${Math.abs(usage)}`:'—';
+                    return `<tr style="border-top:1px solid #f1f5f9;">
+                        <td style="padding:10px;font-size:13px;">${it.date}</td>
+                        <td style="padding:10px;font-size:13px;color:#64748b;">${it.zone}</td>
+                        <td style="padding:10px;font-weight:bold;">${it.id}</td>
+                        <td style="padding:10px;color:#475569;font-size:13px;">${it.name}</td>
+                        <td style="padding:10px;text-align:center;font-weight:bold;color:var(--success);font-size:15px;">${it.balance??'-'}</td>
+                        <td style="padding:10px;text-align:center;color:#64748b;font-size:12px;">${it.unit||''}</td>
+                        <td style="padding:10px;text-align:center;font-weight:bold;color:${usageColor};">${i===0?'—':usageText}</td>
+                        <td style="padding:10px;color:#64748b;font-size:12px;">${it.note||'-'}</td>
+                        <td style="padding:10px;color:#64748b;font-size:12px;">${it.countedBy||'-'}</td>
+                    </tr>`;}).join('')}
+                </tbody>
+            </table>`;
+
+            window._invExportData=filteredItems.map((it,i)=>({
+                วันที่:it.date,คลัง:it.zone,รหัส:it.id,ชื่อสินค้า:it.name,
+                คงเหลือ:it.balance??'',หน่วย:it.unit||'',
+                ใช้ไปจากรอบก่อน:i===0?'':usages[i],
+                หมายเหตุ:it.note||'',ผู้นับ:it.countedBy||'',
+            }));
+        };
+
+        window.exportInventoryExcel=function(){
+            if(!window._invExportData?.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
+            const rows=[Object.keys(window._invExportData[0]),...window._invExportData.map(r=>Object.values(r))];
+            const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,'InventoryHistory');
+            XLSX.writeFile(wb,`Inventory_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
+        };
+
         window.logout=function(){
             try { const uid=currentUser?.username; if(uid){ set(ref(rtdb,`presence/${uid}`),null).catch(()=>{}); } } catch(e){}
             localStorage.removeItem("currentUser");
