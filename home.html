@@ -262,6 +262,23 @@
                     if (d.zoneProductMap) zoneProductMap = d.zoneProductMap;
                     if (d.roleSettings)   roleSettings   = d.roleSettings;
                     if (d.productMinMax)  productMinMax  = d.productMinMax;
+                    // --- migrate: เพิ่ม requisition ให้ทุก role ที่ยังไม่มี ---
+                    let needSave = false;
+                    const reqDefaults = {
+                        admin:     ['warehouse','tools','admin','requisition'],
+                        warehouse: ['warehouse','tools','requisition'],
+                        staff:     ['tools','requisition']
+                    };
+                    Object.keys(roleSettings).forEach(r => {
+                        if (!roleSettings[r].menus) roleSettings[r].menus = [];
+                        if (!roleSettings[r].menus.includes('requisition')) {
+                            // ถ้าเป็น role มาตรฐาน ใช้ default / ถ้าไม่ใช่ เพิ่มให้เลย
+                            if (reqDefaults[r]) roleSettings[r].menus = reqDefaults[r];
+                            else roleSettings[r].menus.push('requisition');
+                            needSave = true;
+                        }
+                    });
+                    if (needSave) saveConfig();
                 }
             } catch(e) { console.error(e); }
         }
