@@ -6,57 +6,105 @@
     <title>TTGPlus</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        :root { --sidebar-width: 260px; --primary-dark: #1e293b; --accent-gold: #fccf55; --bg-light: #f1f5f9; --success: #10b981; --danger: #ef4444; --info: #3b82f6; }
-        body { margin: 0; display: flex; font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-light); min-height: 100vh; overflow-x: hidden; }
-        .sidebar { width: var(--sidebar-width); height: 100vh; background: var(--primary-dark); color: white; position: fixed; left: 0; top: 0; z-index: 1000; display: flex; flex-direction: column; }
-        .sidebar-brand { padding: 30px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .sidebar-brand h2 { margin: 0; color: var(--accent-gold); font-size: 24px; letter-spacing: 2px; }
-        .user-info { padding: 20px; margin: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; font-size: 14px; }
-        .user-info b { color: var(--accent-gold); display: block; margin-bottom: 4px; }
-        .nav-links { flex: 1; padding: 10px 15px; overflow-y: auto; }
-        .nav-item { padding: 12px 15px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; display: flex; align-items: center; gap: 10px; color: #cbd5e1; }
-        .nav-item:hover { background: rgba(255,255,255,0.05); }
-        .nav-item.active { background: var(--accent-gold); color: var(--primary-dark); font-weight: bold; }
-        .submenu { padding-left: 20px; display: none; margin-bottom: 10px; border-left: 1px solid #334155; margin-left: 20px; }
-        .submenu div { padding: 8px 12px; font-size: 13px; color: #94a3b8; cursor: pointer; border-radius: 5px; }
-        .submenu div:hover { color: white; background: rgba(255,255,255,0.05); }
-        .main-content { margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); flex: 1; }
-        .banner-container { width: 100%; height: 380px; background: #000; overflow: hidden; position: relative; }
-        .app-container { padding: 30px; animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .tool-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; }
-        .user-card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; }
-        .stock-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
-        .stock-row { background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .stock-row td { padding: 15px; }
-        .btn-action { width: 40px; height: 40px; border-radius: 8px; border: none; color: white; cursor: pointer; transition: 0.2s; font-weight: bold; }
-        .hidden { display: none !important; }
-        .input-group { background: white; padding: 10px; border-radius: 10px; border: 1px solid #e2e8f0; }
-        .input-group label { display: block; font-size: 11px; color: #64748b; margin-bottom: 3px; font-weight: bold; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease; }
-        .modal-box { background: white; border-radius: 20px; padding: 32px; width: 420px; box-shadow: 0 24px 60px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto; }
-        .modal-box h3 { margin: 0 0 20px; color: var(--primary-dark); font-size: 18px; }
-        .modal-box input { width: 100%; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px; margin-bottom: 12px; box-sizing: border-box; outline: none; transition: border 0.2s; font-family: 'Segoe UI', sans-serif; }
-        .modal-box input:focus { border-color: var(--info); }
-        .modal-error { color: var(--danger); font-size: 12px; margin-bottom: 10px; display: none; }
-        .toast { position: fixed; bottom: 30px; right: 30px; background: #1e293b; color: white; padding: 14px 20px; border-radius: 12px; font-size: 14px; z-index: 99999; animation: toastIn 0.3s ease; box-shadow: 0 8px 24px rgba(0,0,0,0.3); max-width: 300px; }
-        @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .upload-progress { display: none; margin-top: 10px; background: #f1f5f9; border-radius: 8px; overflow: hidden; height: 8px; }
-        .upload-progress-bar { height: 100%; background: var(--success); transition: width 0.3s; width: 0%; }
-        .filter-bar { background: white; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
-        .filter-bar label { font-size: 11px; color: #64748b; font-weight: bold; display: block; margin-bottom: 5px; }
-        .filter-bar select, .filter-bar input[type="date"] { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px; outline: none; min-width: 180px; }
-        .filter-bar select:focus, .filter-bar input:focus { border-color: var(--info); }
-        .history-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; overflow: hidden; }
-        .history-card-header { padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-        .item-row { display: flex; align-items: center; gap: 8px; padding: 8px; border:1px solid #f1f5f9; border-radius: 8px; margin-bottom: 6px; background: #f8fafc; font-size: 13px; }
-        .item-row span { flex: 1; }
-        .btn-sm { padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: bold; }
-        .online-dot { width:10px;height:10px;border-radius:50%;background:var(--success);display:inline-block;box-shadow:0 0 0 2px rgba(16,185,129,0.3);animation:pulse-green 2s infinite; }
-        .offline-dot { width:10px;height:10px;border-radius:50%;background:#94a3b8;display:inline-block; }
-        @keyframes pulse-green { 0%,100%{box-shadow:0 0 0 2px rgba(16,185,129,0.3);} 50%{box-shadow:0 0 0 5px rgba(16,185,129,0.1);} }
-        .online-list { padding: 10px 15px 0; }
-        .online-item { display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;color:#cbd5e1; }
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap');
+        :root {
+            --sidebar-width: 268px;
+            --primary-dark: #0f172a;
+            --sidebar-mid: #1a2540;
+            --accent-gold: #f0b429;
+            --accent-gold-light: #fde68a;
+            --bg-light: #f4f6fb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+            --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.1), 0 12px 32px rgba(0,0,0,0.06);
+        }
+        body { margin:0; display:flex; font-family:'IBM Plex Sans Thai','Prompt',sans-serif; background:var(--bg-light); min-height:100vh; overflow-x:hidden; color:#1e293b; }
+
+        /* ── SIDEBAR ── */
+        .sidebar { width:var(--sidebar-width); height:100vh; background:var(--primary-dark); color:white; position:fixed; left:0; top:0; z-index:1000; display:flex; flex-direction:column; box-shadow:4px 0 24px rgba(0,0,0,0.15); }
+        .sidebar-brand { padding:0; border-bottom:1px solid rgba(255,255,255,0.07); }
+        .sidebar-brand-inner { padding:22px 24px; display:flex; align-items:center; gap:12px; }
+        .sidebar-logo { width:38px; height:38px; background:linear-gradient(135deg,var(--accent-gold),#d97706); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:900; color:#0f172a; letter-spacing:-1px; flex-shrink:0; box-shadow:0 4px 12px rgba(240,180,41,0.3); }
+        .sidebar-brand h2 { margin:0; font-family:'Prompt',sans-serif; font-size:18px; font-weight:700; letter-spacing:0.5px; line-height:1; }
+        .sidebar-brand h2 span { color:var(--accent-gold); }
+        .sidebar-brand h2 small { display:block; font-size:10px; color:#64748b; font-weight:400; letter-spacing:1px; margin-top:2px; text-transform:uppercase; }
+
+        .user-info { padding:14px 16px; margin:12px; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:13px; }
+        .user-info-row { display:flex; align-items:center; gap:10px; }
+        .user-avatar { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,#334155,#475569); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+        .user-info b { color:var(--accent-gold); display:block; font-size:13px; font-weight:600; }
+        .user-info .role-tag { display:inline-block; font-size:9px; background:rgba(240,180,41,0.15); color:var(--accent-gold); padding:2px 7px; border-radius:20px; margin-top:3px; letter-spacing:0.5px; font-weight:600; }
+
+        .nav-links { flex:1; padding:8px 10px; overflow-y:auto; }
+        .nav-links::-webkit-scrollbar { width:0; }
+        .nav-item { padding:10px 14px; cursor:pointer; border-radius:9px; margin-bottom:2px; transition:all 0.2s; display:flex; align-items:center; gap:10px; color:#94a3b8; font-size:13px; font-weight:500; }
+        .nav-item:hover { background:rgba(255,255,255,0.06); color:white; }
+        .nav-item.active { background:linear-gradient(135deg,rgba(240,180,41,0.2),rgba(240,180,41,0.1)); color:var(--accent-gold); font-weight:600; border-left:3px solid var(--accent-gold); }
+        .submenu { padding-left:14px; display:none; margin:2px 0 6px 10px; border-left:1px solid #1e3a5f; }
+        .submenu div { padding:7px 12px; font-size:12px; color:#64748b; cursor:pointer; border-radius:7px; transition:all 0.15s; }
+        .submenu div:hover { color:white; background:rgba(255,255,255,0.05); }
+
+        /* ── MAIN ── */
+        .main-content { margin-left:var(--sidebar-width); width:calc(100% - var(--sidebar-width)); flex:1; }
+        .app-container { padding:28px 32px; animation:fadeIn 0.35s ease; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+        /* ── TOOL HEADER ── */
+        .tool-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid #e2e8f0; }
+        .tool-header h2 { margin:0; font-family:'Prompt',sans-serif; font-size:20px; font-weight:700; color:#0f172a; }
+
+        /* ── CARDS ── */
+        .user-card { background:white; border-radius:16px; padding:20px; box-shadow:var(--card-shadow); border:1px solid #e8ecf0; }
+
+        /* ── TABLES ── */
+        .stock-table { width:100%; border-collapse:separate; border-spacing:0 6px; }
+        .stock-row { background:white; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04); transition:box-shadow 0.2s; }
+        .stock-row:hover { box-shadow:var(--card-shadow-hover); }
+        .stock-row td { padding:14px 16px; }
+
+        .btn-action { width:38px; height:38px; border-radius:8px; border:none; color:white; cursor:pointer; transition:all 0.2s; font-weight:bold; }
+        .hidden { display:none !important; }
+
+        /* ── INPUT GROUP ── */
+        .input-group { background:white; padding:12px 14px; border-radius:12px; border:1px solid #e8ecf0; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+        .input-group label { display:block; font-size:10px; color:#94a3b8; margin-bottom:4px; font-weight:700; letter-spacing:0.6px; text-transform:uppercase; }
+        .input-group select, .input-group input { font-family:'IBM Plex Sans Thai',sans-serif; }
+
+        /* ── MODAL ── */
+        .modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; display:flex; align-items:center; justify-content:center; animation:fadeIn 0.2s ease; }
+        .modal-box { background:white; border-radius:20px; padding:32px; width:440px; box-shadow:0 32px 80px rgba(0,0,0,0.25); max-height:88vh; overflow-y:auto; }
+        .modal-box h3 { margin:0 0 20px; color:#0f172a; font-family:'Prompt',sans-serif; font-size:18px; font-weight:700; }
+        .modal-box input { width:100%; padding:11px 14px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; margin-bottom:12px; box-sizing:border-box; outline:none; transition:border 0.2s; font-family:'IBM Plex Sans Thai',sans-serif; }
+        .modal-box input:focus { border-color:var(--info); box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+        .modal-error { color:var(--danger); font-size:12px; margin-bottom:10px; display:none; }
+
+        /* ── TOAST ── */
+        .toast { position:fixed; bottom:28px; right:28px; background:#0f172a; color:white; padding:13px 20px; border-radius:12px; font-size:13px; z-index:99999; animation:toastIn 0.3s ease; box-shadow:0 8px 32px rgba(0,0,0,0.25); max-width:320px; border-left:3px solid var(--accent-gold); }
+        @keyframes toastIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+        /* ── FILTER BAR ── */
+        .filter-bar { background:white; padding:18px 20px; border-radius:14px; border:1px solid #e8ecf0; margin-bottom:20px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; box-shadow:var(--card-shadow); }
+        .filter-bar label { font-size:10px; color:#94a3b8; font-weight:700; display:block; margin-bottom:4px; letter-spacing:0.5px; text-transform:uppercase; }
+        .filter-bar select, .filter-bar input[type="date"] { padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:9px; font-size:13px; outline:none; min-width:170px; font-family:'IBM Plex Sans Thai',sans-serif; }
+        .filter-bar select:focus, .filter-bar input:focus { border-color:var(--info); }
+
+        /* ── HISTORY CARDS ── */
+        .history-card { background:white; border-radius:14px; border:1px solid #e8ecf0; margin-bottom:14px; overflow:hidden; box-shadow:var(--card-shadow); }
+        .history-card-header { padding:14px 20px; background:#f8fafc; border-bottom:1px solid #e8ecf0; display:flex; justify-content:space-between; align-items:center; }
+
+        .item-row { display:flex; align-items:center; gap:8px; padding:8px; border:1px solid #f1f5f9; border-radius:9px; margin-bottom:6px; background:#f8fafc; font-size:13px; }
+        .item-row span { flex:1; }
+        .btn-sm { padding:4px 10px; border-radius:6px; border:none; cursor:pointer; font-size:12px; font-weight:bold; }
+
+        .online-dot { width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;box-shadow:0 0 0 2px rgba(16,185,129,0.25);animation:pulse-green 2s infinite; }
+        .offline-dot { width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block; }
+        @keyframes pulse-green { 0%,100%{box-shadow:0 0 0 2px rgba(16,185,129,0.25);} 50%{box-shadow:0 0 0 5px rgba(16,185,129,0.08);} }
+        .online-list { padding:10px 15px 0; }
+        .online-item { display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;color:#94a3b8; }
+        .upload-progress { display:none; margin-top:10px; background:#f1f5f9; border-radius:8px; overflow:hidden; height:6px; }
+        .upload-progress-bar { height:100%; background:var(--success); transition:width 0.3s; width:0%; }
         @media print {
             .sidebar, .no-print, button { display: none !important; }
             .main-content { margin-left: 0 !important; width: 100% !important; }
@@ -96,15 +144,24 @@
     </button>
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     <div class="sidebar no-print" id="mainSidebar">
-        <div class="sidebar-brand"><h2>TTG<span style="color:white;font-size:18px;">Plus</span></h2></div>
-        <div class="user-info">
-            <small>ผู้ใช้งาน:</small>
-            <b id="roleDisplay">...</b>
-            <small id="roleStatusText">ฐานะ: -</small>
-            <div id="timerDisplay" style="color:var(--accent-gold);font-weight:bold;font-size:12px;margin-top:8px;"></div>
+        <div class="sidebar-brand">
+            <div class="sidebar-brand-inner">
+                <div class="sidebar-logo">T+</div>
+                <h2><span>TTG</span>Plus<small>Management System</small></h2>
+            </div>
         </div>
-        <div style="padding:0 15px 5px;">
-            <button onclick="openChangePasswordModal()" style="width:100%;background:rgba(255,255,255,0.05);color:#94a3b8;border:1px solid #334155;padding:9px;border-radius:8px;cursor:pointer;font-size:12px;">🔑 เปลี่ยน Password</button>
+        <div class="user-info">
+            <div class="user-info-row">
+                <div class="user-avatar">👤</div>
+                <div style="flex:1;min-width:0;">
+                    <b id="roleDisplay">...</b>
+                    <div id="roleStatusText" class="role-tag">-</div>
+                </div>
+            </div>
+            <div id="timerDisplay" style="font-size:10px;color:#475569;margin-top:8px;"></div>
+        </div>
+        <div style="padding:0 10px 6px;">
+            <button onclick="openChangePasswordModal()" style="width:100%;background:rgba(255,255,255,0.04);color:#64748b;border:1px solid #1e3a5f;padding:8px;border-radius:8px;cursor:pointer;font-size:11px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='white'" onmouseout="this.style.background='rgba(255,255,255,0.04)';this.style.color='#64748b'">🔑 เปลี่ยน Password</button>
         </div>
         <div class="online-list" id="onlineListSidebar"></div>
         <div class="nav-links">
@@ -145,7 +202,7 @@
             </div>
             <div class="nav-item" onclick="openHelpGuide()" style="color:#7c3aed;border-top:1px solid rgba(255,255,255,0.05);padding:14px 20px;">📖 คู่มือการใช้งาน</div>
         </div>
-        <div class="nav-item" onclick="logout()" style="color:var(--danger);border-top:1px solid rgba(255,255,255,0.05);margin-top:auto;padding:20px;">🚪 ออกจากระบบ</div>
+        <div onclick="logout()" style="margin:8px 10px 12px;padding:11px 14px;border-radius:9px;cursor:pointer;color:#ef4444;font-size:13px;font-weight:500;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);text-align:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.12)'" onmouseout="this.style.background='rgba(239,68,68,0.06)'">🚪 ออกจากระบบ</div>
     </div>  <!-- end sidebar -->
 
     <div class="main-content">
@@ -1413,7 +1470,7 @@
             const c=document.getElementById('invTableContainer');
             if(!c)return;
 
-            // โหลด inventory ล่าสุดของคลังนี้เพื่อแสดง prev balance
+            // โหลด inventory ล่าสุด
             const invSnap=await getDocs(collection(db,'inventoryHistory'));
             let prevSheet=null; let prevTs=0;
             invSnap.forEach(d=>{
@@ -1421,47 +1478,80 @@
                 if(data.zone===zone && data.timestamp>prevTs){prevTs=data.timestamp;prevSheet=data;}
             });
 
-            const borderColors=['var(--info)','#a78bfa','#f59e0b'];
+            // หา template ที่ตรงกับ zone นี้ (ถ้ามี)
+            const matchTmpl = Object.values(stockSheetTemplates).find(t=>t.zone===zone);
+
+            // สร้าง render function สำหรับแต่ละ product row
+            const renderRow = (p) => {
+                const units=p.units||[{name:p.unit||'',rate:0}].filter(u=>u.name);
+                const u0=units[0]?.name||'';
+                const prevItem=prevSheet?.items?.find(it=>it.id===p.id);
+                const prevBal=prevItem?.balance??'-';
+                return `<tr class="stock-row inv-row" data-search="${p.id.toLowerCase()} ${p.name.toLowerCase()}">
+                    <td style="padding:14px 16px;">
+                        <div style="font-weight:700;font-size:13px;color:#1e293b;">${p.id}</div>
+                        <div style="color:#475569;font-size:13px;margin-top:2px;">${p.name}</div>
+                        ${prevSheet?`<div style="color:#94a3b8;font-size:10px;margin-top:2px;">นับล่าสุด: ${prevSheet.date}</div>`:''}
+                    </td>
+                    <td style="padding:14px 16px;text-align:center;">
+                        <span style="font-size:20px;font-weight:700;color:${prevBal!=='-'?'#64748b':'#cbd5e1'};">${prevBal}</span>
+                        ${prevBal!=='-'?`<div style="color:#94a3b8;font-size:10px;">${u0}</div>`:''}
+                    </td>
+                    <td style="padding:14px 16px;text-align:center;">
+                        <input type="number" id="inv_${p.id}" min="0" placeholder="0"
+                            oninput="calcDiff('${p.id}',${typeof prevBal==='number'?prevBal:'null'})"
+                            style="width:90px;padding:9px;border-radius:10px;border:2px solid #3b82f6;text-align:center;font-weight:700;font-size:16px;outline:none;transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#1d4ed8'" onblur="this.style.borderColor='#3b82f6'">
+                        <div style="color:#64748b;font-size:10px;margin-top:3px;">${u0}</div>
+                    </td>
+                    <td style="padding:14px 16px;text-align:center;" id="diff_${p.id}">
+                        <span style="color:#cbd5e1;font-size:18px;">—</span>
+                    </td>
+                    <td style="padding:14px 16px;">
+                        <input type="text" id="note_${p.id}" placeholder="หมายเหตุ (ถ้ามี)"
+                            style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;"
+                            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                    </td>
+                </tr>`;
+            };
+
+            // build table rows — ถ้ามี template จัดกลุ่มตาม group
+            let tbodyRows = '';
+            if(matchTmpl && matchTmpl.items?.length) {
+                const groups = [...new Set(matchTmpl.items.map(i=>i.group||'ทั่วไป'))];
+                const tmplIds = new Set(matchTmpl.items.map(i=>i.id));
+                // render ตาม group จาก template
+                groups.forEach(grp => {
+                    const grpItemIds = matchTmpl.items.filter(i=>(i.group||'ทั่วไป')===grp).map(i=>i.id);
+                    const grpProds = grpItemIds.map(id=>zoneProds.find(p=>p.id===id)).filter(Boolean);
+                    if(!grpProds.length) return;
+                    tbodyRows += `<tr><td colspan="5" style="padding:10px 16px;background:linear-gradient(90deg,#f0f9ff,#f8fafc);font-weight:700;font-size:12px;color:#0369a1;border-top:2px solid #bae6fd;border-bottom:1px solid #e0f2fe;letter-spacing:0.5px;">
+                        ▌ ${grp.toUpperCase()}
+                    </td></tr>`;
+                    grpProds.forEach(p => { tbodyRows += renderRow(p); });
+                });
+                // สินค้าที่ไม่อยู่ใน template
+                const notInTmpl = zoneProds.filter(p=>!tmplIds.has(p.id));
+                if(notInTmpl.length) {
+                    tbodyRows += `<tr><td colspan="5" style="padding:10px 16px;background:#fafafa;font-weight:700;font-size:12px;color:#94a3b8;border-top:2px solid #e2e8f0;">▌ รายการอื่นๆ</td></tr>`;
+                    notInTmpl.forEach(p => { tbodyRows += renderRow(p); });
+                }
+            } else {
+                zoneProds.forEach(p => { tbodyRows += renderRow(p); });
+            }
+
             c.innerHTML=`
-            <table class="stock-table" id="invTable">
-                <thead><tr style="background:#f8fafc;">
-                    <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;width:35%;">สินค้า</th>
-                    <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">คงเหลือครั้งก่อน</th>
-                    <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">คงเหลือจริงวันนี้</th>
-                    <th style="padding:12px;text-align:center;font-size:12px;color:#64748b;">ผลต่าง (ใช้ไป)</th>
-                    <th style="padding:12px;text-align:left;font-size:12px;color:#64748b;">หมายเหตุ</th>
+            <div style="background:white;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
+            <table style="width:100%;border-collapse:collapse;" id="invTable">
+                <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+                    <th style="padding:12px 16px;text-align:left;font-size:11px;color:#64748b;font-weight:700;letter-spacing:0.5px;width:35%;">สินค้า</th>
+                    <th style="padding:12px 16px;text-align:center;font-size:11px;color:#64748b;font-weight:700;letter-spacing:0.5px;">คงเหลือครั้งก่อน</th>
+                    <th style="padding:12px 16px;text-align:center;font-size:11px;color:#3b82f6;font-weight:700;letter-spacing:0.5px;">คงเหลือจริงวันนี้</th>
+                    <th style="padding:12px 16px;text-align:center;font-size:11px;color:#64748b;font-weight:700;letter-spacing:0.5px;">ผลต่าง (ใช้ไป)</th>
+                    <th style="padding:12px 16px;text-align:left;font-size:11px;color:#64748b;font-weight:700;letter-spacing:0.5px;">หมายเหตุ</th>
                 </tr></thead>
-                <tbody>${zoneProds.map(p=>{
-                    const units=p.units||[{name:p.unit||'',rate:0}].filter(u=>u.name);
-                    const u0=units[0]?.name||'';
-                    const prevItem=prevSheet?.items?.find(it=>it.id===p.id);
-                    const prevBal=prevItem?.balance??'-';
-                    return `<tr class="stock-row inv-row" data-search="${p.id.toLowerCase()} ${p.name.toLowerCase()}">
-                        <td style="padding:12px;">
-                            <b style="font-size:14px;">${p.id}</b><br>
-                            <span style="color:#475569;font-size:13px;">${p.name}</span><br>
-                            <small style="color:#94a3b8;font-size:10px;">หน่วย: ${u0}${prevSheet?` • นับล่าสุด: ${prevSheet.date}`:''}</small>
-                        </td>
-                        <td style="padding:12px;text-align:center;">
-                            <span style="font-size:18px;font-weight:bold;color:#94a3b8;">${prevBal}</span>
-                            ${prevBal!=='-'?`<br><small style="color:#cbd5e1;font-size:10px;">${u0}</small>`:''}
-                        </td>
-                        <td style="padding:12px;text-align:center;">
-                            <input type="number" id="inv_${p.id}" min="0" placeholder="0"
-                                oninput="calcDiff('${p.id}',${typeof prevBal==='number'?prevBal:'null'})"
-                                style="width:90px;padding:8px;border-radius:8px;border:2px solid var(--info);text-align:center;font-weight:bold;font-size:16px;">
-                            <br><small style="color:#64748b;font-size:10px;">${u0}</small>
-                        </td>
-                        <td style="padding:12px;text-align:center;" id="diff_${p.id}">
-                            <span style="color:#cbd5e1;font-size:13px;">—</span>
-                        </td>
-                        <td style="padding:12px;">
-                            <input type="text" id="note_${p.id}" placeholder="หมายเหตุ (ถ้ามี)"
-                                style="width:100%;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
-                        </td>
-                    </tr>`;
-                }).join('')}</tbody>
-            </table>`;
+                <tbody>${tbodyRows}</tbody>
+            </table></div>`;
         };
 
         window.calcDiff=function(id, prevBal){
