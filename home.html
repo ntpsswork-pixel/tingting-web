@@ -264,7 +264,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
         const firebaseConfig = {
@@ -709,7 +709,7 @@
                 const isPendDel=u.deleteAt!=null&&u.deleteAt!==undefined;
                 const isBranch=k.toUpperCase().startsWith('BT000');
                 let delInfo="";
-                if(isPendDel){const dl=Math.ceil(((u.deleteAt+604800000)-now)/86400000);delInfo=`<div style="color:var(--danger);font-size:10px;margin-top:5px;font-weight:bold;">⏳ ลบถาวรใน ${dl>0?dl:0} วัน</div>`;}
+                if(isPendDel){const dl=Math.ceil(((u.deleteAt+259200000)-now)/86400000);delInfo=`<div style="color:var(--danger);font-size:10px;margin-top:5px;font-weight:bold;">⏳ ลบถาวรใน ${dl>0?dl:0} วัน</div>`;}
                 const assignedZones=u.assignedZones||[];
                 const zoneInfo=isBranch?`<div style="font-size:11px;color:var(--info);margin-top:4px;">📍 คลัง: ${assignedZones.length>0?assignedZones.join(', '):'ยังไม่ได้ผูกคลัง'}</div>`:'';
                 html+=`<div class="user-card" style="${isSusp?'border:2px solid var(--danger);background:#fff5f5;':''} ${isPendDel?'opacity:0.6;':''}">
@@ -733,7 +733,10 @@
                         <button onclick="grantAccess('${k}',5)" style="background:var(--info);color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">+5 ชม.</button>
                         <button onclick="grantAccess('${k}',0)" style="background:var(--accent-gold);border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">ถาวร</button>
                         ${isSusp?`<button onclick="unbanUser('${k}')" style="background:#0ea5e9;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">🔓 ปลดระงับ</button>`:`<button onclick="revokeAccess('${k}')" style="background:var(--danger);color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">🚫 ระงับ</button>`}
-                        ${isPendDel?`<button onclick="cancelDelete('${k}')" style="background:#64748b;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">↩️ กู้คืน</button>`:`<button onclick="requestDelete('${k}')" style="background:#000;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">🗑️ ลบ</button>`}
+                        ${isPendDel
+                            ? `<button onclick="cancelDelete('${k}')" style="background:#64748b;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;">↩️ กู้คืน</button>`
+                            : `<button onclick="requestDelete('${k}')" style="background:#374151;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;" title="รอ 3 วันก่อนลบถาวร">⏳ ลบ (3วัน)</button>`}
+                        <button onclick="forceDeleteUser('${k}')" style="background:#ef4444;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:bold;" title="ลบทันที ไม่สามารถกู้คืนได้">🗑️ ลบทันที</button>
                         <button onclick="adminResetPassword('${k}')" style="grid-column:span 2;background:#7c3aed;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;margin-top:2px;">🔑 Reset Password → 1234</button>
                         ${isBranch?`<button onclick="openAssignZoneModal('${k}')" style="grid-column:span 2;background:#0891b2;color:white;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:11px;margin-top:2px;">📍 ผูกคลังสาขา</button>`:''}
                     </div>
@@ -808,10 +811,58 @@
             renderUserCards();
         };
         window.unbanUser=async function(u){await setDoc(doc(db,'users',u),{status:'active'},{merge:true});toast('🔓 ปลดระงับเรียบร้อย','#059669');renderUserCards();};
-        window.requestDelete=async function(u){if(!confirm(`ลบบัญชี ${u}? (รอลบ 7 วัน)`))return;await setDoc(doc(db,'users',u),{deleteAt:new Date().getTime()},{merge:true});renderUserCards();};
+        window.requestDelete=async function(u){if(!confirm(`⏳ ลบบัญชี ${u}?\nระบบจะรอ 3 วันก่อนลบถาวร (กู้คืนได้ภายใน 3 วัน)`))return;await setDoc(doc(db,'users',u),{deleteAt:new Date().getTime()},{merge:true});toast('⏳ กำหนดลบบัญชี '+u+' ภายใน 3 วัน','#c2410c');renderUserCards();};
         window.cancelDelete=async function(u){await setDoc(doc(db,'users',u),{deleteAt:null},{merge:true});toast('✅ กู้คืนบัญชีเรียบร้อย','#059669');renderUserCards();};
         window.grantAccess=async function(k,h){await setDoc(doc(db,'users',k),{toolExpiry:h===0?4070908800000:new Date().getTime()+(h*3600000),status:'active'},{merge:true});toast('✅ อัปเดตสิทธิ์เรียบร้อย','#059669');renderUserCards();};
         window.revokeAccess=async function(k){if(!confirm(`🚫 ระงับ ${k}?`))return;await setDoc(doc(db,'users',k),{toolExpiry:0,status:'suspended'},{merge:true});toast('🔒 ระงับเรียบร้อย','#c2410c');renderUserCards();};
+        window.forceDeleteUser=function(u){
+            const existing=document.getElementById('forceDeleteModal');if(existing)existing.remove();
+            const modal=document.createElement('div');modal.className='modal-overlay';modal.id='forceDeleteModal';
+            modal.innerHTML=`<div class="modal-box" style="border-top:4px solid #ef4444;">
+                <h3 style="color:#ef4444;">⚠️ ลบบัญชีทันที</h3>
+                <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px;margin-bottom:16px;">
+                    <div style="font-weight:700;color:#991b1b;margin-bottom:6px;">คำเตือน: การลบนี้ไม่สามารถกู้คืนได้!</div>
+                    <div style="font-size:13px;color:#7f1d1d;">บัญชี <b>${u}</b> จะถูกลบออกจากระบบทันที ประวัติการใช้งานทั้งหมดจะหายไป</div>
+                </div>
+                <div style="font-size:13px;color:#475569;margin-bottom:8px;font-weight:600;">พิมพ์ชื่อผู้ใช้ "<b>${u}</b>" เพื่อยืนยัน:</div>
+                <input type="text" id="confirmDeleteInput" placeholder="พิมพ์ ${u} เพื่อยืนยัน"
+                    style="width:100%;padding:11px 14px;border:2px solid #fca5a5;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;margin-bottom:16px;"
+                    onfocus="this.style.borderColor='#ef4444'" onblur="this.style.borderColor='#fca5a5'">
+                <div id="confirmDeleteError" style="color:#ef4444;font-size:12px;margin-bottom:10px;display:none;">❌ ชื่อไม่ตรง กรุณาพิมพ์ให้ถูกต้อง</div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="confirmForceDelete('${u}')"
+                        style="flex:1;background:#ef4444;color:white;border:none;padding:13px;border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;">
+                        🗑️ ลบทันที
+                    </button>
+                    <button onclick="document.getElementById('forceDeleteModal').remove()"
+                        style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:13px;border-radius:10px;cursor:pointer;font-weight:600;">
+                        ยกเลิก
+                    </button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+            document.getElementById('confirmDeleteInput').focus();
+        };
+
+        window.confirmForceDelete=async function(u){
+            const input=document.getElementById('confirmDeleteInput').value.trim();
+            const errEl=document.getElementById('confirmDeleteError');
+            if(input!==u){
+                errEl.style.display='block';
+                document.getElementById('confirmDeleteInput').style.borderColor='#ef4444';
+                return;
+            }
+            errEl.style.display='none';
+            try {
+                await deleteDoc(doc(db,'users',u));
+                document.getElementById('forceDeleteModal').remove();
+                toast(`🗑️ ลบบัญชี ${u} เรียบร้อยแล้ว`,'#ef4444');
+                renderUserCards();
+            } catch(e) {
+                toast('❌ เกิดข้อผิดพลาด: '+e.message,'#c2410c');
+            }
+        };
+
         window.addNewUser=async function(){
             const n=document.getElementById('newUserName').value.trim(),u=document.getElementById('newUserKey').value.trim(),r=document.getElementById('newUserRole').value,rp=document.getElementById('newUserPass').value.trim()||'1234';
             if(!n||!u)return;
@@ -830,14 +881,21 @@
                 const perms=roleSettings[role].menus,vo=roleSettings[role].viewOnly||false;
                 html+=`<div style="padding:12px;border:1px solid #f1f5f9;border-radius:10px;margin-bottom:10px;background:#f8fafc;">
                     <div style="display:flex;justify-content:space-between;"><b style="text-transform:uppercase;">${role}</b>${role!=='admin'?`<small onclick="deleteRole('${role}')" style="color:red;cursor:pointer;">ลบ Role</small>`:''}</div>
-                    <div style="display:flex;gap:12px;font-size:11px;margin-top:8px;flex-wrap:wrap;">
-                        <label><input type="checkbox" ${perms.includes('warehouse')?'checked':''} onchange="togglePerm('${role}','warehouse')"> 📦 คลัง</label>
-                        <label><input type="checkbox" ${perms.includes('requisition')?'checked':''} onchange="togglePerm('${role}','requisition')"> 📋 ใบเบิก</label>
-                        <label><input type="checkbox" ${perms.includes('tools')?'checked':''} onchange="togglePerm('${role}','tools')"> 🛠️ เครื่องมือ</label>
-                        <label><input type="checkbox" ${perms.includes('gr')?'checked':''} onchange="togglePerm('${role}','gr')" style="accent-color:#06b6d4;"> 🚚 รับสินค้า (GR)</label>
-                        <label><input type="checkbox" ${perms.includes('qc')?'checked':''} onchange="togglePerm('${role}','qc')" style="accent-color:#7c3aed;"> 🔍 QC FIFO</label>
-                        <label><input type="checkbox" ${perms.includes('admin')?'checked':''} onchange="togglePerm('${role}','admin')"> ⚙️ แอดมิน</label>
-                        <label style="color:var(--info);font-weight:bold;"><input type="checkbox" ${vo?'checked':''} onchange="toggleViewOnly('${role}')"> 👁️ ดูอย่างเดียว</label>
+                    <div style="display:flex;gap:10px;font-size:11px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+                        <label style="display:flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e2e8f0;padding:4px 10px;border-radius:20px;cursor:pointer;">
+                            <input type="checkbox" ${perms.includes('warehouse')?'checked':''} onchange="togglePerm('${role}','warehouse')"> 📦 คลัง</label>
+                        <label style="display:flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e2e8f0;padding:4px 10px;border-radius:20px;cursor:pointer;">
+                            <input type="checkbox" ${perms.includes('requisition')?'checked':''} onchange="togglePerm('${role}','requisition')"> 📋 ใบเบิก</label>
+                        <label style="display:flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e2e8f0;padding:4px 10px;border-radius:20px;cursor:pointer;">
+                            <input type="checkbox" ${perms.includes('tools')?'checked':''} onchange="togglePerm('${role}','tools')"> 🛠️ เครื่องมือ</label>
+                        <label style="display:flex;align-items:center;gap:4px;background:#f0f9ff;border:1px solid #bae6fd;padding:4px 10px;border-radius:20px;cursor:pointer;">
+                            <input type="checkbox" ${perms.includes('gr')?'checked':''} onchange="togglePerm('${role}','gr')" style="accent-color:#06b6d4;"> 🚚 GR</label>
+                        <label style="display:flex;align-items:center;gap:4px;background:#faf5ff;border:1px solid #e9d5ff;padding:4px 10px;border-radius:20px;cursor:pointer;">
+                            <input type="checkbox" ${perms.includes('qc')?'checked':''} onchange="togglePerm('${role}','qc')" style="accent-color:#7c3aed;"> 🔍 QC</label>
+                        <label style="display:flex;align-items:center;gap:4px;background:#fef9f0;border:1px solid #fde68a;padding:4px 10px;border-radius:20px;cursor:pointer;">
+                            <input type="checkbox" ${perms.includes('admin')?'checked':''} onchange="togglePerm('${role}','admin')" style="accent-color:#d97706;"> ⚙️ แอดมิน</label>
+                        <label style="display:flex;align-items:center;gap:4px;background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:20px;cursor:pointer;color:#1d4ed8;font-weight:bold;">
+                            <input type="checkbox" ${vo?'checked':''} onchange="toggleViewOnly('${role}')" style="accent-color:#3b82f6;"> 👁️ ดูอย่างเดียว</label>
                     </div></div>`;
                 opts+=`<option value="${role}">${role}</option>`;
             });
