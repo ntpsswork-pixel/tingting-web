@@ -52,7 +52,8 @@
         @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
         /* ── TOOL HEADER ── */
-        .tool-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid #e2e8f0; }
+        .tool-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid #e2e8f0; gap:10px; flex-wrap:wrap; }
+        .tool-header button { min-height:42px; min-width:44px; touch-action:manipulation; }
         .tool-header h2 { margin:0; font-family:'Prompt',sans-serif; font-size:20px; font-weight:700; color:#0f172a; }
 
         /* ── CARDS ── */
@@ -165,7 +166,7 @@
         </div>
         <div class="online-list" id="onlineListSidebar"></div>
         <div class="nav-links">
-            <div class="nav-item active" onclick="location.reload()">🏠 หน้าแรก Dashboard</div>
+            <div class="nav-item active" onclick="goToDashboard()">🏠 หน้าแรก Dashboard</div>
             <div id="warehouseMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subWH')">📦 คลังสินค้า ▾</div>
                 <div id="subWH" class="submenu">
@@ -1512,7 +1513,7 @@
                 <h2>📋 ใบนับสต๊อกคงเหลือ</h2>
                 <div style="display:flex;gap:8px;">
                     <button onclick="openInventoryAnalysis()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📈 วิเคราะห์ & กราฟ</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
 
@@ -1714,7 +1715,7 @@
                 <div style="display:flex;gap:8px;">
                     <button onclick="exportInventoryExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
                     <button onclick="openInventoryCheck()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📋 ใบนับสต๊อก</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
 
@@ -1984,7 +1985,7 @@ ${it.zone}`);
                     <button onclick="exportPurchasePDF()" style="background:#ef4444;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ PDF ใบสั่งซื้อ</button>
                     <button onclick="exportPurchaseExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Excel</button>
                     <button onclick="exportTRCloudFormat()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🔗 TRCloud Format</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
 
@@ -2281,7 +2282,7 @@ ${it.zone}`);
             c.innerHTML=`
             <div class="tool-header no-print">
                 <h2>📥 Import สินค้าจาก Excel</h2>
-                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
@@ -2489,7 +2490,7 @@ ${it.zone}`);
             c.innerHTML = `
             <div class="tool-header no-print">
                 <h2>✏️ สร้างใบเบิกสินค้า (MR)</h2>
-                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
             </div>
 
             ${tmplBar}
@@ -2636,7 +2637,7 @@ ${it.zone}`);
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
             c.innerHTML = `<div class="tool-header"><h2>📄 ใบเบิกของฉัน</h2><div style="display:flex;gap:8px;">
                 <button onclick="openCreateRequisition()" style="background:#f59e0b;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">✏️ สร้างใบเบิกใหม่</button>
-                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
             </div></div>
             <div id="myReqList"><p style="text-align:center;color:#94a3b8;padding:40px;">กำลังโหลด...</p></div>`;
 
@@ -2653,7 +2654,7 @@ ${it.zone}`);
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
             c.innerHTML = `<div class="tool-header"><h2>🔔 ใบเบิกรออนุมัติ / จ่ายของ</h2>
-                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
             </div>
             <div style="display:flex;gap:8px;margin-bottom:16px;">
                 <button onclick="filterReqStatus('pending')" id="rsbtn_pending" style="padding:7px 16px;border-radius:8px;border:2px solid #f59e0b;background:#f59e0b;color:white;cursor:pointer;font-size:12px;font-weight:bold;">รออนุมัติ</button>
@@ -2688,7 +2689,7 @@ ${it.zone}`);
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
             c.innerHTML = `<div class="tool-header"><h2>📊 ใบเบิกทั้งหมด</h2><div style="display:flex;gap:8px;">
                 <button onclick="exportReqExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
-                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
             </div></div>
             <div id="allReqList"><p style="text-align:center;color:#94a3b8;padding:40px;">กำลังโหลด...</p></div>`;
 
@@ -2912,7 +2913,7 @@ ${it.zone}`);
             c.innerHTML = `
             <div class="tool-header">
                 <h2>⚙️ ตั้งค่าใบเบิก (Template)</h2>
-                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
             </div>
             <p style="color:#64748b;font-size:13px;margin-bottom:20px;">สร้าง Template ใบเบิกสำเร็จรูปสำหรับแต่ละแผนก เช่น "ใบเบิกแผนกบิงซู" ฝ่ายผลิตกดใช้ได้เลยไม่ต้องกรอกใหม่ทุกครั้ง</p>
 
@@ -3213,7 +3214,7 @@ ${it.zone}`);
             c.innerHTML = `
             <div class="tool-header no-print">
                 <h2>📖 คู่มือการใช้งาน TTGPlus</h2>
-                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
             </div>
 
             <!-- HERO BANNER -->
@@ -3349,7 +3350,7 @@ ${it.zone}`);
                 <h2>📋 Daily Stock Card</h2>
                 <div style="display:flex;gap:8px;">
                     <button onclick="viewDailyHistory()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📊 ประวัติย้อนหลัง</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
 
@@ -3577,7 +3578,7 @@ ${it.zone}`);
                 <div style="display:flex;gap:8px;">
                     <button onclick="exportDSCExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
                     <button onclick="openDailyStockCard()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📋 บันทึกวันนี้</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
             <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
@@ -3725,7 +3726,7 @@ ${r.zone}`);
             c.innerHTML = `
             <div class="tool-header">
                 <h2>⚙️ ตั้งค่า Template</h2>
-                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
             </div>
             <!-- Tabs -->
             <div style="display:flex;gap:0;margin-bottom:24px;border-bottom:2px solid #e2e8f0;">
@@ -4312,7 +4313,7 @@ ${r.zone}`);
                 <h2>📄 ประวัติการรับสินค้า</h2>
                 <div style="display:flex;gap:8px;">
                     <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ สร้าง GR ใหม่</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
             <p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
@@ -4369,7 +4370,7 @@ ${r.zone}`);
                 <h2>📄 ประวัติการรับสินค้า</h2>
                 <div style="display:flex;gap:8px;">
                     <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ สร้าง GR ใหม่</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
             ${listHtml}`;
@@ -4384,7 +4385,7 @@ ${r.zone}`);
         window.openLotRegister = async function() {
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
-            c.innerHTML=`<div class="tool-header"><h2>🏷️ ทะเบียน Lot สินค้า</h2><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button></div>
+            c.innerHTML=`<div class="tool-header"><h2>🏷️ ทะเบียน Lot สินค้า</h2><button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button></div>
             <p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
 
             const lotSnap = await getDoc(doc(db,'config','lotRegister'));
@@ -4442,7 +4443,7 @@ ${r.zone}`);
                 <h2>🏷️ ทะเบียน Lot สินค้า</h2>
                 <div style="display:flex;gap:8px;">
                     <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ รับสินค้าใหม่</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
             ${expWarnings.length?`
@@ -4679,7 +4680,7 @@ ${r.zone}`);
         window.openQCHistory = async function() {
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
-            c.innerHTML=`<div class="tool-header"><h2>📊 QC Report</h2><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button></div><p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
+            c.innerHTML=`<div class="tool-header"><h2>📊 QC Report</h2><button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button></div><p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
 
             const snap = await getDocs(collection(db,'qcChecks'));
             let checks=[]; snap.forEach(d=>checks.push({id:d.id,...d.data()}));
@@ -4704,7 +4705,7 @@ ${r.zone}`);
                 <h2>📊 QC FIFO Report</h2>
                 <div style="display:flex;gap:8px;">
                     <button onclick="openQCCheck()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ Spot Check ใหม่</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
 
@@ -4921,36 +4922,56 @@ ${r.zone}`);
             document.addEventListener(ev, ()=>resetSessionTimer(), {passive:true});
         });
         window.toggleSub=function(id){const s=document.getElementById(id);s.style.display=(s.style.display==='block')?'none':'block';};
-        // ── HASH-BASED NAVIGATION (restore on refresh) ──
+        // ── HASH-BASED NAVIGATION ──────────────────────────────
+        // pushState = browser back button ทำงาน
+        // popstate  = กดปุ่มย้อนกลับ browser → กลับ Dashboard
+        // ──────────────────────────────────────────────────────
         const navFnMap = {
-            'gr':           ()=>openCreateGR(),
-            'gr-history':   ()=>openGRHistory(),
-            'lot-register': ()=>openLotRegister(),
-            'qc':           ()=>openQCCheck(),
-            'qc-history':   ()=>openQCHistory(),
-            'stock':        ()=>openCentralStock(),
-            'stock-summary':()=>openStockSummary(),
-            'inventory-check':()=>openInventoryCheck(),
-            'inventory-analysis':()=>openInventoryAnalysis(),
-            'purchase-order':()=>openPurchaseOrder(),
-            'import-products':()=>openImportProducts(),
-            'requisition':  ()=>openCreateRequisition(),
-            'my-req':       ()=>openMyRequisitions(),
-            'pending-req':  ()=>openPendingRequisitions(),
-            'all-req':      ()=>openAllRequisitions(),
-            'req-settings': ()=>openRequisitionSettings(),
-            'daily-stock':  ()=>openDailyStockCard(),
-            'warehouse-mgr':()=>openWarehouseManager(),
-            'user-mgmt':    ()=>openUserManagement(),
-            'help':         ()=>openHelpGuide(),
+            'gr':                ()=>{ const f=window._origOpenCreateGR||window.openCreateGR; f(); },
+            'gr-history':        ()=>{ const f=window._origOpenGRHistory||window.openGRHistory; f(); },
+            'lot-register':      ()=>{ const f=window._origOpenLotRegister||window.openLotRegister; f(); },
+            'qc':                ()=>{ const f=window._origOpenQCCheck||window.openQCCheck; f(); },
+            'qc-history':        ()=>{ const f=window._origOpenQCHistory||window.openQCHistory; f(); },
+            'stock':             ()=>{ const f=window._origOpenCentralStock||window.openCentralStock; f(); },
+            'stock-summary':     ()=>{ const f=window._origOpenStockSummary||window.openStockSummary; f(); },
+            'inventory-check':   ()=>{ const f=window._origOpenInventoryCheck||window.openInventoryCheck; f(); },
+            'inventory-analysis':()=>{ const f=window._origOpenInventoryAnalysis||window.openInventoryAnalysis; f(); },
+            'purchase-order':    ()=>{ const f=window._origOpenPurchaseOrder||window.openPurchaseOrder; f(); },
+            'import-products':   ()=>window.openImportProducts(),
+            'requisition':       ()=>{ const f=window._origOpenCreateRequisition||window.openCreateRequisition; f(); },
+            'my-req':            ()=>{ const f=window._origOpenMyRequisitions||window.openMyRequisitions; f(); },
+            'pending-req':       ()=>{ const f=window._origOpenPendingRequisitions||window.openPendingRequisitions; f(); },
+            'all-req':           ()=>{ const f=window._origOpenAllRequisitions||window.openAllRequisitions; f(); },
+            'req-settings':      ()=>{ const f=window._origOpenRequisitionSettings||window.openRequisitionSettings; f(); },
+            'daily-stock':       ()=>{ const f=window._origOpenDailyStockCard||window.openDailyStockCard; f(); },
+            'warehouse-mgr':     ()=>{ const f=window._origOpenWarehouseManager||window.openWarehouseManager; f(); },
+            'user-mgmt':         ()=>{ const f=window._origOpenUserManagement||window.openUserManagement; f(); },
+            'help':              ()=>{ const f=window._origOpenHelpGuide||window.openHelpGuide; f(); },
         };
 
-        // wrap ทุก open function ให้ set hash ก่อนทำงาน
-        const _setHash = (key) => {
-            history.replaceState(null, '', '#' + key);
+        // pushState — บันทึกใน history stack ให้ browser back ทำงาน
+        let _navBusy = false;
+        const _pushNav = (key) => {
+            if(location.hash !== '#'+key) {
+                history.pushState({ nav: key }, '', '#' + key);
+            }
         };
 
-        // restore จาก hash เมื่อ page load (หลัง login สำเร็จ)
+        // กดปุ่มย้อนกลับ browser
+        window.addEventListener('popstate', (e) => {
+            if(_navBusy) return;
+            const hash = location.hash.replace('#','');
+            if(!hash) {
+                // ไม่มี hash = กลับ Dashboard
+                _closeToDashboard();
+            } else if(navFnMap[hash]) {
+                _navBusy = true;
+                try { navFnMap[hash](); } catch(ex){}
+                setTimeout(()=>{ _navBusy=false; }, 500);
+            }
+        });
+
+        // restore จาก hash เมื่อ page โหลด (หลัง refresh)
         window._restoreHashNav = function() {
             const hash = location.hash.replace('#','');
             if(hash && navFnMap[hash]) {
@@ -4958,69 +4979,91 @@ ${r.zone}`);
             }
         };
 
-        // patch open functions ให้ set hash
-        const _origOpenCreateGR = window.openCreateGR;
-        window.openCreateGR = async function() { _setHash('gr'); await _origOpenCreateGR(); };
-
-        const _origOpenGRHistory = window.openGRHistory;
-        window.openGRHistory = async function() { _setHash('gr-history'); await _origOpenGRHistory(); };
-
-        const _origOpenLotRegister = window.openLotRegister;
-        window.openLotRegister = async function() { _setHash('lot-register'); await _origOpenLotRegister(); };
-
-        const _origOpenQCCheck = window.openQCCheck;
-        window.openQCCheck = async function() { _setHash('qc'); await _origOpenQCCheck(); };
-
-        const _origOpenQCHistory = window.openQCHistory;
-        window.openQCHistory = async function() { _setHash('qc-history'); await _origOpenQCHistory(); };
-
-        const _origOpenCentralStock = window.openCentralStock;
-        window.openCentralStock = function() { _setHash('stock'); _origOpenCentralStock(); };
-
-        const _origOpenStockSummary = window.openStockSummary;
-        window.openStockSummary = async function() { _setHash('stock-summary'); await _origOpenStockSummary(); };
-
-        const _origOpenInventoryCheck = window.openInventoryCheck;
-        window.openInventoryCheck = async function() { _setHash('inventory-check'); await _origOpenInventoryCheck(); };
-
-        const _origOpenInventoryAnalysis = window.openInventoryAnalysis;
-        window.openInventoryAnalysis = async function() { _setHash('inventory-analysis'); await _origOpenInventoryAnalysis(); };
-
-        const _origOpenPurchaseOrder = window.openPurchaseOrder;
-        window.openPurchaseOrder = async function() { _setHash('purchase-order'); await _origOpenPurchaseOrder(); };
-
-        const _origOpenCreateRequisition = window.openCreateRequisition;
-        window.openCreateRequisition = async function() { _setHash('requisition'); await _origOpenCreateRequisition(); };
-
-        const _origOpenMyRequisitions = window.openMyRequisitions;
-        window.openMyRequisitions = async function() { _setHash('my-req'); await _origOpenMyRequisitions(); };
-
-        const _origOpenPendingRequisitions = window.openPendingRequisitions;
-        window.openPendingRequisitions = async function() { _setHash('pending-req'); await _origOpenPendingRequisitions(); };
-
-        const _origOpenAllRequisitions = window.openAllRequisitions;
-        window.openAllRequisitions = async function() { _setHash('all-req'); await _origOpenAllRequisitions(); };
-
-        const _origOpenRequisitionSettings = window.openRequisitionSettings;
-        window.openRequisitionSettings = function() { _setHash('req-settings'); _origOpenRequisitionSettings(); };
-
-        const _origOpenDailyStockCard = window.openDailyStockCard;
-        window.openDailyStockCard = async function() { _setHash('daily-stock'); await _origOpenDailyStockCard(); };
-
-        const _origOpenWarehouseManager = window.openWarehouseManager;
-        window.openWarehouseManager = function() { _setHash('warehouse-mgr'); _origOpenWarehouseManager(); };
-
-        const _origOpenUserManagement = window.openUserManagement;
-        window.openUserManagement = function() { _setHash('user-mgmt'); _origOpenUserManagement(); };
-
-        const _origOpenHelpGuide = window.openHelpGuide;
-        window.openHelpGuide = function() { _setHash('help'); _origOpenHelpGuide(); };
-
-        window.closeTool=function(){
-            if(Object.keys(tempCountData).length>0){if(!confirm("ยังไม่บันทึก ต้องการปิดจริงไหม?"))return;}
-            history.replaceState(null, '', location.pathname); // เคลียร์ hash
+        // internal: ซ่อน tool กลับ Dashboard โดยไม่ pushState
+        function _closeToDashboard(skipConfirm) {
+            if(!skipConfirm && Object.keys(tempCountData).length>0) {
+                if(!confirm("ยังไม่บันทึก ต้องการปิดจริงไหม?")) {
+                    // ผู้ใช้ยกเลิก → กดย้อนกลับมาหน้านี้อีกครั้ง
+                    history.pushState({ nav: location.hash.replace('#','') }, '', location.hash);
+                    return;
+                }
+            }
             document.getElementById('toolAppContainer').classList.add('hidden');
             document.getElementById('dashboardView').classList.remove('hidden');
+            // ปิด sidebar mobile ถ้าเปิดอยู่
+            const sidebar = document.getElementById('sidebarMenu');
+            if(sidebar) sidebar.classList.remove('open');
+        }
+
+        // patch open functions
+        const _origOpenCreateGR = window.openCreateGR;
+        window.openCreateGR = async function() { _pushNav('gr'); await _origOpenCreateGR(); };
+
+        const _origOpenGRHistory = window.openGRHistory;
+        window.openGRHistory = async function() { _pushNav('gr-history'); await _origOpenGRHistory(); };
+
+        const _origOpenLotRegister = window.openLotRegister;
+        window.openLotRegister = async function() { _pushNav('lot-register'); await _origOpenLotRegister(); };
+
+        const _origOpenQCCheck = window.openQCCheck;
+        window.openQCCheck = async function() { _pushNav('qc'); await _origOpenQCCheck(); };
+
+        const _origOpenQCHistory = window.openQCHistory;
+        window.openQCHistory = async function() { _pushNav('qc-history'); await _origOpenQCHistory(); };
+
+        const _origOpenCentralStock = window.openCentralStock;
+        window.openCentralStock = function() { _pushNav('stock'); _origOpenCentralStock(); };
+
+        const _origOpenStockSummary = window.openStockSummary;
+        window.openStockSummary = async function() { _pushNav('stock-summary'); await _origOpenStockSummary(); };
+
+        const _origOpenInventoryCheck = window.openInventoryCheck;
+        window.openInventoryCheck = async function() { _pushNav('inventory-check'); await _origOpenInventoryCheck(); };
+
+        const _origOpenInventoryAnalysis = window.openInventoryAnalysis;
+        window.openInventoryAnalysis = async function() { _pushNav('inventory-analysis'); await _origOpenInventoryAnalysis(); };
+
+        const _origOpenPurchaseOrder = window.openPurchaseOrder;
+        window.openPurchaseOrder = async function() { _pushNav('purchase-order'); await _origOpenPurchaseOrder(); };
+
+        const _origOpenCreateRequisition = window.openCreateRequisition;
+        window.openCreateRequisition = async function() { _pushNav('requisition'); await _origOpenCreateRequisition(); };
+
+        const _origOpenMyRequisitions = window.openMyRequisitions;
+        window.openMyRequisitions = async function() { _pushNav('my-req'); await _origOpenMyRequisitions(); };
+
+        const _origOpenPendingRequisitions = window.openPendingRequisitions;
+        window.openPendingRequisitions = async function() { _pushNav('pending-req'); await _origOpenPendingRequisitions(); };
+
+        const _origOpenAllRequisitions = window.openAllRequisitions;
+        window.openAllRequisitions = async function() { _pushNav('all-req'); await _origOpenAllRequisitions(); };
+
+        const _origOpenRequisitionSettings = window.openRequisitionSettings;
+        window.openRequisitionSettings = function() { _pushNav('req-settings'); _origOpenRequisitionSettings(); };
+
+        const _origOpenDailyStockCard = window.openDailyStockCard;
+        window.openDailyStockCard = async function() { _pushNav('daily-stock'); await _origOpenDailyStockCard(); };
+
+        const _origOpenWarehouseManager = window.openWarehouseManager;
+        window.openWarehouseManager = function() { _pushNav('warehouse-mgr'); _origOpenWarehouseManager(); };
+
+        const _origOpenUserManagement = window.openUserManagement;
+        window.openUserManagement = function() { _pushNav('user-mgmt'); _origOpenUserManagement(); };
+
+        const _origOpenHelpGuide = window.openHelpGuide;
+        window.openHelpGuide = function() { _pushNav('help'); _origOpenHelpGuide(); };
+
+        // closeTool = กดปุ่ม ✕ ปิด ในทุกหน้า
+        window.closeTool = function() {
+            _closeToDashboard();
+            // ถ้ายังมี hash ใน URL ให้เคลียร์
+            if(location.hash) history.pushState(null, '', location.pathname);
+        };
+
+        // goToDashboard = กดปุ่ม 🏠 Dashboard ใน nav
+        window.goToDashboard = function() {
+            _closeToDashboard(true);
+            if(location.hash) history.pushState(null, '', location.pathname);
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
