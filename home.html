@@ -191,6 +191,21 @@
                     <div onclick="openDailyStockCard()" style="color:#06b6d4;">● Daily Stock Card</div>
                 </div>
             </div>
+            <div id="grMenu" class="hidden">
+                <div class="nav-item" onclick="toggleSub('subGR')" style="color:#06b6d4;">🚚 รับสินค้าเข้าคลัง ▾</div>
+                <div id="subGR" class="submenu">
+                    <div onclick="openCreateGR()" style="color:#06b6d4;">✏️ สร้างใบรับสินค้า (GR)</div>
+                    <div onclick="openGRHistory()">📄 ประวัติการรับสินค้า</div>
+                    <div onclick="openLotRegister()" style="color:#f59e0b;">🏷️ ทะเบียน Lot สินค้า</div>
+                </div>
+            </div>
+            <div id="qcMenu" class="hidden">
+                <div class="nav-item" onclick="toggleSub('subQC')" style="color:#a855f7;">🔍 QC ตรวจ FIFO ▾</div>
+                <div id="subQC" class="submenu">
+                    <div onclick="openQCCheck()" style="color:#a855f7;">📋 เริ่ม Spot Check</div>
+                    <div onclick="openQCHistory()">📊 ประวัติ QC Report</div>
+                </div>
+            </div>
             <div id="adminMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subAdmin')" style="color:var(--accent-gold);">👤 จัดการระบบ ▾</div>
                 <div id="subAdmin" class="submenu">
@@ -273,8 +288,9 @@
         let zoneProductMap = {};
         let countData      = {};
         let roleSettings   = {
-            admin:     { menus: ["warehouse","tools","admin","requisition"], viewOnly: false },
-            warehouse: { menus: ["warehouse","tools","requisition"],         viewOnly: false },
+            admin:     { menus: ["warehouse","tools","admin","requisition","gr","qc"], viewOnly: false },
+            warehouse: { menus: ["warehouse","tools","requisition","gr"],               viewOnly: false },
+            qc:        { menus: ["gr","qc"],                                            viewOnly: false },
             staff:     { menus: ["tools","requisition"],                     viewOnly: false }
         };
         let tempCountData = {};
@@ -316,18 +332,22 @@
                     // --- migrate: เพิ่ม requisition ให้ทุก role ที่ยังไม่มี ---
                     let needSave = false;
                     const reqDefaults = {
-                        admin:     ['warehouse','tools','admin','requisition'],
-                        warehouse: ['warehouse','tools','requisition'],
-                        staff:     ['tools','requisition']
+                        admin:     ['warehouse','tools','admin','requisition','gr','qc'],
+                        warehouse: ['warehouse','tools','requisition','gr'],
+                        staff:     ['tools','requisition'],
+                        qc:        ['gr','qc']
                     };
                     Object.keys(roleSettings).forEach(r => {
                         if (!roleSettings[r].menus) roleSettings[r].menus = [];
-                        if (!roleSettings[r].menus.includes('requisition')) {
-                            // ถ้าเป็น role มาตรฐาน ใช้ default / ถ้าไม่ใช่ เพิ่มให้เลย
-                            if (reqDefaults[r]) roleSettings[r].menus = reqDefaults[r];
-                            else roleSettings[r].menus.push('requisition');
-                            needSave = true;
-                        }
+                        const needMenus = ['requisition','gr','qc'];
+                        needMenus.forEach(m => {
+                            if (!roleSettings[r].menus.includes(m)) {
+                                if (reqDefaults[r]) roleSettings[r].menus = reqDefaults[r];
+                                else if (['gr','qc'].includes(m)) {} // custom role ไม่บังคับ
+                                else roleSettings[r].menus.push(m);
+                                needSave = true;
+                            }
+                        });
                     });
                     if (needSave) saveConfig();
                 }
@@ -549,6 +569,10 @@
             // requisition menu
             const reqMenu = document.getElementById('requisitionMenu');
             if(reqMenu) reqMenu.classList.toggle('hidden', !effectivePerms.includes('requisition'));
+            const grMenu = document.getElementById('grMenu');
+            if(grMenu) grMenu.classList.toggle('hidden', !effectivePerms.includes('gr'));
+            const qcMenu = document.getElementById('qcMenu');
+            if(qcMenu) qcMenu.classList.toggle('hidden', !effectivePerms.includes('qc'));
             // monthly count badge
             const badge = document.getElementById('monthlyCountBadge');
             if(badge){
@@ -3784,6 +3808,771 @@ ${r.zone}`);
                 renderInventoryRows();
             }
             toast(`✅ ใช้ Template "${t.name}" แล้ว`,'#059669');
+        };
+
+        // ════════════════════════════════════════
+        // GR — GOODS RECEIPT MODULE
+        // ════════════════════════════════════════
+
+        function genGRNumber() {
+            const now = new Date();
+            const d = now.toISOString().slice(0,10).replace(/-/g,'');
+            return `GR-${d}-${String(Math.floor(Math.random()*900)+100)}`;
+        }
+
+        function genLotNumber(productId, date) {
+            const d = date.replace(/-/g,'');
+            const suffix = String(Math.floor(Math.random()*90)+10);
+            return `LOT-${productId}-${d}-${suffix}`;
+        }
+
+        window.openCreateGR = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            const today = new Date().toISOString().slice(0,10);
+            const usersSnap = await getDocs(collection(db,'users'));
+            let staffOpts = '';
+            usersSnap.forEach(d=>{ const u=d.data(); if(u.status!=='suspended') staffOpts+=`<option value="${u.name}">${u.name}</option>`; });
+
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <div>
+                    <h2>🚚 สร้างใบรับสินค้า (GR)</h2>
+                    <p style="margin:4px 0 0;font-size:12px;color:#64748b;">บันทึกสินค้าที่รับเข้าคลัง พร้อม Lot และวันหมดอายุ</p>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openGRHistory()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">📄 ประวัติ GR</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+
+            <!-- Header Info -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+                    <div class="input-group" style="border:2px solid #06b6d4;">
+                        <label>📋 GR Number</label>
+                        <b id="grNumber" style="font-size:13px;color:#06b6d4;">${genGRNumber()}</b>
+                    </div>
+                    <div class="input-group" style="border:2px solid var(--danger);">
+                        <label>📅 วันที่รับสินค้า</label>
+                        <input type="date" id="gr_date" value="${today}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;">
+                    </div>
+                    <div class="input-group">
+                        <label>🏢 Supplier / ผู้ส่ง</label>
+                        <input type="text" id="gr_supplier" placeholder="ชื่อบริษัท/ผู้ส่ง" style="width:100%;border:none;outline:none;font-size:13px;font-weight:bold;">
+                    </div>
+                    <div class="input-group">
+                        <label>👤 ผู้รับสินค้า</label>
+                        <select id="gr_receiver" style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;">
+                            <option value="">-- เลือก --</option>${staffOpts}
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top:12px;">
+                    <div class="input-group">
+                        <label>📝 หมายเหตุทั่วไป</label>
+                        <input type="text" id="gr_note" placeholder="เช่น รถส่งช้า, ของมาไม่ครบบางส่วน" style="width:100%;border:none;outline:none;font-size:13px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zone + Product Search -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:20px;">
+                <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+                    <div class="input-group" style="flex:1;min-width:180px;">
+                        <label>📦 เลือกคลัง</label>
+                        <select id="gr_zone" onchange="renderGRProductSearch()" style="width:100%;border:none;font-weight:bold;outline:none;">
+                            ${getVisibleWarehouses().map(z=>`<option value="${z}">${z}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div style="flex:2;min-width:240px;">
+                        <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">ค้นหาสินค้าเพื่อเพิ่ม</div>
+                        <input type="text" id="gr_search" placeholder="🔍 พิมพ์รหัสหรือชื่อสินค้า..." oninput="renderGRProductSearch()"
+                            style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;box-sizing:border-box;outline:none;"
+                            onfocus="this.style.borderColor='#06b6d4'" onblur="this.style.borderColor='#e2e8f0'">
+                        <div id="grSearchResults" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;margin-top:6px;display:none;background:white;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:10;position:relative;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GR Items Table -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:24px;">
+                <div style="padding:14px 20px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;font-size:14px;">รายการสินค้าที่รับเข้า</span>
+                    <span id="grItemCount" style="font-size:12px;color:#64748b;">0 รายการ</span>
+                </div>
+                <div id="grItemsContainer">
+                    <div style="padding:40px;text-align:center;color:#94a3b8;">
+                        <div style="font-size:36px;margin-bottom:8px;">📦</div>
+                        <div>ค้นหาสินค้าด้านบนเพื่อเพิ่มรายการ</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align:center;" class="no-print">
+                <button onclick="saveGR()" style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:white;padding:16px 60px;border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(6,182,212,0.35);">
+                    💾 บันทึกใบรับสินค้า (GR)
+                </button>
+            </div>`;
+
+            window._grItems = [];
+            renderGRProductSearch();
+        };
+
+        window.renderGRProductSearch = function() {
+            const zone = document.getElementById('gr_zone')?.value||'';
+            const q = (document.getElementById('gr_search')?.value||'').toLowerCase().trim();
+            const resultsEl = document.getElementById('grSearchResults');
+            if(!resultsEl) return;
+            if(!q) { resultsEl.style.display='none'; return; }
+            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const filtered = zoneProds.filter(p=>p.id.toLowerCase().includes(q)||p.name.toLowerCase().includes(q)).slice(0,8);
+            if(!filtered.length) { resultsEl.style.display='none'; return; }
+            resultsEl.style.display='block';
+            resultsEl.innerHTML = filtered.map(p=>{
+                const u=(p.units||[{name:p.unit||''}])[0]?.name||'';
+                const already = window._grItems?.find(i=>i.id===p.id);
+                return `<div onclick="addGRItem('${p.id}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f8fafc;display:flex;align-items:center;gap:10px;${already?'background:#f0fdf4;':''}"
+                    onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${already?'#f0fdf4':'white'}'">
+                    <div>
+                        <div style="font-weight:700;font-size:12px;color:#0f172a;">${p.id} ${already?'✅':''}</div>
+                        <div style="font-size:12px;color:#64748b;">${p.name} <span style="color:#94a3b8;">(${u})</span></div>
+                    </div>
+                </div>`;
+            }).join('');
+        };
+
+        window.addGRItem = function(productId) {
+            if(!window._grItems) window._grItems=[];
+            if(window._grItems.find(i=>i.id===productId)) { toast('⚠️ สินค้านี้อยู่ในรายการแล้ว','#c2410c'); return; }
+            const p = allProducts.find(x=>x.id===productId); if(!p) return;
+            const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
+            const grDate = document.getElementById('gr_date')?.value||new Date().toISOString().slice(0,10);
+            window._grItems.push({id:p.id, name:p.name, unit:u, lotNumber:genLotNumber(p.id,grDate)});
+            document.getElementById('gr_search').value='';
+            document.getElementById('grSearchResults').style.display='none';
+            renderGRItemsTable();
+        };
+
+        window.removeGRItem = function(id) {
+            window._grItems = window._grItems.filter(i=>i.id!==id);
+            renderGRItemsTable();
+        };
+
+        function renderGRItemsTable() {
+            const c = document.getElementById('grItemsContainer'); if(!c) return;
+            const items = window._grItems||[];
+            document.getElementById('grItemCount').innerText = `${items.length} รายการ`;
+            if(!items.length) {
+                c.innerHTML=`<div style="padding:40px;text-align:center;color:#94a3b8;"><div style="font-size:36px;margin-bottom:8px;">📦</div><div>ค้นหาสินค้าด้านบนเพื่อเพิ่มรายการ</div></div>`;
+                return;
+            }
+            c.innerHTML=`<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#f8fafc;">
+                    <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748b;font-weight:700;">สินค้า</th>
+                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#059669;font-weight:700;">รับจริง (จำนวน)</th>
+                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">Lot Number</th>
+                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#dc2626;font-weight:700;">วันผลิต (MFD)</th>
+                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#b45309;font-weight:700;">วันหมดอายุ (EXP)</th>
+                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">สถานะ</th>
+                    <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748b;font-weight:700;">หมายเหตุ</th>
+                    <th style="padding:10px;"></th>
+                </tr></thead>
+                <tbody>${items.map((it,i)=>`
+                <tr style="border-top:1px solid #f1f5f9;${i%2===0?'':'background:#fafafa'}">
+                    <td style="padding:12px 14px;">
+                        <div style="font-weight:700;font-size:13px;">${it.id}</div>
+                        <div style="font-size:12px;color:#64748b;">${it.name}</div>
+                        <div style="font-size:10px;color:#94a3b8;">${it.unit}</div>
+                    </td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        <input type="number" id="gr_qty_${it.id}" min="0" placeholder="0"
+                            style="width:80px;padding:8px;border:2px solid #10b981;border-radius:8px;text-align:center;font-weight:700;font-size:15px;outline:none;"
+                            onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#10b981'">
+                        <div style="font-size:10px;color:#64748b;margin-top:2px;">${it.unit}</div>
+                    </td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        <input type="text" id="gr_lot_${it.id}" value="${it.lotNumber}"
+                            style="width:160px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;font-family:monospace;text-align:center;outline:none;"
+                            onfocus="this.style.borderColor='#06b6d4'" onblur="this.style.borderColor='#e2e8f0'">
+                    </td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        <input type="date" id="gr_mfd_${it.id}"
+                            style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;outline:none;"
+                            onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#e2e8f0'">
+                    </td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        <input type="date" id="gr_exp_${it.id}" onchange="checkExpWarning('${it.id}')"
+                            style="padding:6px 8px;border:2px solid #f59e0b;border-radius:7px;font-size:12px;outline:none;font-weight:bold;"
+                            onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#f59e0b'">
+                        <div id="exp_warn_${it.id}" style="font-size:9px;margin-top:2px;"></div>
+                    </td>
+                    <td style="padding:12px 14px;text-align:center;">
+                        <select id="gr_status_${it.id}" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;outline:none;">
+                            <option value="complete">✅ ครบ</option>
+                            <option value="partial">⚠️ ไม่ครบ</option>
+                            <option value="extra">➕ ของแทรก</option>
+                            <option value="damaged">❌ เสียหาย</option>
+                        </select>
+                    </td>
+                    <td style="padding:12px 14px;">
+                        <input type="text" id="gr_itemnote_${it.id}" placeholder="หมายเหตุ"
+                            style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;box-sizing:border-box;outline:none;">
+                    </td>
+                    <td style="padding:12px;text-align:center;">
+                        <button onclick="removeGRItem('${it.id}')" style="background:#fef2f2;color:#ef4444;border:none;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:14px;">✕</button>
+                    </td>
+                </tr>`).join('')}</tbody>
+            </table>`;
+        }
+
+        window.checkExpWarning = function(id) {
+            const val = document.getElementById(`gr_exp_${id}`)?.value;
+            const warnEl = document.getElementById(`exp_warn_${id}`);
+            if(!val||!warnEl) return;
+            const diff = Math.floor((new Date(val)-new Date())/(1000*60*60*24));
+            if(diff<0) warnEl.innerHTML='<span style="color:#ef4444;font-weight:bold;">⚠️ หมดอายุแล้ว!</span>';
+            else if(diff<=30) warnEl.innerHTML=`<span style="color:#f59e0b;font-weight:bold;">⚠️ เหลือ ${diff} วัน</span>`;
+            else warnEl.innerHTML=`<span style="color:#10b981;">✓ เหลือ ${diff} วัน</span>`;
+        };
+
+        window.saveGR = async function() {
+            const grNumber = document.getElementById('grNumber')?.innerText||genGRNumber();
+            const grDate   = document.getElementById('gr_date')?.value;
+            const supplier = document.getElementById('gr_supplier')?.value.trim()||'';
+            const receiver = document.getElementById('gr_receiver')?.value;
+            const note     = document.getElementById('gr_note')?.value.trim()||'';
+            const zone     = document.getElementById('gr_zone')?.value;
+            const items    = window._grItems||[];
+
+            if(!grDate) { toast('⚠️ กรุณาเลือกวันที่','#c2410c'); return; }
+            if(!receiver) { toast('⚠️ กรุณาเลือกผู้รับสินค้า','#c2410c'); return; }
+            if(!items.length) { toast('⚠️ กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','#c2410c'); return; }
+
+            const [y,m,d] = grDate.split('-');
+            const dateTH = `${d}/${m}/${parseInt(y)+543}`;
+
+            const grItems = items.map(it=>({
+                id:it.id, name:it.name, unit:it.unit,
+                lotNumber: document.getElementById(`gr_lot_${it.id}`)?.value||it.lotNumber,
+                qtyReceived: parseFloat(document.getElementById(`gr_qty_${it.id}`)?.value)||0,
+                mfd: document.getElementById(`gr_mfd_${it.id}`)?.value||'',
+                exp: document.getElementById(`gr_exp_${it.id}`)?.value||'',
+                status: document.getElementById(`gr_status_${it.id}`)?.value||'complete',
+                note: document.getElementById(`gr_itemnote_${it.id}`)?.value||''
+            }));
+
+            const missingQty = grItems.filter(i=>i.qtyReceived<=0 && i.status!=='damaged');
+            if(missingQty.length) { toast(`⚠️ กรอกจำนวนรับสินค้าให้ครบ (${missingQty.length} รายการ)`,'#c2410c'); return; }
+            const missingExp = grItems.filter(i=>!i.exp && i.status!=='damaged');
+            if(missingExp.length && !confirm(`⚠️ มี ${missingExp.length} รายการที่ไม่ได้กรอกวันหมดอายุ\nยืนยันบันทึกต่อไหม?`)) return;
+
+            if(!confirm(`ยืนยันบันทึก GR ${grNumber}\n${items.length} รายการ | ${dateTH} | ${zone}`)) return;
+
+            const payload = {
+                grNumber, date:dateTH, grDate, zone, supplier, receiver,
+                note, timestamp:Date.now(), createdBy:currentUser.name,
+                items:grItems, status:'completed'
+            };
+
+            await addDoc(collection(db,'goodsReceipts'), payload);
+
+            // อัปเดต Lot Register ใน Firestore
+            const lotRef = doc(db,'config','lotRegister');
+            const lotSnap = await getDoc(lotRef);
+            const lotData = lotSnap.exists() ? (lotSnap.data().lots||{}) : {};
+            grItems.forEach(it=>{
+                if(!lotData[it.id]) lotData[it.id]=[];
+                lotData[it.id].push({
+                    lotNumber:it.lotNumber, qtyReceived:it.qtyReceived,
+                    qtyRemaining:it.qtyReceived, mfd:it.mfd, exp:it.exp,
+                    grNumber, grDate, zone, status:'active'
+                });
+                // เรียงตาม exp (FIFO = EXP เก่าสุดก่อน)
+                lotData[it.id].sort((a,b)=>{
+                    if(!a.exp) return 1; if(!b.exp) return -1;
+                    return new Date(a.exp)-new Date(b.exp);
+                });
+            });
+            await setDoc(lotRef, {lots:lotData}, {merge:true});
+
+            toast(`✅ บันทึก ${grNumber} สำเร็จ — อัปเดต Lot Register แล้ว`,'#059669');
+            setTimeout(()=>openGRHistory(), 800);
+        };
+
+        // ════ GR HISTORY ════
+        window.openGRHistory = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            c.innerHTML=`
+            <div class="tool-header">
+                <h2>📄 ประวัติการรับสินค้า</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ สร้าง GR ใหม่</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+            <p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
+
+            const snap = await getDocs(collection(db,'goodsReceipts'));
+            let docs = [];
+            snap.forEach(d=>docs.push({id:d.id,...d.data()}));
+            docs.sort((a,b)=>b.timestamp-a.timestamp);
+
+            const listHtml = docs.length ? docs.map(gr=>{
+                const statusColors={complete:'#10b981',partial:'#f59e0b',extra:'#3b82f6',damaged:'#ef4444'};
+                const statusLabels={complete:'ครบ',partial:'ไม่ครบ',extra:'ของแทรก',damaged:'เสียหาย'};
+                const hasIssue = gr.items?.some(i=>i.status!=='complete');
+                return `<div class="history-card" style="${hasIssue?'border-left:4px solid #f59e0b;':''}">
+                    <div class="history-card-header" style="cursor:pointer;" onclick="toggleDetail('grdet_${gr.id}')">
+                        <div>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span style="font-weight:700;font-size:14px;color:#06b6d4;">${gr.grNumber}</span>
+                                ${hasIssue?'<span style="background:#fff7ed;color:#c2410c;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:bold;">⚠️ มีรายการผิดปกติ</span>':'<span style="background:#f0fdf4;color:#059669;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:bold;">✅ ปกติ</span>'}
+                            </div>
+                            <div style="font-size:12px;color:#64748b;margin-top:3px;">
+                                📅 ${gr.date} • 📦 ${gr.zone} • 🏢 ${gr.supplier||'ไม่ระบุ'} • 👤 ${gr.receiver}
+                            </div>
+                        </div>
+                        <div style="font-size:12px;color:#94a3b8;">${gr.items?.length||0} รายการ ▼</div>
+                    </div>
+                    <div id="grdet_${gr.id}" style="display:none;padding:16px 20px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                            <thead><tr style="background:#f8fafc;">
+                                <th style="padding:8px;text-align:left;">รหัส/ชื่อ</th>
+                                <th style="padding:8px;text-align:center;">Lot</th>
+                                <th style="padding:8px;text-align:center;">จำนวนรับ</th>
+                                <th style="padding:8px;text-align:center;">MFD</th>
+                                <th style="padding:8px;text-align:center;">EXP</th>
+                                <th style="padding:8px;text-align:center;">สถานะ</th>
+                            </tr></thead>
+                            <tbody>${(gr.items||[]).map(it=>`
+                            <tr style="border-top:1px solid #f1f5f9;">
+                                <td style="padding:8px;"><b>${it.id}</b><br><span style="color:#64748b;">${it.name}</span></td>
+                                <td style="padding:8px;text-align:center;font-family:monospace;font-size:11px;color:#06b6d4;">${it.lotNumber}</td>
+                                <td style="padding:8px;text-align:center;font-weight:bold;">${it.qtyReceived} ${it.unit}</td>
+                                <td style="padding:8px;text-align:center;">${it.mfd||'-'}</td>
+                                <td style="padding:8px;text-align:center;${it.exp&&new Date(it.exp)<new Date()?'color:#ef4444;font-weight:bold;':''}">${it.exp||'-'}</td>
+                                <td style="padding:8px;text-align:center;"><span style="background:${(statusColors[it.status]||'#64748b')}20;color:${statusColors[it.status]||'#64748b'};padding:2px 8px;border-radius:8px;font-size:11px;font-weight:bold;">${statusLabels[it.status]||it.status}</span></td>
+                            </tr>`).join('')}</tbody>
+                        </table>
+                        ${gr.note?`<div style="margin-top:8px;font-size:12px;color:#64748b;">📝 ${gr.note}</div>`:''}
+                    </div>
+                </div>`;
+            }).join('') : '<p style="text-align:center;color:#94a3b8;padding:40px;">ยังไม่มีการรับสินค้า</p>';
+
+            c.innerHTML=`
+            <div class="tool-header">
+                <h2>📄 ประวัติการรับสินค้า</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ สร้าง GR ใหม่</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+            ${listHtml}`;
+        };
+
+        window.toggleDetail = function(id) {
+            const el=document.getElementById(id); if(!el) return;
+            el.style.display=el.style.display==='none'?'block':'none';
+        };
+
+        // ════ LOT REGISTER ════
+        window.openLotRegister = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            c.innerHTML=`<div class="tool-header"><h2>🏷️ ทะเบียน Lot สินค้า</h2><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button></div>
+            <p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
+
+            const lotSnap = await getDoc(doc(db,'config','lotRegister'));
+            const lots = lotSnap.exists() ? (lotSnap.data().lots||{}) : {};
+            const today = new Date();
+
+            const rows = Object.entries(lots).map(([productId, lotList])=>{
+                const p = allProducts.find(x=>x.id===productId);
+                const activeLots = lotList.filter(l=>l.qtyRemaining>0);
+                if(!activeLots.length) return '';
+                const oldest = activeLots[0]; // FIFO = index 0
+                const expDate = oldest.exp ? new Date(oldest.exp) : null;
+                const daysLeft = expDate ? Math.floor((expDate-today)/(1000*60*60*24)) : null;
+                const expColor = daysLeft===null?'#64748b':daysLeft<0?'#ef4444':daysLeft<=30?'#f59e0b':'#10b981';
+                return `<tr style="border-top:1px solid #f1f5f9;">
+                    <td style="padding:12px 16px;"><b style="font-size:13px;">${productId}</b><br><span style="font-size:12px;color:#64748b;">${p?.name||'-'}</span></td>
+                    <td style="padding:12px 16px;text-align:center;">
+                        <span style="font-family:monospace;font-size:12px;color:#06b6d4;background:#f0f9ff;padding:3px 8px;border-radius:6px;">${oldest.lotNumber}</span>
+                        <div style="font-size:10px;color:#94a3b8;margin-top:2px;">FIFO ต้องหยิบก่อน</div>
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;font-weight:700;font-size:16px;">${oldest.qtyRemaining}<span style="font-size:10px;color:#64748b;font-weight:400;"> ${oldest.unit||''}</span></td>
+                    <td style="padding:12px 16px;text-align:center;">
+                        <span style="font-weight:bold;color:${expColor};">${oldest.exp||'-'}</span>
+                        ${daysLeft!==null?`<div style="font-size:10px;color:${expColor};">${daysLeft<0?'หมดอายุแล้ว!':daysLeft===0?'วันนี้!':daysLeft+'วัน'}</div>`:''}
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;">
+                        <span style="background:#f1f5f9;border-radius:10px;padding:3px 10px;font-size:12px;font-weight:bold;">${activeLots.length} Lot</span>
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;">
+                        <button onclick="showAllLots('${productId}')" style="background:#eff6ff;color:#3b82f6;border:none;padding:5px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:bold;">ดูทั้งหมด</button>
+                    </td>
+                </tr>
+                <tr id="allLots_${productId}" style="display:none;background:#f8fafc;">
+                    <td colspan="6" style="padding:12px 20px;">
+                        <div style="font-size:11px;font-weight:bold;color:#64748b;margin-bottom:6px;">Lot ทั้งหมดของ ${productId}:</div>
+                        ${activeLots.map((l,i)=>`<span style="display:inline-block;margin:3px;background:${i===0?'#dbeafe':'white'};border:1px solid ${i===0?'#93c5fd':'#e2e8f0'};border-radius:8px;padding:4px 10px;font-size:11px;font-family:monospace;">
+                            ${i===0?'⭐ ':''}<b>${l.lotNumber}</b> • เหลือ ${l.qtyRemaining} • EXP: ${l.exp||'-'}
+                        </span>`).join('')}
+                    </td>
+                </tr>`;
+            }).join('');
+
+            // หาสินค้าใกล้หมดอายุ
+            const expWarnings = [];
+            Object.entries(lots).forEach(([pid,lotList])=>{
+                lotList.filter(l=>l.qtyRemaining>0&&l.exp).forEach(l=>{
+                    const d=Math.floor((new Date(l.exp)-today)/(1000*60*60*24));
+                    if(d<=30) expWarnings.push({pid,lotNumber:l.lotNumber,exp:l.exp,daysLeft:d,qty:l.qtyRemaining,unit:l.unit});
+                });
+            });
+            expWarnings.sort((a,b)=>a.daysLeft-b.daysLeft);
+
+            c.innerHTML=`
+            <div class="tool-header">
+                <h2>🏷️ ทะเบียน Lot สินค้า</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ รับสินค้าใหม่</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+            ${expWarnings.length?`
+            <div style="background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1.5px solid #fbbf24;border-radius:14px;padding:16px 20px;margin-bottom:20px;">
+                <div style="font-weight:700;font-size:14px;color:#b45309;margin-bottom:8px;">⚠️ สินค้าใกล้หมดอายุ (ภายใน 30 วัน) — ${expWarnings.length} รายการ</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${expWarnings.map(w=>`<span style="background:white;border:1px solid #fbbf24;border-radius:8px;padding:5px 12px;font-size:11px;color:${w.daysLeft<0?'#ef4444':w.daysLeft<=7?'#dc2626':'#b45309'};font-weight:bold;">
+                        ${w.pid} • ${w.lotNumber} • EXP: ${w.exp} (${w.daysLeft<0?'หมดแล้ว!':w.daysLeft+'วัน'})
+                    </span>`).join('')}
+                </div>
+            </div>`:''}
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead><tr style="background:#0f172a;color:white;">
+                        <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:700;">สินค้า</th>
+                        <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:700;">Lot ที่ต้องหยิบก่อน (FIFO)</th>
+                        <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:700;">คงเหลือ Lot นี้</th>
+                        <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:700;">วันหมดอายุ</th>
+                        <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:700;">Lot ทั้งหมด</th>
+                        <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:700;"></th>
+                    </tr></thead>
+                    <tbody>${rows||'<tr><td colspan="6" style="padding:40px;text-align:center;color:#94a3b8;">ยังไม่มีข้อมูล Lot — เริ่มรับสินค้าเพื่อสร้าง Lot Register</td></tr>'}</tbody>
+                </table>
+            </div>`;
+        };
+
+        window.showAllLots = function(pid) {
+            const el = document.getElementById(`allLots_${pid}`); if(!el) return;
+            el.style.display = el.style.display==='none' ? 'table-row' : 'none';
+        };
+
+        // ════ QC FIFO SPOT CHECK ════
+        window.openQCCheck = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+
+            const lotSnap = await getDoc(doc(db,'config','lotRegister'));
+            const lots = lotSnap.exists() ? (lotSnap.data().lots||{}) : {};
+            const today = new Date().toISOString().slice(0,10);
+            const checkNo = `QC-${today.replace(/-/g,'')}-${String(Math.floor(Math.random()*900)+100)}`;
+
+            const productsWithLots = Object.keys(lots).filter(id=>lots[id].some(l=>l.qtyRemaining>0));
+
+            c.innerHTML=`
+            <div class="tool-header no-print">
+                <div>
+                    <h2>🔍 FIFO Spot Check</h2>
+                    <p style="margin:4px 0 0;font-size:12px;color:#64748b;">ตรวจสอบว่าหยิบของตาม FIFO หรือไม่</p>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openQCHistory()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">📊 ประวัติ QC</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+
+            <div style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);border:1.5px solid #c4b5fd;border-radius:14px;padding:16px 20px;margin-bottom:20px;">
+                <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                    <div><span style="font-size:10px;color:#7c3aed;font-weight:700;display:block;">QC Check No.</span><b style="color:#7c3aed;">${checkNo}</b></div>
+                    <div><span style="font-size:10px;color:#7c3aed;font-weight:700;display:block;">ผู้ตรวจ</span><b>${currentUser.name}</b></div>
+                    <div><span style="font-size:10px;color:#7c3aed;font-weight:700;display:block;">วันที่</span><b>${today}</b></div>
+                </div>
+            </div>
+
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:20px;">
+                <div style="font-weight:700;margin-bottom:12px;">เลือกสินค้าที่จะสุ่มตรวจ</div>
+                <input type="text" placeholder="🔍 ค้นหาสินค้า..." oninput="filterQCProducts(this.value)"
+                    style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;box-sizing:border-box;outline:none;margin-bottom:12px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;" id="qcProductGrid">
+                    ${productsWithLots.map(pid=>{
+                        const p=allProducts.find(x=>x.id===pid);
+                        const activeLots=lots[pid].filter(l=>l.qtyRemaining>0);
+                        const oldest=activeLots[0];
+                        return `<div class="qc-prod-card" data-search="${pid.toLowerCase()} ${(p?.name||'').toLowerCase()}"
+                            onclick="selectQCProduct('${pid}')" id="qccard_${pid}"
+                            style="padding:12px;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:all 0.15s;"
+                            onmouseover="this.style.borderColor='#a855f7'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#e2e8f0'">
+                            <div style="font-weight:700;font-size:12px;">${pid}</div>
+                            <div style="font-size:11px;color:#64748b;margin:2px 0;">${p?.name||''}</div>
+                            <div style="font-size:10px;font-family:monospace;color:#06b6d4;background:#f0f9ff;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px;">${oldest?.lotNumber||'-'}</div>
+                        </div>`;
+                    }).join('')}
+                    ${!productsWithLots.length?'<p style="color:#94a3b8;font-size:13px;grid-column:1/-1;">ยังไม่มี Lot ในระบบ — กรุณารับสินค้าเข้าคลังก่อน</p>':''}
+                </div>
+            </div>
+
+            <div id="qcCheckItems"></div>
+
+            <div id="qcSaveBtn" style="display:none;text-align:center;margin-top:24px;" class="no-print">
+                <button onclick="saveQCCheck('${checkNo}')" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;padding:16px 60px;border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,0.35);">
+                    💾 บันทึก QC Spot Check
+                </button>
+            </div>`;
+            window._qcItems = {};
+            window._qcLots = lots;
+        };
+
+        window.filterQCProducts = function(q) {
+            q = q.toLowerCase().trim();
+            document.querySelectorAll('.qc-prod-card').forEach(el=>{
+                el.style.display = (!q||el.dataset.search.includes(q)) ? '' : 'none';
+            });
+        };
+
+        window.selectQCProduct = function(pid) {
+            const card = document.getElementById(`qccard_${pid}`);
+            if(card.classList.contains('selected')) {
+                card.classList.remove('selected');
+                card.style.borderColor='#e2e8f0';
+                card.style.background='white';
+                delete window._qcItems[pid];
+            } else {
+                card.classList.add('selected');
+                card.style.borderColor='#a855f7';
+                card.style.background='#faf5ff';
+                window._qcItems[pid]={result:'',foundLot:'',location:'',note:''};
+            }
+            renderQCCheckForm();
+        };
+
+        function renderQCCheckForm() {
+            const c = document.getElementById('qcCheckItems'); if(!c) return;
+            const selected = Object.keys(window._qcItems);
+            if(!selected.length) { c.innerHTML=''; document.getElementById('qcSaveBtn').style.display='none'; return; }
+            document.getElementById('qcSaveBtn').style.display='block';
+            const lots = window._qcLots||{};
+
+            c.innerHTML=`
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
+                <div style="padding:14px 20px;background:#faf5ff;border-bottom:1px solid #e8d5ff;">
+                    <span style="font-weight:700;color:#7c3aed;">📋 กรอกผลการตรวจ (${selected.length} รายการ)</span>
+                </div>
+                ${selected.map(pid=>{
+                    const p=allProducts.find(x=>x.id===pid);
+                    const activeLots=(lots[pid]||[]).filter(l=>l.qtyRemaining>0);
+                    const expectedLot=activeLots[0];
+                    return `
+                    <div style="padding:20px;border-bottom:1px solid #f1f5f9;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                            <div>
+                                <span style="font-weight:700;font-size:14px;">${pid}</span>
+                                <span style="color:#64748b;font-size:13px;margin-left:8px;">${p?.name||''}</span>
+                            </div>
+                            <button onclick="selectQCProduct('${pid}')" style="background:#fef2f2;color:#ef4444;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;">✕ ยกเลิก</button>
+                        </div>
+
+                        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 16px;margin-bottom:14px;">
+                            <div style="font-size:11px;font-weight:700;color:#0369a1;margin-bottom:4px;">📌 FIFO — ควรหยิบ Lot นี้ก่อน:</div>
+                            <div style="font-family:monospace;font-size:13px;color:#06b6d4;font-weight:bold;">${expectedLot?.lotNumber||'ไม่มีข้อมูล Lot'}</div>
+                            <div style="font-size:11px;color:#64748b;margin-top:2px;">EXP: ${expectedLot?.exp||'-'} • เหลือ: ${expectedLot?.qtyRemaining||0} ${expectedLot?.unit||''}</div>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                            <div>
+                                <label style="font-size:11px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">📍 ตำแหน่งจัดเก็บที่ตรวจ</label>
+                                <input type="text" id="qc_loc_${pid}" placeholder="เช่น ตู้เย็น A ชั้น 2"
+                                    style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;">
+                            </div>
+                            <div>
+                                <label style="font-size:11px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">🏷️ Lot ที่เห็นจริงหน้างาน</label>
+                                <input type="text" id="qc_found_${pid}" placeholder="กรอก Lot ที่เห็น / EXP ที่เห็น"
+                                    style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:12px;">
+                            <label style="font-size:11px;font-weight:700;color:#475569;display:block;margin-bottom:6px;">ผลการตรวจ FIFO</label>
+                            <div style="display:flex;gap:8px;">
+                                <label style="flex:1;cursor:pointer;">
+                                    <input type="radio" name="qcres_${pid}" value="pass" style="accent-color:#10b981;">
+                                    <span style="display:inline-block;padding:8px 0;font-size:13px;color:#059669;font-weight:600;"> ✅ ผ่าน — หยิบถูก FIFO</span>
+                                </label>
+                                <label style="flex:1;cursor:pointer;">
+                                    <input type="radio" name="qcres_${pid}" value="warning" style="accent-color:#f59e0b;">
+                                    <span style="display:inline-block;padding:8px 0;font-size:13px;color:#b45309;font-weight:600;"> ⚠️ น่าสงสัย</span>
+                                </label>
+                                <label style="flex:1;cursor:pointer;">
+                                    <input type="radio" name="qcres_${pid}" value="fail" style="accent-color:#ef4444;">
+                                    <span style="display:inline-block;padding:8px 0;font-size:13px;color:#dc2626;font-weight:600;"> ❌ ไม่ผ่าน</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style="font-size:11px;font-weight:700;color:#475569;display:block;margin-bottom:4px;">📝 หมายเหตุ / สิ่งที่พบ</label>
+                            <textarea id="qc_note_${pid}" placeholder="อธิบายสิ่งที่พบ เช่น พบ Lot เก่ากว่าถูกซ่อนอยู่ด้านหลัง..."
+                                style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;resize:vertical;min-height:60px;font-family:inherit;"></textarea>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        window.saveQCCheck = async function(checkNo) {
+            const selected = Object.keys(window._qcItems);
+            const lots = window._qcLots||{};
+            const items = selected.map(pid=>{
+                const p=allProducts.find(x=>x.id===pid);
+                const activeLots=(lots[pid]||[]).filter(l=>l.qtyRemaining>0);
+                const expectedLot=activeLots[0];
+                const result=document.querySelector(`input[name="qcres_${pid}"]:checked`)?.value||'';
+                return {
+                    productId:pid, productName:p?.name||'',
+                    expectedLot:expectedLot?.lotNumber||'',
+                    expectedExp:expectedLot?.exp||'',
+                    foundLot:document.getElementById(`qc_found_${pid}`)?.value||'',
+                    location:document.getElementById(`qc_loc_${pid}`)?.value||'',
+                    result, note:document.getElementById(`qc_note_${pid}`)?.value||''
+                };
+            });
+            const noResult=items.filter(i=>!i.result);
+            if(noResult.length){toast(`⚠️ กรุณาเลือกผลการตรวจให้ครบ (${noResult.length} รายการ)`,'#c2410c');return;}
+
+            const passCount=items.filter(i=>i.result==='pass').length;
+            const failCount=items.filter(i=>i.result==='fail').length;
+            const warnCount=items.filter(i=>i.result==='warning').length;
+            const overall=failCount>0?'fail':warnCount>0?'warning':'pass';
+
+            const today=new Date().toISOString().slice(0,10);
+            const [y,m,d]=today.split('-');
+            const dateTH=`${d}/${m}/${parseInt(y)+543}`;
+
+            await addDoc(collection(db,'qcChecks'),{
+                checkNo, date:dateTH, checkDate:today,
+                inspector:currentUser.name, timestamp:Date.now(),
+                items, passCount, failCount, warnCount, overall,
+                totalChecked:items.length
+            });
+
+            toast(`✅ บันทึก QC Check สำเร็จ — ผ่าน ${passCount}/${items.length} รายการ`, overall==='pass'?'#059669':'#c2410c');
+            setTimeout(()=>openQCHistory(),800);
+        };
+
+        // ════ QC HISTORY REPORT ════
+        window.openQCHistory = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            c.innerHTML=`<div class="tool-header"><h2>📊 QC Report</h2><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button></div><p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
+
+            const snap = await getDocs(collection(db,'qcChecks'));
+            let checks=[]; snap.forEach(d=>checks.push({id:d.id,...d.data()}));
+            checks.sort((a,b)=>b.timestamp-a.timestamp);
+
+            const totalChecks=checks.length;
+            const totalItems=checks.reduce((s,c)=>s+c.totalChecked,0);
+            const totalPass=checks.reduce((s,c)=>s+c.passCount,0);
+            const totalFail=checks.reduce((s,c)=>s+c.failCount,0);
+            const passRate=totalItems>0?Math.round(totalPass/totalItems*100):0;
+
+            // top fail products
+            const failMap={};
+            checks.forEach(chk=>{ chk.items?.filter(i=>i.result==='fail').forEach(i=>{ failMap[i.productId]=(failMap[i.productId]||0)+1; }); });
+            const topFails=Object.entries(failMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+            const overallColors={pass:'#10b981',warning:'#f59e0b',fail:'#ef4444'};
+            const overallLabels={pass:'✅ ผ่าน',warning:'⚠️ น่าสงสัย',fail:'❌ ไม่ผ่าน'};
+
+            c.innerHTML=`
+            <div class="tool-header">
+                <h2>📊 QC FIFO Report</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openQCCheck()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ Spot Check ใหม่</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+                <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:14px;padding:20px;color:white;">
+                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">QC Sessions</div>
+                    <div style="font-size:32px;font-weight:700;margin:4px 0;">${totalChecks}</div>
+                    <div style="font-size:11px;color:#94a3b8;">ครั้งที่ตรวจแล้ว</div>
+                </div>
+                <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;border-top:4px solid #10b981;">
+                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;">Pass Rate</div>
+                    <div style="font-size:32px;font-weight:700;color:#10b981;margin:4px 0;">${passRate}%</div>
+                    <div style="font-size:11px;color:#94a3b8;">${totalPass}/${totalItems} รายการ</div>
+                </div>
+                <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;border-top:4px solid #ef4444;">
+                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;">ไม่ผ่าน FIFO</div>
+                    <div style="font-size:32px;font-weight:700;color:#ef4444;margin:4px 0;">${totalFail}</div>
+                    <div style="font-size:11px;color:#94a3b8;">รายการที่ผิด FIFO</div>
+                </div>
+                <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;border-top:4px solid #f59e0b;">
+                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;">Fail บ่อยที่สุด</div>
+                    <div style="font-size:16px;font-weight:700;color:#b45309;margin:4px 0;">${topFails[0]?topFails[0][0]:'—'}</div>
+                    <div style="font-size:11px;color:#94a3b8;">${topFails[0]?topFails[0][1]+' ครั้ง':'ยังไม่มีข้อมูล'}</div>
+                </div>
+            </div>
+
+            <!-- Top Fails -->
+            ${topFails.length?`
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:20px;">
+                <div style="font-weight:700;margin-bottom:12px;color:#dc2626;">⚠️ สินค้าที่ Fail FIFO บ่อยที่สุด</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${topFails.map(([pid,cnt])=>{const p=allProducts.find(x=>x.id===pid);return `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:8px 14px;">
+                        <div style="font-weight:700;font-size:13px;">${pid}</div>
+                        <div style="font-size:11px;color:#64748b;">${p?.name||''}</div>
+                        <div style="font-size:12px;color:#ef4444;font-weight:bold;margin-top:2px;">Fail ${cnt} ครั้ง</div>
+                    </div>`;}).join('')}
+                </div>
+            </div>`:''}
+
+            <!-- Check History -->
+            <div>
+                ${checks.map(chk=>`
+                <div class="history-card" style="border-left:4px solid ${overallColors[chk.overall]||'#64748b'};">
+                    <div class="history-card-header" style="cursor:pointer;" onclick="toggleDetail('qcdet_${chk.id}')">
+                        <div>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span style="font-weight:700;color:#7c3aed;">${chk.checkNo}</span>
+                                <span style="background:${overallColors[chk.overall]}20;color:${overallColors[chk.overall]};font-size:11px;padding:2px 8px;border-radius:8px;font-weight:bold;">${overallLabels[chk.overall]||'-'}</span>
+                            </div>
+                            <div style="font-size:12px;color:#64748b;margin-top:3px;">📅 ${chk.date} • 👤 ${chk.inspector} • ✅ ${chk.passCount}/${chk.totalChecked} ผ่าน</div>
+                        </div>
+                        <span style="color:#94a3b8;font-size:12px;">▼</span>
+                    </div>
+                    <div id="qcdet_${chk.id}" style="display:none;padding:16px 20px;">
+                        ${chk.items?.map(it=>`
+                        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f8fafc;">
+                            <div style="width:14px;height:14px;border-radius:50%;background:${overallColors[it.result]||'#64748b'};flex-shrink:0;"></div>
+                            <div style="flex:1;">
+                                <b style="font-size:13px;">${it.productId}</b> <span style="color:#64748b;font-size:12px;">${it.productName}</span>
+                                <div style="font-size:11px;color:#94a3b8;margin-top:2px;">
+                                    คาด: <span style="font-family:monospace;color:#06b6d4;">${it.expectedLot||'-'}</span> →
+                                    พบ: <span style="font-family:monospace;color:${it.result==='pass'?'#10b981':'#ef4444'}">${it.foundLot||'-'}</span>
+                                    ${it.location?`• 📍 ${it.location}`:''}
+                                </div>
+                                ${it.note?`<div style="font-size:11px;color:#475569;margin-top:2px;">📝 ${it.note}</div>`:''}
+                            </div>
+                        </div>`).join('')||''}
+                    </div>
+                </div>`).join('')||'<p style="text-align:center;color:#94a3b8;padding:40px;">ยังไม่มีประวัติ QC</p>'}
+            </div>`;
         };
 
         window.logout=function(){
