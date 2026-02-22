@@ -831,9 +831,12 @@
                 html+=`<div style="padding:12px;border:1px solid #f1f5f9;border-radius:10px;margin-bottom:10px;background:#f8fafc;">
                     <div style="display:flex;justify-content:space-between;"><b style="text-transform:uppercase;">${role}</b>${role!=='admin'?`<small onclick="deleteRole('${role}')" style="color:red;cursor:pointer;">ลบ Role</small>`:''}</div>
                     <div style="display:flex;gap:12px;font-size:11px;margin-top:8px;flex-wrap:wrap;">
-                        <label><input type="checkbox" ${perms.includes('warehouse')?'checked':''} onchange="togglePerm('${role}','warehouse')"> คลัง</label>
-                        <label><input type="checkbox" ${perms.includes('tools')?'checked':''} onchange="togglePerm('${role}','tools')"> เครื่องมือ</label>
-                        <label><input type="checkbox" ${perms.includes('admin')?'checked':''} onchange="togglePerm('${role}','admin')"> แอดมิน</label>
+                        <label><input type="checkbox" ${perms.includes('warehouse')?'checked':''} onchange="togglePerm('${role}','warehouse')"> 📦 คลัง</label>
+                        <label><input type="checkbox" ${perms.includes('requisition')?'checked':''} onchange="togglePerm('${role}','requisition')"> 📋 ใบเบิก</label>
+                        <label><input type="checkbox" ${perms.includes('tools')?'checked':''} onchange="togglePerm('${role}','tools')"> 🛠️ เครื่องมือ</label>
+                        <label><input type="checkbox" ${perms.includes('gr')?'checked':''} onchange="togglePerm('${role}','gr')" style="accent-color:#06b6d4;"> 🚚 รับสินค้า (GR)</label>
+                        <label><input type="checkbox" ${perms.includes('qc')?'checked':''} onchange="togglePerm('${role}','qc')" style="accent-color:#7c3aed;"> 🔍 QC FIFO</label>
+                        <label><input type="checkbox" ${perms.includes('admin')?'checked':''} onchange="togglePerm('${role}','admin')"> ⚙️ แอดมิน</label>
                         <label style="color:var(--info);font-weight:bold;"><input type="checkbox" ${vo?'checked':''} onchange="toggleViewOnly('${role}')"> 👁️ ดูอย่างเดียว</label>
                     </div></div>`;
                 opts+=`<option value="${role}">${role}</option>`;
