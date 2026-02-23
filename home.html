@@ -4900,25 +4900,57 @@ ${r.zone}`);
             } catch(e) { toast('❌ แก้ไขไม่สำเร็จ: '+e.message,'#c2410c'); }
         };
 
+        // ── QC HISTORY + REPORT ─────────────────────────────────
+        window._qcAllChecks = [];
+
         window.openQCHistory = async function() {
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
-            c.innerHTML=`<div class="tool-header"><h2>📊 QC Report</h2><button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button></div><p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
+            c.innerHTML=`<div class="tool-header"><h2>📊 QC FIFO Report</h2>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button onclick="openQCCheck()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">+ Spot Check ใหม่</button>
+                    <button onclick="exportQCExcel()" style="background:#059669;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div></div>
+                <p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
 
             const snap = await getDocs(collection(db,'qcChecks'));
             let checks=[]; snap.forEach(d=>checks.push({id:d.id,...d.data()}));
             checks.sort((a,b)=>b.timestamp-a.timestamp);
+            window._qcAllChecks = checks;
+            renderQCReport(checks);
+        };
 
-            const totalChecks=checks.length;
-            const totalItems=checks.reduce((s,c)=>s+c.totalChecked,0);
-            const totalPass=checks.reduce((s,c)=>s+c.passCount,0);
-            const totalFail=checks.reduce((s,c)=>s+c.failCount,0);
-            const passRate=totalItems>0?Math.round(totalPass/totalItems*100):0;
+        function renderQCReport(checks) {
+            const c = document.getElementById('toolAppContainer');
+            const isAdmin = currentUser?.role==='admin'||roleSettings[currentUser?.role]?.menus?.includes('admin');
 
-            // top fail products
-            const failMap={};
-            checks.forEach(chk=>{ chk.items?.filter(i=>i.result==='fail').forEach(i=>{ failMap[i.productId]=(failMap[i.productId]||0)+1; }); });
-            const topFails=Object.entries(failMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            // ── stats ──
+            const totalChecks = checks.length;
+            const totalItems  = checks.reduce((s,x)=>s+x.totalChecked,0);
+            const totalPass   = checks.reduce((s,x)=>s+x.passCount,0);
+            const totalFail   = checks.reduce((s,x)=>s+x.failCount,0);
+            const totalWarn   = checks.reduce((s,x)=>s+(x.warningCount||0),0);
+            const passRate    = totalItems>0?Math.round(totalPass/totalItems*100):0;
+
+            // ── product fail breakdown ──
+            const productStats={};
+            checks.forEach(chk=>{ (chk.items||[]).forEach(it=>{
+                if(!productStats[it.productId]) productStats[it.productId]={name:it.productName||'',pass:0,warn:0,fail:0,total:0};
+                productStats[it.productId].total++;
+                if(it.result==='pass') productStats[it.productId].pass++;
+                else if(it.result==='warning') productStats[it.productId].warn++;
+                else if(it.result==='fail') productStats[it.productId].fail++;
+            }); });
+            const failBreakdown = Object.entries(productStats)
+                .filter(([,v])=>v.fail>0||v.warn>0)
+                .sort((a,b)=>b[1].fail-a[1].fail);
+
+            // ── trend data (last 10 sessions) ──
+            const trendData = [...checks].reverse().slice(-10);
+            const trendLabels = trendData.map(x=>x.date?isoToDMY(x.date).slice(0,5):'?');
+            const trendRates  = trendData.map(x=>x.totalChecked>0?Math.round(x.passCount/x.totalChecked*100):0);
 
             const overallColors={pass:'#10b981',warning:'#f59e0b',fail:'#ef4444'};
             const overallLabels={pass:'✅ ผ่าน',warning:'⚠️ น่าสงสัย',fail:'❌ ไม่ผ่าน'};
@@ -4926,82 +4958,250 @@ ${r.zone}`);
             c.innerHTML=`
             <div class="tool-header">
                 <h2>📊 QC FIFO Report</h2>
-                <div style="display:flex;gap:8px;">
-                    <button onclick="openQCCheck()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ Spot Check ใหม่</button>
-                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
-                </div>
-            </div>
-
-            <!-- Summary Cards -->
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
-                <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:14px;padding:20px;color:white;">
-                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">QC Sessions</div>
-                    <div style="font-size:32px;font-weight:700;margin:4px 0;">${totalChecks}</div>
-                    <div style="font-size:11px;color:#94a3b8;">ครั้งที่ตรวจแล้ว</div>
-                </div>
-                <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;border-top:4px solid #10b981;">
-                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;">Pass Rate</div>
-                    <div style="font-size:32px;font-weight:700;color:#10b981;margin:4px 0;">${passRate}%</div>
-                    <div style="font-size:11px;color:#94a3b8;">${totalPass}/${totalItems} รายการ</div>
-                </div>
-                <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;border-top:4px solid #ef4444;">
-                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;">ไม่ผ่าน FIFO</div>
-                    <div style="font-size:32px;font-weight:700;color:#ef4444;margin:4px 0;">${totalFail}</div>
-                    <div style="font-size:11px;color:#94a3b8;">รายการที่ผิด FIFO</div>
-                </div>
-                <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;border-top:4px solid #f59e0b;">
-                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;">Fail บ่อยที่สุด</div>
-                    <div style="font-size:16px;font-weight:700;color:#b45309;margin:4px 0;">${topFails[0]?topFails[0][0]:'—'}</div>
-                    <div style="font-size:11px;color:#94a3b8;">${topFails[0]?topFails[0][1]+' ครั้ง':'ยังไม่มีข้อมูล'}</div>
-                </div>
-            </div>
-
-            <!-- Top Fails -->
-            ${topFails.length?`
-            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:20px;">
-                <div style="font-weight:700;margin-bottom:12px;color:#dc2626;">⚠️ สินค้าที่ Fail FIFO บ่อยที่สุด</div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    ${topFails.map(([pid,cnt])=>{const p=allProducts.find(x=>x.id===pid);return `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:8px 14px;">
-                        <div style="font-weight:700;font-size:13px;">${pid}</div>
-                        <div style="font-size:11px;color:#64748b;">${p?.name||''}</div>
-                        <div style="font-size:12px;color:#ef4444;font-weight:bold;margin-top:2px;">Fail ${cnt} ครั้ง</div>
-                    </div>`;}).join('')}
+                    <button onclick="openQCCheck()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">+ Spot Check ใหม่</button>
+                    <button onclick="exportQCExcel()" style="background:#059669;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
-            </div>`:''}
+            </div>
 
-            <!-- Check History -->
-            <div>
-                ${checks.map(chk=>`
-                <div class="history-card" style="border-left:4px solid ${overallColors[chk.overall]||'#64748b'};">
-                    <div class="history-card-header" style="cursor:pointer;" onclick="toggleDetail('qcdet_${chk.id}')">
-                        <div>
-                            <div style="display:flex;align-items:center;gap:10px;">
-                                <span style="font-weight:700;color:#7c3aed;">${chk.checkNo}</span>
-                                <span style="background:${overallColors[chk.overall]}20;color:${overallColors[chk.overall]};font-size:11px;padding:2px 8px;border-radius:8px;font-weight:bold;">${overallLabels[chk.overall]||'-'}</span>
+            <!-- SUMMARY CARDS -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+                <div style="background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:14px;padding:18px;color:white;">
+                    <div style="font-size:10px;color:#a5b4fc;text-transform:uppercase;letter-spacing:.5px;">QC Sessions</div>
+                    <div style="font-size:30px;font-weight:800;margin:4px 0;">${totalChecks}</div>
+                    <div style="font-size:11px;color:#c7d2fe;">${totalItems} รายการรวม</div>
+                </div>
+                <div style="background:white;border-radius:14px;padding:18px;border:1px solid #e2e8f0;border-top:4px solid #10b981;">
+                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;">Pass Rate</div>
+                    <div style="font-size:30px;font-weight:800;color:#10b981;margin:4px 0;">${passRate}%</div>
+                    <div style="font-size:11px;color:#94a3b8;">${totalPass}/${totalItems} ผ่าน</div>
+                </div>
+                <div style="background:white;border-radius:14px;padding:18px;border:1px solid #e2e8f0;border-top:4px solid #f59e0b;">
+                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;">น่าสงสัย</div>
+                    <div style="font-size:30px;font-weight:800;color:#f59e0b;margin:4px 0;">${totalWarn}</div>
+                    <div style="font-size:11px;color:#94a3b8;">รายการ ⚠️</div>
+                </div>
+                <div style="background:white;border-radius:14px;padding:18px;border:1px solid #e2e8f0;border-top:4px solid #ef4444;">
+                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;">ไม่ผ่าน FIFO</div>
+                    <div style="font-size:30px;font-weight:800;color:#ef4444;margin:4px 0;">${totalFail}</div>
+                    <div style="font-size:11px;color:#94a3b8;">รายการผิด FIFO</div>
+                </div>
+            </div>
+
+            <!-- GRAPH + BREAKDOWN ROW -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+
+                <!-- กราฟ Pass Rate trend -->
+                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;">
+                    <div style="font-weight:700;font-size:14px;margin-bottom:14px;color:#1e293b;">📈 Pass Rate ย้อนหลัง (10 sessions ล่าสุด)</div>
+                    ${trendData.length>=2 ? `<canvas id="qcTrendChart" height="140"></canvas>` :
+                        `<div style="text-align:center;padding:40px;color:#94a3b8;">ต้องมีอย่างน้อย 2 sessions<br>ถึงจะแสดงกราฟได้</div>`}
+                </div>
+
+                <!-- Product Breakdown -->
+                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;overflow-y:auto;max-height:320px;">
+                    <div style="font-weight:700;font-size:14px;margin-bottom:14px;color:#1e293b;">🏷️ Breakdown สินค้า</div>
+                    ${failBreakdown.length ? failBreakdown.map(([pid,v])=>{
+                        const failPct = v.total>0?Math.round(v.fail/v.total*100):0;
+                        const warnPct = v.total>0?Math.round(v.warn/v.total*100):0;
+                        const passPct = 100-failPct-warnPct;
+                        return `<div style="margin-bottom:12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                                <div>
+                                    <span style="font-weight:700;font-size:12px;">${pid}</span>
+                                    <span style="font-size:11px;color:#64748b;margin-left:6px;">${v.name}</span>
+                                </div>
+                                <div style="font-size:11px;">
+                                    <span style="color:#ef4444;font-weight:700;">❌${v.fail}</span>
+                                    ${v.warn?`<span style="color:#f59e0b;font-weight:700;margin-left:4px;">⚠️${v.warn}</span>`:''}
+                                    <span style="color:#94a3b8;margin-left:4px;">${v.total}ครั้ง</span>
+                                </div>
                             </div>
-                            <div style="font-size:12px;color:#64748b;margin-top:3px;">📅 ${chk.date} • 👤 ${chk.inspector} • ✅ ${chk.passCount}/${chk.totalChecked} ผ่าน</div>
+                            <div style="height:8px;background:#f1f5f9;border-radius:4px;overflow:hidden;display:flex;">
+                                <div style="width:${passPct}%;background:#10b981;transition:width .3s;"></div>
+                                <div style="width:${warnPct}%;background:#f59e0b;transition:width .3s;"></div>
+                                <div style="width:${failPct}%;background:#ef4444;transition:width .3s;"></div>
+                            </div>
+                        </div>`;
+                    }).join('') : '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px;">ยังไม่มี Fail หรือ Warning 🎉</div>'}
+                </div>
+            </div>
+
+            <!-- FILTER BAR -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:14px 16px;margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                <span style="font-size:12px;font-weight:700;color:#475569;">🔍 กรอง:</span>
+                <input type="text" id="qcFilterDate" placeholder="dd/mm/yyyy" maxlength="10"
+                    oninput="applyQCFilter()"
+                    style="padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;width:110px;outline:none;">
+                <input type="text" id="qcFilterProduct" placeholder="รหัส/ชื่อสินค้า"
+                    oninput="applyQCFilter()"
+                    style="padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;width:140px;outline:none;">
+                <select id="qcFilterResult" onchange="applyQCFilter()"
+                    style="padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;">
+                    <option value="">ทุกผล</option>
+                    <option value="pass">✅ ผ่านทั้งหมด</option>
+                    <option value="warning">⚠️ มีน่าสงสัย</option>
+                    <option value="fail">❌ มี Fail</option>
+                </select>
+                <button onclick="document.getElementById('qcFilterDate').value='';document.getElementById('qcFilterProduct').value='';document.getElementById('qcFilterResult').value='';applyQCFilter();"
+                    style="background:#f1f5f9;color:#475569;border:none;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12px;">✕ ล้าง</button>
+                <span id="qcFilterCount" style="font-size:11px;color:#94a3b8;margin-left:auto;">แสดง ${checks.length} sessions</span>
+            </div>
+
+            <!-- SESSION LIST -->
+            <div id="qcSessionList">
+                ${renderQCSessionList(checks, isAdmin)}
+            </div>`;
+
+            // วาด Chart หลัง DOM render
+            if(trendData.length>=2) {
+                setTimeout(()=>{
+                    const ctx = document.getElementById('qcTrendChart')?.getContext('2d');
+                    if(!ctx) return;
+                    if(window._qcChart) window._qcChart.destroy();
+                    window._qcChart = new Chart(ctx, {
+                        type:'line',
+                        data:{
+                            labels: trendLabels,
+                            datasets:[{
+                                label:'Pass Rate %',
+                                data: trendRates,
+                                borderColor:'#7c3aed',
+                                backgroundColor:'rgba(124,58,237,0.08)',
+                                borderWidth:2.5,
+                                pointBackgroundColor:'#7c3aed',
+                                pointRadius:4,
+                                tension:0.4,
+                                fill:true
+                            }]
+                        },
+                        options:{
+                            responsive:true, maintainAspectRatio:false,
+                            plugins:{legend:{display:false},
+                                tooltip:{callbacks:{label:ctx=>`${ctx.raw}%`}}},
+                            scales:{
+                                y:{min:0,max:100,ticks:{callback:v=>v+'%'},grid:{color:'#f1f5f9'}},
+                                x:{grid:{display:false}}
+                            }
+                        }
+                    });
+                }, 100);
+            }
+        }
+
+        function renderQCSessionList(checks, isAdmin) {
+            const overallColors={pass:'#10b981',warning:'#f59e0b',fail:'#ef4444'};
+            const overallLabels={pass:'✅ ผ่านทั้งหมด',warning:'⚠️ น่าสงสัย',fail:'❌ มี Fail'};
+            if(!checks.length) return '<p style="text-align:center;color:#94a3b8;padding:40px;">ยังไม่มีประวัติ QC</p>';
+            return checks.map(chk=>`
+            <div class="history-card" style="border-left:4px solid ${overallColors[chk.overall]||'#94a3b8'};">
+                <div class="history-card-header" style="cursor:pointer;" onclick="toggleDetail('qcdet_${chk.id}')">
+                    <div style="flex:1;">
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <span style="font-weight:800;color:#7c3aed;font-size:14px;">${chk.checkNo}</span>
+                            <span style="background:${(overallColors[chk.overall]||'#64748b')}18;color:${overallColors[chk.overall]||'#64748b'};font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;">${overallLabels[chk.overall]||'-'}</span>
                         </div>
+                        <div style="font-size:12px;color:#64748b;margin-top:4px;display:flex;gap:14px;flex-wrap:wrap;">
+                            <span>📅 ${chk.date?isoToDMY(chk.date):'-'}</span>
+                            <span>👤 ${chk.inspector}</span>
+                            <span style="color:#10b981;font-weight:600;">✅ ${chk.passCount} ผ่าน</span>
+                            ${chk.warningCount?`<span style="color:#f59e0b;font-weight:600;">⚠️ ${chk.warningCount} น่าสงสัย</span>`:''}
+                            ${chk.failCount?`<span style="color:#ef4444;font-weight:600;">❌ ${chk.failCount} ไม่ผ่าน</span>`:''}
+                            <span style="color:#94a3b8;">${chk.totalChecked} รายการ</span>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        ${isAdmin?`<button onclick="event.stopPropagation();deleteQCSession('${chk.id}','${chk.checkNo}')"
+                            style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:4px 10px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600;">🗑️ ลบ</button>`:''}
                         <span style="color:#94a3b8;font-size:12px;">▼</span>
                     </div>
-                    <div id="qcdet_${chk.id}" style="display:none;padding:16px 20px;">
-                        ${chk.items?.map(it=>`
-                        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f8fafc;">
-                            <div style="width:14px;height:14px;border-radius:50%;background:${overallColors[it.result]||'#64748b'};flex-shrink:0;"></div>
-                            <div style="flex:1;">
-                                <b style="font-size:13px;">${it.productId}</b> <span style="color:#64748b;font-size:12px;">${it.productName}</span>
-                                <div style="font-size:11px;color:#94a3b8;margin-top:2px;">
-                                    คาด: <span style="font-family:monospace;color:#06b6d4;">${it.expectedLot||'-'}</span> →
-                                    พบ: <span style="font-family:monospace;color:${it.result==='pass'?'#10b981':'#ef4444'}">${it.foundLot||'-'}</span>
-                                    ${it.location?`• 📍 ${it.location}`:''}
-                                </div>
-                                ${it.note?`<div style="font-size:11px;color:#475569;margin-top:2px;">📝 ${it.note}</div>`:''}
-                            </div>
-                        </div>`).join('')||''}
+                </div>
+                <div id="qcdet_${chk.id}" style="display:none;padding:14px 20px;">
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                            <thead><tr style="background:#faf5ff;">
+                                <th style="padding:8px;text-align:left;">สินค้า</th>
+                                <th style="padding:8px;text-align:center;">คาด (FIFO)</th>
+                                <th style="padding:8px;text-align:center;">พบจริง</th>
+                                <th style="padding:8px;text-align:center;">ตำแหน่ง</th>
+                                <th style="padding:8px;text-align:center;">ผล</th>
+                                <th style="padding:8px;text-align:left;">หมายเหตุ</th>
+                            </tr></thead>
+                            <tbody>${(chk.items||[]).map(it=>{
+                                const rc={pass:'#10b981',warning:'#f59e0b',fail:'#ef4444'}[it.result]||'#94a3b8';
+                                const rl={pass:'✅ ผ่าน',warning:'⚠️ น่าสงสัย',fail:'❌ ไม่ผ่าน'}[it.result]||'-';
+                                return `<tr style="border-top:1px solid #f1f5f9;">
+                                    <td style="padding:8px;"><b style="font-size:12px;">${it.productId}</b><br><span style="font-size:11px;color:#64748b;">${it.productName||''}</span></td>
+                                    <td style="padding:8px;text-align:center;font-family:monospace;font-size:11px;color:#06b6d4;">${it.expectedLot||'-'}</td>
+                                    <td style="padding:8px;text-align:center;font-family:monospace;font-size:11px;color:${it.result==='pass'?'#10b981':'#ef4444'};font-weight:700;">${it.foundLot||'-'}</td>
+                                    <td style="padding:8px;text-align:center;font-size:11px;color:#64748b;">${it.location||'-'}</td>
+                                    <td style="padding:8px;text-align:center;"><span style="background:${rc}18;color:${rc};padding:3px 8px;border-radius:8px;font-size:11px;font-weight:700;">${rl}</span></td>
+                                    <td style="padding:8px;font-size:11px;color:#475569;">${it.note||''}</td>
+                                </tr>`;
+                            }).join('')}</tbody>
+                        </table>
                     </div>
-                </div>`).join('')||'<p style="text-align:center;color:#94a3b8;padding:40px;">ยังไม่มีประวัติ QC</p>'}
-            </div>`;
+                </div>
+            </div>`).join('');
+        }
+
+        window.applyQCFilter = function() {
+            const dateQ = document.getElementById('qcFilterDate')?.value.trim()||'';
+            const prodQ = (document.getElementById('qcFilterProduct')?.value||'').toLowerCase().trim();
+            const resultQ = document.getElementById('qcFilterResult')?.value||'';
+            const isAdmin = currentUser?.role==='admin'||roleSettings[currentUser?.role]?.menus?.includes('admin');
+
+            let filtered = window._qcAllChecks.filter(chk=>{
+                if(dateQ && !(chk.date?isoToDMY(chk.date).includes(dateQ):false)) return false;
+                if(prodQ && !((chk.items||[]).some(it=>(it.productId||'').toLowerCase().includes(prodQ)||(it.productName||'').toLowerCase().includes(prodQ)))) return false;
+                if(resultQ && chk.overall!==resultQ) return false;
+                return true;
+            });
+
+            document.getElementById('qcSessionList').innerHTML = renderQCSessionList(filtered, isAdmin);
+            const el = document.getElementById('qcFilterCount');
+            if(el) el.innerText = `แสดง ${filtered.length}/${window._qcAllChecks.length} sessions`;
         };
 
+        window.deleteQCSession = async function(id, checkNo) {
+            if(!confirm(`ยืนยันลบ ${checkNo}?`)) return;
+            try {
+                await deleteDoc(doc(db,'qcChecks',id));
+                window._qcAllChecks = window._qcAllChecks.filter(x=>x.id!==id);
+                toast(`🗑️ ลบ ${checkNo} เรียบร้อย`,'#059669');
+                renderQCReport(window._qcAllChecks);
+            } catch(e) { toast('❌ ลบไม่สำเร็จ','#c2410c'); }
+        };
+
+        window.exportQCExcel = function() {
+            const checks = window._qcAllChecks;
+            if(!checks.length){ toast('❌ ไม่มีข้อมูล','#c2410c'); return; }
+            const rows = [['QC No.','วันที่','ผู้ตรวจ','สินค้า','ชื่อสินค้า','Lot คาด','Lot พบจริง','ตำแหน่ง','ผล','หมายเหตุ']];
+            checks.forEach(chk=>{
+                (chk.items||[]).forEach(it=>{
+                    rows.push([
+                        chk.checkNo,
+                        chk.date?isoToDMY(chk.date):'',
+                        chk.inspector,
+                        it.productId, it.productName||'',
+                        it.expectedLot||'', it.foundLot||'',
+                        it.location||'',
+                        {pass:'ผ่าน',warning:'น่าสงสัย',fail:'ไม่ผ่าน'}[it.result]||it.result,
+                        it.note||''
+                    ]);
+                });
+            });
+            const ws = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const bom = '\uFEFF';
+            const blob = new Blob([bom+ws],{type:'text/csv;charset=utf-8'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href=url;
+            a.download=`QC_Report_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(url);
+            toast('📥 Export เรียบร้อย','#059669');
+        };
         window.logout=async function(){
             // ลบ session record เมื่อ logout ตั้งใจ
             try { if(currentUser) await deleteDoc(doc(db,'activeSessions',currentUser.username)); } catch(e){}
