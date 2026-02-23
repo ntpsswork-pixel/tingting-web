@@ -4849,26 +4849,28 @@ ${r.zone}`);
                                 <th style="padding:7px 10px;text-align:center;">สถานะ</th>
                             </tr></thead>
                             <tbody>${(gr.items||[]).map(it=>{
-                                const rd = gr.receiveData?.[it.id]||{};
+                                // ข้อมูลรับอยู่ใน it โดยตรง (saveReceiveGR เก็บลง items[])
                                 const iSC = {complete:'#10b981',partial:'#f59e0b',damaged:'#ef4444',extra:'#3b82f6'};
                                 const iSL = {complete:'ครบ',partial:'ไม่ครบ',damaged:'เสียหาย',extra:'ของแทรก'};
                                 const docList = [];
-                                if(rd.docs?.invoice) docList.push('ใบกำกับ');
-                                if(rd.docs?.receipt) docList.push('ใบเสร็จ');
-                                if(rd.docs?.billing) docList.push('ใบวางบิล');
-                                if(rd.docs?.debit)   docList.push('ใบแจ้งหนี้');
-                                if(rd.docs?.other)   docList.push(rd.docs.other);
+                                if(it.docs?.invoice) docList.push('ใบกำกับ');
+                                if(it.docs?.receipt) docList.push('ใบเสร็จ');
+                                if(it.docs?.billing) docList.push('ใบวางบิล');
+                                if(it.docs?.debit)   docList.push('ใบแจ้งหนี้');
+                                if(it.docs?.other)   docList.push(it.docs.other);
+                                const expDisp = it.exp ? isoToDMY(it.exp) : '-';
+                                const mfdDisp = it.mfd ? isoToDMY(it.mfd) : '-';
                                 return `<tr style="border-top:1px solid #f1f5f9;">
                                     <td style="padding:7px 10px;"><b>${it.id}</b><br><span style="color:#64748b;font-size:11px;">${it.name}</span></td>
                                     <td style="padding:7px 10px;text-align:center;font-size:11px;color:#06b6d4;">${it.supplier||'-'}</td>
                                     <td style="padding:7px 10px;text-align:center;">${it.qtyExpected||'-'} ${it.unit}</td>
-                                    ${!isDraft?`<td style="padding:7px 10px;text-align:center;font-weight:700;">${rd.qtyReceived||'-'} ${it.unit}</td>
-                                    <td style="padding:7px 10px;text-align:center;font-size:11px;">${rd.zone||'-'}</td>
-                                    <td style="padding:7px 10px;text-align:center;font-family:monospace;font-size:10px;color:#06b6d4;">${rd.lotNumber||'-'}</td>
-                                    <td style="padding:7px 10px;text-align:center;font-size:11px;">${rd.expTxt||'-'}</td>
+                                    ${!isDraft?`<td style="padding:7px 10px;text-align:center;font-weight:700;color:#059669;">${it.qtyReceived>0?it.qtyReceived+' '+it.unit:'-'}</td>
+                                    <td style="padding:7px 10px;text-align:center;font-size:11px;">${it.zone||'-'}</td>
+                                    <td style="padding:7px 10px;text-align:center;font-family:monospace;font-size:10px;color:#06b6d4;">${it.lotNumber||'-'}</td>
+                                    <td style="padding:7px 10px;text-align:center;font-size:11px;">${expDisp}</td>
                                     <td style="padding:7px 10px;font-size:10px;">${docList.join(', ')||'-'}</td>`:''}
                                     <td style="padding:7px 10px;text-align:center;">
-                                        ${!isDraft&&rd.status?`<span style="background:${(iSC[rd.status]||'#64748b')}18;color:${iSC[rd.status]||'#64748b'};padding:2px 7px;border-radius:7px;font-size:10px;font-weight:700;">${iSL[rd.status]||rd.status}</span>`:'-'}
+                                        ${!isDraft&&it.status?`<span style="background:${(iSC[it.status]||'#64748b')}18;color:${iSC[it.status]||'#64748b'};padding:2px 7px;border-radius:7px;font-size:10px;font-weight:700;">${iSL[it.status]||it.status}</span>`:'-'}
                                     </td>
                                 </tr>`;
                             }).join('')}</tbody>
@@ -5199,28 +5201,31 @@ ${r.zone}`);
             const gr = snap.data();
             const statusTH = {draft:'แบบร่าง',pending:'รออนุมัติ',approved:'อนุมัติแล้ว',rejected:'ปฏิเสธ',completed:'เสร็จสิ้น'};
             const rows = (gr.items||[]).map((it,i)=>{
-                const rd = gr.receiveData?.[it.id]||{};
+                // ข้อมูลรับจริงอยู่ใน it โดยตรง
                 const docList=[];
-                if(rd.docs?.invoice) docList.push('ใบกำกับ');
-                if(rd.docs?.receipt) docList.push('ใบเสร็จ');
-                if(rd.docs?.billing) docList.push('ใบวางบิล');
-                if(rd.docs?.debit)   docList.push('ใบแจ้งหนี้');
-                if(rd.docs?.other)   docList.push(rd.docs.other);
+                if(it.docs?.invoice) docList.push('ใบกำกับ');
+                if(it.docs?.receipt) docList.push('ใบเสร็จ');
+                if(it.docs?.billing) docList.push('ใบวางบิล');
+                if(it.docs?.debit)   docList.push('ใบแจ้งหนี้');
+                if(it.docs?.other)   docList.push(it.docs.other);
                 const iSL={complete:'ครบ',partial:'ไม่ครบ',damaged:'เสียหาย',extra:'ของแทรก'};
+                const expDisp = it.exp ? isoToDMY(it.exp) : '-';
+                const mfdDisp = it.mfd ? isoToDMY(it.mfd) : '-';
+                const qtyRecv = it.qtyReceived > 0 ? it.qtyReceived : '-';
                 return `<tr style="${i%2===0?'':'background:#f8fafc'}">
                     <td style="text-align:center;padding:6px 8px;">${i+1}</td>
                     <td style="padding:6px 8px;"><b>${it.id}</b><br><span style="font-size:10px;color:#555;">${it.name}</span></td>
                     <td style="padding:6px 8px;font-size:11px;">${it.supplier||'-'}</td>
                     <td style="text-align:center;padding:6px 8px;">${it.unit||'-'}</td>
                     <td style="text-align:center;padding:6px 8px;">${it.qtyExpected||'-'}</td>
-                    <td style="text-align:center;padding:6px 8px;font-weight:bold;color:#059669;">${rd.qtyReceived||'-'}</td>
-                    <td style="text-align:center;padding:6px 8px;font-size:10px;font-family:monospace;color:#0891b2;">${rd.lotNumber||'-'}</td>
-                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${rd.mfdTxt||'-'}</td>
-                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${rd.expTxt||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;font-weight:bold;color:#059669;">${qtyRecv}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;font-family:monospace;color:#0891b2;">${it.lotNumber||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${mfdDisp}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${expDisp}</td>
                     <td style="padding:6px 8px;font-size:10px;">${docList.join(', ')||'-'}</td>
-                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${rd.zone||'-'}</td>
-                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${iSL[rd.status]||'-'}</td>
-                    <td style="padding:6px 8px;font-size:10px;color:#555;">${rd.note||it.note||''}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${it.zone||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${iSL[it.status]||'-'}</td>
+                    <td style="padding:6px 8px;font-size:10px;color:#555;">${it.note||''}</td>
                 </tr>`;
             }).join('');
             const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -5232,14 +5237,14 @@ ${r.zone}`);
                 .co{font-size:11px;color:#64748b;line-height:1.6;} .co b{font-size:14px;color:#0f172a;display:block;}
                 .gr-no{text-align:right;} .gr-no h1{font-size:15px;font-weight:700;}
                 .gr-no .num{font-size:18px;font-weight:800;color:#06b6d4;}
-                .info{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+                .info{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
                 .ib{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:7px 10px;}
                 .ib label{font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:2px;}
                 table{width:100%;border-collapse:collapse;margin-bottom:14px;}
                 thead tr{background:#0f172a;color:white;}
                 thead th{padding:6px 7px;font-size:9px;font-weight:600;text-align:center;}
                 tbody td{border-bottom:1px solid #f1f5f9;vertical-align:middle;}
-                .footer{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:24px;}
+                .footer{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-top:24px;}
                 .sign{border-top:1px solid #cbd5e1;padding-top:5px;text-align:center;}
                 .sign .nm{font-size:11px;color:#64748b;margin-top:2px;} .sign .rl{font-size:9px;color:#94a3b8;}
                 @media print{body{padding:10px;}}
@@ -5250,10 +5255,12 @@ ${r.zone}`);
                 <span style="background:#f1f5f9;color:#475569;font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;">${statusTH[gr.status]||gr.status}</span></div>
             </div>
             <div class="info">
-                <div class="ib"><label>📅 วันที่</label><b>${gr.date||'-'}</b></div>
+                <div class="ib"><label>📅 วันที่สร้าง GR</label><b>${gr.date||'-'}</b></div>
+                <div class="ib"><label>📅 วันที่รับจริง</label><b>${gr.recvDate||'-'}</b></div>
                 <div class="ib"><label>✍️ สร้างโดย</label><b>${gr.createdBy||'-'}</b></div>
-                <div class="ib"><label>👤 ผู้รับ</label><b>${gr.receiver||'-'}</b></div>
+                <div class="ib"><label>👤 ผู้รับสินค้า</label><b>${gr.receiver||'-'}</b></div>
                 <div class="ib"><label>✅ อนุมัติโดย</label><b>${gr.approvedBy||'-'}</b></div>
+                <div class="ib"><label>🏢 Supplier</label><b>${gr.supplier||'-'}</b></div>
             </div>
             ${gr.note?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:7px 10px;margin-bottom:12px;font-size:11px;">📝 ${gr.note}</div>`:''}
             <table>
@@ -5267,9 +5274,10 @@ ${r.zone}`);
                 <tbody>${rows}</tbody>
             </table>
             <div class="footer">
-                <div class="sign"><div style="height:36px;"></div><div class="nm">${gr.receiver||'.......................'}</div><div class="rl">ผู้รับสินค้า / คลังสินค้า</div></div>
-                <div class="sign"><div style="height:36px;"></div><div class="nm">.......................</div><div class="rl">จัดซื้อ</div></div>
-                <div class="sign"><div style="height:36px;"></div><div class="nm">${gr.approvedBy||'.......................'}</div><div class="rl">ผู้อนุมัติ / บัญชี</div></div>
+                <div class="sign"><div style="height:40px;"></div><div class="nm">${gr.receiver||'.......................'}</div><div class="rl">ผู้รับสินค้า / คลังสินค้า</div></div>
+                <div class="sign"><div style="height:40px;"></div><div class="nm">.......................</div><div class="rl">จัดซื้อ</div></div>
+                <div class="sign"><div style="height:40px;"></div><div class="nm">${gr.approvedBy||'.......................'}</div><div class="rl">ผู้อนุมัติ</div></div>
+                <div class="sign"><div style="height:40px;"></div><div class="nm">.......................</div><div class="rl">บัญชี</div></div>
             </div>
             <div style="text-align:right;font-size:9px;color:#94a3b8;margin-top:14px;">พิมพ์วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
             </body></html>`;
