@@ -221,7 +221,8 @@
                     <div onclick="toggleMonthlyCount()" id="monthlyCountToggleBtn" style="color:#06b6d4;">● เปิด/ปิด นับสต๊อกสิ้นเดือน</div>
                 </div>
             </div>
-            <div class="nav-item" onclick="openHelpGuide()" style="color:#7c3aed;border-top:1px solid rgba(255,255,255,0.05);padding:14px 20px;">📖 คู่มือการใช้งาน</div>
+            <div class="nav-item" onclick="window.open('delivery.html','_blank')" style="color:#00c9ff;border-top:1px solid rgba(255,255,255,0.05);">🚛 ระบบขนส่ง (Delivery)</div>
+            <div class="nav-item" onclick="openHelpGuide()" style="color:#7c3aed;">📖 คู่มือการใช้งาน</div>
         </div>
         <div onclick="logout()" style="margin:8px 10px 12px;padding:11px 14px;border-radius:9px;cursor:pointer;color:#ef4444;font-size:13px;font-weight:500;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);text-align:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.12)'" onmouseout="this.style.background='rgba(239,68,68,0.06)'">🚪 ออกจากระบบ</div>
     </div>  <!-- end sidebar -->
@@ -4785,10 +4786,14 @@ ${r.zone}`);
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
                 </div>
             </div>
-            <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #e2e8f0;">
+            <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;">
                 <button id="grTab_draft" onclick="switchGRTab('draft')"
                     style="padding:10px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:#94a3b8;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;">
-                    📝 แบบร่าง / รออนุมัติ <span style="background:#f1f5f9;color:#64748b;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:4px;">${draftCount}</span>
+                    📝 แบบร่าง <span style="background:#f1f5f9;color:#64748b;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:4px;">${allGRDocs.filter(g=>g.status==='draft').length}</span>
+                </button>
+                <button id="grTab_pending" onclick="switchGRTab('pending')"
+                    style="padding:10px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:#94a3b8;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;">
+                    ⏳ รับสินค้า / รออนุมัติ <span style="background:#fff7ed;color:#c2410c;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:4px;">${pendingCount}</span>
                 </button>
                 <button id="grTab_approved" onclick="switchGRTab('approved')"
                     style="padding:10px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:700;color:#06b6d4;border-bottom:3px solid #06b6d4;margin-bottom:-2px;font-family:inherit;">
@@ -4805,16 +4810,12 @@ ${r.zone}`);
             window._grCurrentTab = 'approved';
             window.switchGRTab = function(tab) {
                 window._grCurrentTab = tab;
-                const tabA = document.getElementById('grTab_approved');
-                const tabD = document.getElementById('grTab_draft');
-                if(!tabA||!tabD) return;
-                if(tab==='approved') {
-                    tabA.style.color='#06b6d4'; tabA.style.borderBottomColor='#06b6d4';
-                    tabD.style.color='#94a3b8'; tabD.style.borderBottomColor='transparent';
-                } else {
-                    tabD.style.color='#06b6d4'; tabD.style.borderBottomColor='#06b6d4';
-                    tabA.style.color='#94a3b8'; tabA.style.borderBottomColor='transparent';
-                }
+                ['approved','draft','pending'].forEach(t=>{
+                    const el = document.getElementById('grTab_'+t);
+                    if(!el) return;
+                    if(t===tab){ el.style.color='#06b6d4'; el.style.borderBottomColor='#06b6d4'; el.style.fontWeight='700'; }
+                    else { el.style.color='#94a3b8'; el.style.borderBottomColor='transparent'; el.style.fontWeight='600'; }
+                });
                 renderGRHistoryList();
             };
             renderGRHistoryList();
@@ -4828,7 +4829,8 @@ ${r.zone}`);
 
             const filtered = allDocs.filter(gr=>{
                 if(currentTab==='approved' && gr.status!=='approved' && gr.status!=='completed') return false;
-                if(currentTab==='draft'    && gr.status!=='draft' && gr.status!=='pending' && gr.status!=='rejected') return false;
+                if(currentTab==='draft'    && gr.status!=='draft') return false;
+                if(currentTab==='pending'  && gr.status!=='pending' && gr.status!=='rejected') return false;
                 if(dateFilter && dateFilter.length===10 && gr.date!==dateFilter) return false;
                 return true;
             });
