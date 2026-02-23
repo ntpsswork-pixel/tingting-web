@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TTGPlus — ติดตามพัสดุ</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1117;--sf:#161b22;--sf2:#21262d;--bd:#30363d;--ac:#00c9ff;--ok:#10b981;--er:#ef4444;--tx:#e6edf3;--tx2:#8b949e;--tx3:#484f58;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px 40px;}
+.wrap{width:100%;max-width:520px;}
+
+/* LOGO */
+.top{display:flex;align-items:center;gap:10px;margin-bottom:28px;justify-content:center;}
+.li{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#00c9ff,#0070f3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;font-family:'IBM Plex Mono',monospace;}
+.lt{font-size:14px;font-weight:700;}
+.ls{font-size:10px;color:var(--tx2);}
+
+/* DO HEADER */
+.do-card{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:20px;margin-bottom:20px;}
+.do-num{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--ac);margin-bottom:10px;}
+.do-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.do-item .lbl{font-size:9px;color:var(--tx2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.do-item .val{font-size:13px;font-weight:500;}
+
+/* TRACKER ANIMATION */
+.tracker{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:24px 20px;margin-bottom:20px;overflow:hidden;}
+.trk-label{font-size:12px;font-weight:700;color:var(--tx2);margin-bottom:18px;text-transform:uppercase;letter-spacing:.5px;}
+
+/* road */
+.road{position:relative;height:60px;margin:0 10px 20px;display:flex;align-items:center;}
+.road-line{position:absolute;left:0;right:0;height:6px;background:var(--sf2);border-radius:3px;}
+.road-prog{position:absolute;left:0;height:6px;background:linear-gradient(90deg,var(--ac),var(--ok));border-radius:3px;transition:width 1.2s ease;}
+/* dots */
+.dot{position:absolute;top:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:var(--sf2);border:2px solid var(--bd);z-index:2;transition:all .5s;}
+.dot.done{background:var(--ok);border-color:var(--ok);}
+.dot.active{background:var(--ac);border-color:var(--ac);box-shadow:0 0 12px rgba(0,201,255,.6);}
+/* truck */
+.truck{position:absolute;top:50%;transform:translateY(-50%);font-size:26px;transition:left 1.2s ease;z-index:3;filter:drop-shadow(0 0 8px rgba(0,201,255,.5));animation:trkBounce .6s ease-in-out infinite alternate;}
+@keyframes trkBounce{from{transform:translateY(-55%)}to{transform:translateY(-45%)}}
+.truck.parked{animation:none;}
+
+/* steps */
+.steps{display:flex;justify-content:space-between;gap:4px;}
+.step{flex:1;text-align:center;}
+.step-icon{font-size:20px;margin-bottom:4px;}
+.step-name{font-size:10px;color:var(--tx2);font-weight:600;}
+.step.done .step-name{color:var(--ok);}
+.step.active .step-name{color:var(--ac);}
+
+/* STATUS CARD */
+.status-card{border-radius:14px;padding:16px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;}
+.status-card.transit{background:rgba(0,201,255,.08);border:1px solid rgba(0,201,255,.2);}
+.status-card.done{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);}
+.status-card.waiting{background:rgba(139,148,158,.08);border:1px solid rgba(139,148,158,.2);}
+.sic{font-size:32px;}
+.stx{font-size:14px;font-weight:700;}
+.ssub{font-size:12px;color:var(--tx2);margin-top:2px;}
+
+/* ITEMS */
+.items-box{background:var(--sf);border:1px solid var(--bd);border-radius:14px;overflow:hidden;margin-bottom:20px;}
+.items-hd{padding:12px 16px;border-bottom:1px solid var(--bd);font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;}
+.item-row{padding:10px 16px;border-bottom:1px solid rgba(48,54,61,.5);display:flex;justify-content:space-between;font-size:13px;}
+.item-row:last-child{border-bottom:none;}
+
+/* SIG SECTION */
+.sig-section{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:20px;margin-bottom:20px;}
+.sig-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.sig-sub{font-size:12px;color:var(--tx2);margin-bottom:16px;}
+.sw{border:2px dashed var(--bd);border-radius:12px;background:white;position:relative;}
+.sw canvas{display:block;width:100%;touch-action:none;}
+.sh{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#bbb;font-size:13px;pointer-events:none;text-align:center;line-height:1.5;transition:opacity .2s;}
+.fg{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+.fl{font-size:10px;color:var(--tx2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.fi{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;color:var(--tx);font-size:13px;font-family:'Sarabun',sans-serif;outline:none;width:100%;}
+.fi:focus{border-color:var(--ac);}
+.fi::placeholder{color:var(--tx3);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:'Sarabun',sans-serif;transition:all .15s;width:100%;}
+.bp{background:var(--ac);color:#000;}
+.bg2{background:var(--sf2);color:var(--tx);border:1px solid var(--bd);}
+.blg{padding:14px;font-size:15px;border-radius:10px;margin-top:14px;}
+.bsm{padding:6px 12px;font-size:12px;width:auto;}
+
+/* ALREADY SIGNED */
+.signed-box{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:14px;padding:20px;text-align:center;margin-bottom:20px;}
+
+/* DONE CELEBRATION */
+.celebrate{text-align:center;padding:20px 0;}
+.big-check{font-size:72px;animation:pop .5s ease;}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.done-title{font-size:24px;font-weight:800;color:var(--ok);margin-top:12px;}
+.done-sub{font-size:13px;color:var(--tx2);margin-top:6px;}
+
+/* LOADING */
+.ld{text-align:center;padding:60px;color:var(--tx2);}
+.spinner{width:40px;height:40px;border:3px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#toasts{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--sf);border:1px solid var(--bd);border-left:3px solid;border-radius:10px;padding:11px 15px;font-size:13px;max-width:260px;}
+</style>
+</head>
+<body>
+<div id="toasts"></div>
+<div class="wrap">
+  <div class="top">
+    <div class="li">T+</div>
+    <div><div class="lt">TTGPlus Tracking</div><div class="ls">ระบบติดตามการขนส่ง</div></div>
+  </div>
+  <div id="main"><div class="ld"><div class="spinner"></div>กำลังโหลดข้อมูล...</div></div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import{getFirestore,doc,getDoc,updateDoc}
+  from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const FB={apiKey:"AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",authDomain:"tingting-3d57f.firebaseapp.com",
+  projectId:"tingting-3d57f",storageBucket:"tingting-3d57f.firebasestorage.app",
+  messagingSenderId:"998609441304",appId:"1:998609441304:web:0c7fbedf869fa2335d296d",
+  databaseURL:"https://tingting-3d57f-default-rtdb.asia-southeast1.firebasedatabase.app"};
+const db=getFirestore(initializeApp(FB));
+
+const params=new URLSearchParams(location.search);
+const TOKEN=params.get('token');
+const ID=params.get('id');
+
+if(!TOKEN||!ID){
+  document.getElementById('main').innerHTML=`<div class="ld"><div style="font-size:48px;margin-bottom:12px;">❌</div><div style="font-size:15px;font-weight:700;">ลิงค์ไม่ถูกต้อง</div><div style="font-size:12px;color:var(--tx2);margin-top:6px;">กรุณาตรวจสอบลิงค์อีกครั้ง</div></div>`;
+}else{loadDelivery();}
+
+let deliveryData=null;
+let sCtx,sDrw=false;
+
+async function loadDelivery(){
+  try{
+    const sn=await getDoc(doc(db,'deliveries',ID));
+    if(!sn.exists()){showErr('ไม่พบข้อมูลการขนส่ง');return;}
+    deliveryData={id:ID,...sn.data()};
+    if(deliveryData.token!==TOKEN){showErr('ลิงค์ไม่ถูกต้องหรือหมดอายุ');return;}
+    render();
+  }catch(e){showErr(e.message);}
+}
+
+function showErr(msg){
+  document.getElementById('main').innerHTML=`<div class="ld"><div style="font-size:48px;margin-bottom:12px;">⚠️</div><div style="font-size:15px;font-weight:700;">${msg}</div></div>`;
+}
+
+function statusInfo(s){
+  const m={
+    waiting:{icon:'⏳',label:'รอขนส่ง',sub:'รายการนี้ยังรอการจัดส่ง',cls:'waiting',pct:5,truckPct:2},
+    transit:{icon:'🚚',label:'กำลังขนส่ง',sub:'สินค้ากำลังอยู่ระหว่างการจัดส่ง',cls:'transit',pct:55,truckPct:50},
+    done:   {icon:'✅',label:'จัดส่งสำเร็จ',sub:'สินค้าถึงปลายทางเรียบร้อยแล้ว',cls:'done',pct:100,truckPct:96},
+  };
+  return m[s]||m.waiting;
+}
+
+function render(){
+  const x=deliveryData;
+  const si=statusInfo(x.status);
+  const alreadySigned=!!x.recipientSig;
+  const isDone=x.status==='done';
+
+  const steps=[
+    {icon:'🏭',name:'โกดัง',pct:0},
+    {icon:'🚚',name:'กำลังส่ง',pct:50},
+    {icon:'📍',name:'ปลายทาง',pct:100},
+  ];
+
+  let html=`
+  <!-- DO INFO -->
+  <div class="do-card">
+    <div class="do-num">${x.doNumber}</div>
+    <div class="do-grid">
+      <div class="do-item"><div class="lbl">วันที่ส่ง</div><div class="val">${x.doDate||'—'}</div></div>
+      <div class="do-item"><div class="lbl">พนักงานขนส่ง</div><div class="val">${x.driver||'—'}</div></div>
+      <div class="do-item"><div class="lbl">ผู้รับ</div><div class="val" style="font-weight:700;">${x.recipient||'—'}</div></div>
+      <div class="do-item"><div class="lbl">เบอร์โทร</div><div class="val">${x.phone||'—'}</div></div>
+      <div class="do-item" style="grid-column:1/-1;"><div class="lbl">ที่อยู่</div><div class="val">${x.address||'—'}</div></div>
+    </div>
+  </div>
+
+  <!-- TRACKER -->
+  <div class="tracker">
+    <div class="trk-label">📍 สถานะการขนส่ง</div>
+    <div class="road" id="roadEl">
+      <div class="road-line"></div>
+      <div class="road-prog" id="roadProg" style="width:0%"></div>
+      <div class="dot ${si.pct>=0?'done':''}" style="left:0%"></div>
+      <div class="dot ${si.pct>=50?'done':si.pct>0?'active':''}" style="left:50%"></div>
+      <div class="dot ${si.pct>=100?'done':''}" style="left:100%"></div>
+      <div class="truck ${isDone?'parked':''}" id="truckEl" style="left:0%">🚚</div>
+    </div>
+    <div class="steps">
+      ${steps.map((s,i)=>`<div class="step ${si.pct>=s.pct?'done':''}">
+        <div class="step-icon">${s.icon}</div>
+        <div class="step-name">${s.name}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="status-card ${si.cls}">
+    <div class="sic">${si.icon}</div>
+    <div><div class="stx">${si.label}</div><div class="ssub">${si.sub}</div></div>
+  </div>
+
+  <!-- ITEMS -->
+  <div class="items-box">
+    <div class="items-hd">📦 รายการสินค้า (${(x.items||[]).length} รายการ)</div>
+    ${(x.items||[]).map(i=>`<div class="item-row"><span>${i.name}${i.note?' <span style="color:var(--tx3);">— '+i.note+'</span>':''}</span><span style="color:var(--tx2);">${i.qty} ${i.unit}</span></div>`).join('')}
+  </div>`;
+
+  if(x.driverSig){
+    html+=`<div style="margin-bottom:20px;">
+      <div style="font-size:10px;color:var(--tx2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">✍️ ลายเซ็นพนักงานขนส่ง — ${x.driverSignName||''}</div>
+      <img src="${x.driverSig}" style="max-width:200px;border:1px solid var(--bd);border-radius:8px;background:white;display:block;">
+    </div>`;}
+
+  if(isDone||alreadySigned){
+    if(x.recipientSig){
+      html+=`<div class="signed-box">
+        <div style="font-size:48px;margin-bottom:8px;">✅</div>
+        <div style="font-size:16px;font-weight:700;color:var(--ok);margin-bottom:4px;">เซ็นรับสินค้าแล้ว</div>
+        <div style="font-size:12px;color:var(--tx2);">โดย ${x.recipientSignName||'ผู้รับ'}</div>
+        <img src="${x.recipientSig}" style="max-width:180px;border:1px solid rgba(16,185,129,.3);border-radius:8px;background:white;display:block;margin:12px auto 0;">
+      </div>`;
+    }
+    if(isDone){
+      html+=`<div class="celebrate"><div class="big-check">🎉</div><div class="done-title">จัดส่งสำเร็จ!</div><div class="done-sub">ขอบคุณที่ใช้บริการ TTGPlus</div></div>`;
+    }
+  }else if(x.status==='transit'){
+    html+=`<div class="sig-section">
+      <div class="sig-title">✍️ เซ็นรับสินค้า</div>
+      <div class="sig-sub">กรุณาเซ็นชื่อเพื่อยืนยันรับสินค้าในกล่องด้านล่าง</div>
+      <div class="sw" id="sigW" style="height:180px;">
+        <canvas id="sigC"></canvas>
+        <div class="sh" id="sigH">เซ็นชื่อที่นี่<br><span style="font-size:11px;color:#bbb;">ลากนิ้ว / เมาส์</span></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn bg2 bsm" onclick="clrSig()">🗑️ ล้าง</button>
+      </div>
+      <div class="fg"><div class="fl">ชื่อผู้เซ็น (พิมพ์)</div><input class="fi" id="rnm" placeholder="ชื่อ-นามสกุล"></div>
+      <button class="btn bp blg" onclick="submitSig()">✅ ยืนยันรับสินค้า</button>
+    </div>`;
+  }
+
+  document.getElementById('main').innerHTML=html;
+
+  // Animate truck & progress
+  setTimeout(()=>{
+    document.getElementById('roadProg').style.width=si.pct+'%';
+    document.getElementById('truckEl').style.left=si.truckPct+'%';
+  },300);
+
+  // Init sig if needed
+  if(x.status==='transit'&&!alreadySigned){
+    setTimeout(initSig,400);
+  }
+}
+
+function initSig(){
+  const w=document.getElementById('sigW');
+  const c=document.getElementById('sigC');
+  if(!w||!c)return;
+  c.width=w.clientWidth||400;c.height=180;
+  sCtx=c.getContext('2d');sCtx.clearRect(0,0,c.width,c.height);
+  sCtx.strokeStyle='#111';sCtx.lineWidth=2.5;sCtx.lineCap='round';sCtx.lineJoin='round';
+  sDrw=false;
+  function pos(e){const r=c.getBoundingClientRect();const sx=c.width/r.width,sy=c.height/r.height;const s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left)*sx,y:(s.clientY-r.top)*sy};}
+  c.onmousedown=c.ontouchstart=function(e){e.preventDefault();sDrw=true;const p=pos(e);sCtx.beginPath();sCtx.moveTo(p.x,p.y);document.getElementById('sigH').style.opacity='0';};
+  c.onmousemove=c.ontouchmove=function(e){e.preventDefault();if(!sDrw)return;const p=pos(e);sCtx.lineTo(p.x,p.y);sCtx.stroke();};
+  c.onmouseup=c.onmouseleave=c.ontouchend=function(){sDrw=false;};
+}
+window.clrSig=function(){const c=document.getElementById('sigC');if(sCtx)sCtx.clearRect(0,0,c.width,c.height);document.getElementById('sigH').style.opacity='1';};
+function isEmpty(){const c=document.getElementById('sigC');if(!c)return true;return!Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data).some(x=>x!==0);}
+
+window.submitSig=async function(){
+  if(isEmpty()){toast('⚠️ กรุณาเซ็นชื่อก่อน','#f59e0b');return;}
+  const nm=document.getElementById('rnm')?.value.trim()||'';
+  const sig=document.getElementById('sigC').toDataURL('image/png');
+  const btn=document.querySelector('.btn.bp.blg');
+  if(btn){btn.textContent='⏳ กำลังบันทึก...';btn.disabled=true;}
+  try{
+    await updateDoc(doc(db,'deliveries',ID),{
+      recipientSig:sig,recipientSignName:nm,status:'done',
+      signedAt:Date.now(),signedBy:nm
+    });
+    deliveryData.recipientSig=sig;deliveryData.recipientSignName=nm;deliveryData.status='done';
+    toast('✅ เซ็นรับสำเร็จ!','#10b981');
+    setTimeout(()=>render(),800);
+  }catch(e){toast('❌ '+e.message,'#ef4444');if(btn){btn.textContent='✅ ยืนยันรับสินค้า';btn.disabled=false;}}
+};
+
+window.toast=function(msg,c='#10b981'){const d=document.createElement('div');d.className='toast';d.style.borderLeftColor=c;d.textContent=msg;document.getElementById('toasts').appendChild(d);setTimeout(()=>d.remove(),3500);};
+</script>
+</body>
+</html>

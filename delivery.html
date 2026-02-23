@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TTGPlus — ระบบขนส่ง</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1117;--sf:#161b22;--sf2:#21262d;--bd:#30363d;--ac:#00c9ff;--ac2:#f59e0b;--ok:#10b981;--er:#ef4444;--tx:#e6edf3;--tx2:#8b949e;--tx3:#484f58;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
+.sb{position:fixed;left:0;top:0;bottom:0;width:228px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column;z-index:100;transition:transform .3s;}
+.logo{padding:18px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;}
+.li{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#00c9ff,#0070f3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;font-family:'IBM Plex Mono',monospace;flex-shrink:0;}
+.lt{font-size:13px;font-weight:700;line-height:1.3;}
+.ls{font-size:10px;color:var(--tx2);}
+.ng{padding:14px 16px 4px;font-size:9px;color:var(--tx3);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;}
+.nb{display:flex;align-items:center;gap:10px;padding:9px 12px;margin:2px 8px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--tx2);font-weight:500;transition:all .15s;border:1px solid transparent;}
+.nb:hover{background:var(--sf2);color:var(--tx);}
+.nb.on{background:rgba(0,201,255,.1);color:var(--ac);border-color:rgba(0,201,255,.2);}
+.ni{font-size:15px;width:20px;text-align:center;}
+.sbot{margin-top:auto;padding:12px;border-top:1px solid var(--bd);}
+.upill{background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;}
+.uav{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+.mn{margin-left:228px;padding:24px;min-height:100vh;}
+.pg{display:none;animation:fi .2s ease;}
+.pg.on{display:block;}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:12px;flex-wrap:wrap;}
+.pht{font-size:22px;font-weight:800;}
+.phs{font-size:12px;color:var(--tx2);margin-top:3px;}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:14px;margin-bottom:22px;}
+.sc{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden;}
+.sc::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--cc,var(--ac));border-radius:14px 14px 0 0;}
+.sl{font-size:10px;color:var(--tx2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.sv{font-size:30px;font-weight:800;font-family:'IBM Plex Mono',monospace;margin:5px 0 2px;}
+.ss{font-size:11px;color:var(--tx2);}
+.cd{background:var(--sf);border:1px solid var(--bd);border-radius:14px;overflow:hidden;margin-bottom:16px;}
+.ch{padding:13px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.ct{font-size:14px;font-weight:700;}
+.cb{padding:18px;}
+.fg{display:flex;flex-direction:column;gap:6px;}
+.fl{font-size:10px;color:var(--tx2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.fi,.fsel{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;color:var(--tx);font-size:13px;font-family:'Sarabun',sans-serif;outline:none;width:100%;transition:border-color .2s;}
+.fi:focus,.fsel:focus{border-color:var(--ac);}
+.fi::placeholder{color:var(--tx3);}
+.fsel option{background:var(--sf2);}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:'Sarabun',sans-serif;transition:all .15s;white-space:nowrap;}
+.bp{background:var(--ac);color:#000;box-shadow:0 0 20px rgba(0,201,255,.25);}
+.bp:hover{background:#00b0de;}
+.bg{background:var(--sf2);color:var(--tx);border:1px solid var(--bd);}
+.bg:hover{border-color:var(--ac);color:var(--ac);}
+.bsm{padding:6px 12px;font-size:12px;}
+.blg{padding:13px 32px;font-size:15px;border-radius:10px;}
+.bge{background:rgba(239,68,68,.1);color:var(--er);border:1px solid rgba(239,68,68,.2);}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.bw{background:rgba(139,148,158,.15);color:var(--tx2);border:1px solid rgba(139,148,158,.25);}
+.bt{background:rgba(0,201,255,.12);color:var(--ac);border:1px solid rgba(0,201,255,.25);}
+.bd2{background:rgba(16,185,129,.12);color:var(--ok);border:1px solid rgba(16,185,129,.25);}
+.bc{background:rgba(239,68,68,.12);color:var(--er);border:1px solid rgba(239,68,68,.25);}
+.dc{background:var(--sf2);border:1px solid var(--bd);border-radius:12px;padding:15px;margin-bottom:10px;cursor:pointer;transition:border-color .2s;border-left:3px solid var(--bd);}
+.dc:hover{border-color:var(--ac);}
+.dc.tr{border-left-color:var(--ac);}
+.dc.dn{border-left-color:var(--ok);}
+.dc.wt{border-left-color:var(--tx3);}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);z-index:500;display:none;align-items:center;justify-content:center;padding:16px;}
+.ov.sh{display:flex;}
+.mb{background:var(--sf);border:1px solid var(--bd);border-radius:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;}
+.mh{padding:16px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;}
+.mt{font-size:15px;font-weight:700;}
+.mx{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--tx2);font-size:14px;}
+.mbd{padding:20px;}
+.mft{padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
+.sw{border:2px dashed var(--bd);border-radius:12px;background:white;position:relative;}
+.sw canvas{display:block;width:100%;touch-action:none;}
+.sh2{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#bbb;font-size:13px;pointer-events:none;text-align:center;transition:opacity .2s;line-height:1.5;}
+.it{width:100%;border-collapse:collapse;font-size:13px;}
+.it th{padding:9px 12px;border-bottom:1px solid var(--bd);color:var(--tx2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;}
+.it td{padding:9px 10px;border-bottom:1px solid rgba(48,54,61,.5);vertical-align:middle;}
+.it tr:last-child td{border-bottom:none;}
+.it input{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;color:var(--tx);font-size:12px;outline:none;width:100%;font-family:'Sarabun',sans-serif;}
+.it input:focus{border-color:var(--ac);}
+.lbx{background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.ltx{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ac);word-break:break-all;flex:1;}
+#toasts{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--sf);border:1px solid var(--bd);border-left:3px solid;border-radius:10px;padding:11px 15px;font-size:13px;animation:tin .3s;max-width:280px;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+@keyframes tin{from{transform:translateX(110%);opacity:0}to{transform:none;opacity:1}}
+@media(max-width:768px){
+  .sb{transform:translateX(-100%);}
+  .sb.op{transform:none;}
+  .mn{margin-left:0;padding:14px;}
+  .ham{display:flex!important;}
+}
+.ham{display:none;position:fixed;top:12px;left:12px;z-index:200;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;cursor:pointer;flex-direction:column;gap:4px;}
+.ham span{width:18px;height:2px;background:var(--tx);border-radius:2px;display:block;}
+.bgov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;}
+.bgov.sh{display:block;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px;}
+</style>
+</head>
+<body>
+<div id="toasts"></div>
+<div class="ham" id="ham" onclick="tgSB()"><span></span><span></span><span></span></div>
+<div class="bgov" id="bgov" onclick="tgSB()"></div>
+
+<div class="sb" id="sb">
+  <div class="logo">
+    <div class="li">T+</div>
+    <div><div class="lt">TTGPlus</div><div class="ls">ระบบขนส่ง</div></div>
+  </div>
+  <div class="ng">เมนูหลัก</div>
+  <div class="nb on" id="n-dash" onclick="gp('dash')"><span class="ni">📊</span>Dashboard</div>
+  <div class="nb" id="n-create" onclick="gp('create')"><span class="ni">📝</span>สร้างใบส่งสินค้า</div>
+  <div class="nb" id="n-hist" onclick="gp('hist')"><span class="ni">📋</span>ประวัติการส่ง</div>
+  <div class="sbot">
+    <div class="upill">
+      <div class="uav" id="uav">?</div>
+      <div><div style="font-size:12px;font-weight:600;" id="unm">—</div><div style="font-size:10px;color:var(--tx2);" id="url2">—</div></div>
+    </div>
+    <div style="margin-top:8px;">
+      <div class="nb" onclick="location.href='home.html'"><span class="ni">🏠</span>กลับ Home</div>
+    </div>
+  </div>
+</div>
+
+<div class="mn">
+
+<!-- DASH -->
+<div class="pg on" id="p-dash">
+  <div class="ph">
+    <div><div class="pht">🚚 Dashboard ขนส่ง</div><div class="phs">ภาพรวมการจัดส่งทั้งหมด</div></div>
+    <button class="btn bp blg" onclick="gp('create')">+ สร้างใบส่งใหม่</button>
+  </div>
+  <div class="sg">
+    <div class="sc" style="--cc:#8b949e;"><div class="sl">รอขนส่ง</div><div class="sv" id="s1">—</div><div class="ss">ใบรอดำเนินการ</div></div>
+    <div class="sc" style="--cc:var(--ac);"><div class="sl">กำลังส่ง</div><div class="sv" id="s2">—</div><div class="ss">ระหว่างขนส่ง</div></div>
+    <div class="sc" style="--cc:var(--ok);"><div class="sl">ส่งสำเร็จ</div><div class="sv" id="s3">—</div><div class="ss">ทั้งหมด</div></div>
+    <div class="sc" style="--cc:var(--ac2);"><div class="sl">รอปลายทางเซ็น</div><div class="sv" id="s4">—</div><div class="ss">ยังไม่ได้เซ็น</div></div>
+  </div>
+  <div class="cd">
+    <div class="ch"><div class="ct">⚡ รายการที่ต้องดำเนินการ</div><button class="btn bg bsm" onclick="ldDash()">🔄</button></div>
+    <div class="cb" id="dl"><div style="text-align:center;color:var(--tx2);padding:40px;">⏳ กำลังโหลด...</div></div>
+  </div>
+</div>
+
+<!-- CREATE -->
+<div class="pg" id="p-create">
+  <div class="ph"><div><div class="pht">📝 สร้างใบส่งสินค้า</div><div class="phs">กรอกข้อมูลและรายการสินค้า</div></div></div>
+  <div class="cd">
+    <div class="ch"><div class="ct">ข้อมูลการจัดส่ง</div></div>
+    <div class="cb">
+      <div class="fgrid">
+        <div class="fg"><div class="fl">📋 เลขที่ใบส่ง</div><input class="fi" id="fdo" readonly style="color:var(--ac);font-family:'IBM Plex Mono',monospace;font-weight:600;"></div>
+        <div class="fg"><div class="fl">📅 วันที่ส่ง</div><input class="fi" id="fdt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric" oninput="fmD(this)"></div>
+        <div class="fg"><div class="fl">👤 ผู้รับปลายทาง</div><input class="fi" id="frcp" placeholder="ชื่อบุคคล / บริษัท"></div>
+        <div class="fg"><div class="fl">📞 เบอร์ติดต่อ</div><input class="fi" id="fphn" placeholder="08X-XXX-XXXX" inputmode="tel"></div>
+        <div class="fg" style="grid-column:1/-1;"><div class="fl">📍 ที่อยู่ปลายทาง</div><input class="fi" id="fadr" placeholder="ที่อยู่จัดส่ง"></div>
+        <div class="fg"><div class="fl">🚛 พนักงานขนส่ง</div><input class="fi" id="fdrv" placeholder="ชื่อคนขับ / บริษัทขนส่ง"></div>
+        <div class="fg"><div class="fl">🚗 ทะเบียนรถ</div><input class="fi" id="fplt" placeholder="กข 1234 กทม."></div>
+        <div class="fg" style="grid-column:1/-1;"><div class="fl">📝 หมายเหตุ</div><input class="fi" id="fnot" placeholder="ข้อมูลเพิ่มเติม"></div>
+      </div>
+    </div>
+  </div>
+  <div class="cd">
+    <div class="ch">
+      <div class="ct">📦 รายการสินค้า</div>
+      <button class="btn bg bsm" onclick="addR()">+ เพิ่มรายการ</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="it">
+        <thead><tr><th style="width:38%;">สินค้า / รายละเอียด</th><th style="width:13%;">จำนวน</th><th style="width:14%;">หน่วย</th><th style="width:25%;">หมายเหตุ</th><th style="width:10%;"></th></tr></thead>
+        <tbody id="itb"></tbody>
+      </table>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:20px;padding-bottom:30px;">
+    <button class="btn bp blg" onclick="gtSign()">✍️ บันทึกและให้ขนส่งเซ็นรับ →</button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="pg" id="p-hist">
+  <div class="ph">
+    <div><div class="pht">📋 ประวัติการจัดส่ง</div><div class="phs">รายการใบส่งสินค้าทั้งหมด</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <select class="fsel" id="hf" onchange="ldHist()" style="width:140px;padding:8px 10px;">
+        <option value="">ทุกสถานะ</option>
+        <option value="waiting">รอขนส่ง</option>
+        <option value="transit">กำลังส่ง</option>
+        <option value="done">ส่งสำเร็จ</option>
+      </select>
+      <button class="btn bg bsm" onclick="ldHist()">🔄</button>
+    </div>
+  </div>
+  <div id="hl"><div style="text-align:center;color:var(--tx2);padding:60px;">⏳ กำลังโหลด...</div></div>
+</div>
+
+</div><!-- .mn -->
+
+<!-- MODAL: เซ็นขนส่ง -->
+<div class="ov" id="mSgn">
+  <div class="mb">
+    <div class="mh"><div class="mt">✍️ เซ็นรับสินค้า — พนักงานขนส่ง</div><div class="mx" onclick="clM('mSgn')">✕</div></div>
+    <div class="mbd">
+      <div style="font-size:13px;color:var(--tx2);margin-bottom:14px;">กรุณาให้พนักงานขนส่งเซ็นชื่อยืนยันรับสินค้าในกล่องด้านล่าง</div>
+      <div class="sw" id="sw" style="height:180px;margin-bottom:10px;">
+        <canvas id="sgc"></canvas>
+        <div class="sh2" id="sgh">เซ็นชื่อที่นี่<br><span style="font-size:11px;color:#bbb;">ลากนิ้ว / เมาส์</span></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="btn bg bsm" onclick="clrSig()">🗑️ ล้าง</button>
+      </div>
+      <div class="fg"><div class="fl">ชื่อผู้เซ็น (พิมพ์)</div><input class="fi" id="snm" placeholder="ชื่อ-นามสกุลพนักงานขนส่ง"></div>
+    </div>
+    <div class="mft">
+      <button class="btn bg" onclick="clM('mSgn')">ยกเลิก</button>
+      <button class="btn bp" onclick="cfSign()">✅ ยืนยันเซ็นรับ</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ลิงค์ -->
+<div class="ov" id="mLnk">
+  <div class="mb">
+    <div class="mh"><div class="mt">🔗 ส่งลิงค์ให้ปลายทาง</div><div class="mx" onclick="clM('mLnk')">✕</div></div>
+    <div class="mbd">
+      <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--ok);margin-bottom:16px;">✅ ขนส่งเซ็นรับแล้ว — ส่งลิงค์นี้ให้ผู้รับปลายทางเซ็นยืนยัน</div>
+      <div class="lbx"><span class="ltx" id="lnktx">—</span><button class="btn bg bsm" onclick="cpL()">📋 Copy</button></div>
+      <div style="text-align:center;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:10px;">หรือให้สแกน QR Code</div>
+        <div id="qrb" style="display:inline-block;background:white;padding:12px;border-radius:12px;"></div>
+      </div>
+      <div style="font-size:11px;color:var(--tx3);text-align:center;">ลิงค์เปิดได้โดยไม่ต้อง Login</div>
+    </div>
+    <div class="mft"><button class="btn bg" onclick="clM('mLnk');gp('hist')">ดูประวัติ →</button></div>
+  </div>
+</div>
+
+<!-- MODAL: รายละเอียด -->
+<div class="ov" id="mDet">
+  <div class="mb" style="max-width:620px;">
+    <div class="mh"><div class="mt" id="detT">รายละเอียด</div><div class="mx" onclick="clM('mDet')">✕</div></div>
+    <div class="mbd" id="detB"></div>
+    <div class="mft" id="detF"></div>
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import{getFirestore,collection,addDoc,getDocs,getDoc,doc}
+  from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const FB={apiKey:"AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",authDomain:"tingting-3d57f.firebaseapp.com",
+  projectId:"tingting-3d57f",storageBucket:"tingting-3d57f.firebasestorage.app",
+  messagingSenderId:"998609441304",appId:"1:998609441304:web:0c7fbedf869fa2335d296d",
+  databaseURL:"https://tingting-3d57f-default-rtdb.asia-southeast1.firebasedatabase.app"};
+const db=getFirestore(initializeApp(FB));
+
+let CU=null;
+try{const r=sessionStorage.getItem('currentUser')||localStorage.getItem('currentUser');if(r)CU=JSON.parse(r);}catch(e){}
+if(!CU){const n=prompt('ชื่อผู้ใช้งาน:');if(!n){location.href='home.html';}else CU={name:n,role:'staff'};}
+document.getElementById('unm').textContent=CU?.name||'—';
+document.getElementById('url2').textContent=(CU?.role||'STAFF').toUpperCase();
+document.getElementById('uav').textContent=(CU?.name||'?')[0].toUpperCase();
+
+function genDO(){const n=new Date();const d=String(n.getDate()).padStart(2,'0'),m=String(n.getMonth()+1).padStart(2,'0'),y=String(n.getFullYear()).slice(2);return`DO-${y}${m}${d}-${Math.floor(Math.random()*900)+100}`;}
+document.getElementById('fdo').value=genDO();
+const nt=new Date();
+document.getElementById('fdt').value=`${String(nt.getDate()).padStart(2,'0')}/${String(nt.getMonth()+1).padStart(2,'0')}/${nt.getFullYear()}`;
+
+window.fmD=function(el){let v=el.value.replace(/\D/g,'');if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);if(v.length>10)v=v.slice(0,10);el.value=v;};
+
+let idc=0;const rows=[];
+window.addR=function(){
+  const id=++idc;rows.push(id);
+  const tb=document.getElementById('itb');
+  const er=document.getElementById('emptyR');if(er)er.remove();
+  const tr=document.createElement('tr');tr.id=`r${id}`;
+  tr.innerHTML=`<td><input placeholder="ชื่อสินค้า" id="rn${id}"></td><td><input type="number" min="0" placeholder="0" id="rq${id}" style="text-align:center;"></td><td><input placeholder="หน่วย" id="ru${id}"></td><td><input placeholder="หมายเหตุ" id="rnt${id}"></td><td><button onclick="dlR(${id})" style="background:rgba(239,68,68,.12);color:var(--er);border:none;border-radius:6px;padding:5px 9px;cursor:pointer;">✕</button></td>`;
+  tb.appendChild(tr);
+};
+window.dlR=function(id){const i=rows.indexOf(id);if(i>-1)rows.splice(i,1);document.getElementById(`r${id}`)?.remove();if(!rows.length)document.getElementById('itb').innerHTML=`<tr id="emptyR"><td colspan="5" style="text-align:center;color:var(--tx2);padding:24px;">กด "+ เพิ่มรายการ" เพื่อเพิ่มสินค้า</td></tr>`;};
+window.addR();
+
+window.gtSign=function(){
+  if(!document.getElementById('fdt').value){toast('⚠️ กรุณาระบุวันที่','#f59e0b');return;}
+  if(!document.getElementById('frcp').value.trim()){toast('⚠️ กรุณาระบุผู้รับ','#f59e0b');return;}
+  if(!document.getElementById('fdrv').value.trim()){toast('⚠️ กรุณาระบุพนักงานขนส่ง','#f59e0b');return;}
+  if(!rows.some(id=>document.getElementById(`rn${id}`)?.value.trim())){toast('⚠️ กรุณาเพิ่มสินค้า','#f59e0b');return;}
+  opM('mSgn');initSig();
+};
+
+let sCtx,sDrw=false;
+function initSig(){
+  const w=document.getElementById('sw');const c=document.getElementById('sgc');
+  c.width=w.clientWidth||460;c.height=180;
+  sCtx=c.getContext('2d');sCtx.clearRect(0,0,c.width,c.height);
+  sCtx.strokeStyle='#111';sCtx.lineWidth=2.5;sCtx.lineCap='round';sCtx.lineJoin='round';
+  document.getElementById('sgh').style.opacity='1';sDrw=false;
+  function pos(e){const r=c.getBoundingClientRect();const sx=c.width/r.width,sy=c.height/r.height;const s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left)*sx,y:(s.clientY-r.top)*sy};}
+  c.onmousedown=c.ontouchstart=function(e){e.preventDefault();sDrw=true;const p=pos(e);sCtx.beginPath();sCtx.moveTo(p.x,p.y);document.getElementById('sgh').style.opacity='0';};
+  c.onmousemove=c.ontouchmove=function(e){e.preventDefault();if(!sDrw)return;const p=pos(e);sCtx.lineTo(p.x,p.y);sCtx.stroke();};
+  c.onmouseup=c.onmouseleave=c.ontouchend=function(){sDrw=false;};
+}
+window.clrSig=function(){const c=document.getElementById('sgc');if(sCtx)sCtx.clearRect(0,0,c.width,c.height);document.getElementById('sgh').style.opacity='1';};
+function isEmpty(){const c=document.getElementById('sgc');if(!c)return true;return!Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data).some(x=>x!==0);}
+
+window.cfSign=async function(){
+  if(isEmpty()){toast('⚠️ กรุณาเซ็นชื่อก่อน','#f59e0b');return;}
+  const sig=document.getElementById('sgc').toDataURL('image/png');
+  const snm=document.getElementById('snm').value.trim();
+  const items=rows.map(id=>({name:document.getElementById(`rn${id}`)?.value.trim()||'',qty:parseFloat(document.getElementById(`rq${id}`)?.value)||0,unit:document.getElementById(`ru${id}`)?.value.trim()||'',note:document.getElementById(`rnt${id}`)?.value.trim()||''})).filter(i=>i.name);
+  const token=(crypto.randomUUID?crypto.randomUUID():(Math.random().toString(36)+Date.now().toString(36)).slice(2,18));
+  const pl={doNumber:document.getElementById('fdo').value,doDate:document.getElementById('fdt').value,recipient:document.getElementById('frcp').value.trim(),phone:document.getElementById('fphn').value.trim(),address:document.getElementById('fadr').value.trim(),driver:document.getElementById('fdrv').value.trim(),plate:document.getElementById('fplt').value.trim(),note:document.getElementById('fnot').value.trim(),items,driverSig:sig,driverSignName:snm,status:'transit',token,createdBy:CU.name,createdAt:Date.now(),timestamp:Date.now()};
+  try{
+    const ref=await addDoc(collection(db,'deliveries'),pl);
+    clM('mSgn');toast('✅ บันทึกแล้ว — ขนส่งเซ็นรับเรียบร้อย','#10b981');
+    const url=mkURL(token,ref.id);shLink(url);resetF();
+  }catch(e){toast('❌ '+e.message,'#ef4444');}
+};
+
+function mkURL(tk,id){return`${location.href.replace(/[^/]+$/,'')}tracking.html?token=${tk}&id=${id}`;}
+function shLink(url){
+  document.getElementById('lnktx').textContent=url;
+  const qb=document.getElementById('qrb');qb.innerHTML='';
+  const img=new Image();img.src=`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;img.style.cssText='width:180px;height:180px;border-radius:8px;';qb.appendChild(img);
+  opM('mLnk');
+}
+window.cpL=function(){navigator.clipboard.writeText(document.getElementById('lnktx').textContent).then(()=>toast('📋 Copy แล้ว','#10b981'));};
+function resetF(){
+  document.getElementById('fdo').value=genDO();
+  ['fdt','frcp','fphn','fadr','fdrv','fplt','fnot'].forEach(id=>document.getElementById(id).value='');
+  const n2=new Date();document.getElementById('fdt').value=`${String(n2.getDate()).padStart(2,'0')}/${String(n2.getMonth()+1).padStart(2,'0')}/${n2.getFullYear()}`;
+  rows.length=0;idc=0;document.getElementById('itb').innerHTML=`<tr id="emptyR"><td colspan="5" style="text-align:center;color:var(--tx2);padding:24px;">กด "+ เพิ่มรายการ" เพื่อเพิ่มสินค้า</td></tr>`;
+  window.addR();document.getElementById('snm').value='';
+}
+
+window.ldDash=async function(){
+  const el=document.getElementById('dl');
+  try{
+    const sn=await getDocs(collection(db,'deliveries'));
+    let all=[],w=0,t=0,d=0,s=0;
+    sn.forEach(x=>{const v={id:x.id,...x.data()};all.push(v);if(v.status==='waiting')w++;else if(v.status==='transit'){t++;if(!v.recipientSig)s++;}else if(v.status==='done')d++;});
+    document.getElementById('s1').textContent=w;document.getElementById('s2').textContent=t;document.getElementById('s3').textContent=d;document.getElementById('s4').textContent=s;
+    const urg=all.filter(x=>x.status==='transit'||x.status==='waiting').sort((a,b)=>b.createdAt-a.createdAt).slice(0,8);
+    el.innerHTML=urg.length?urg.map(rDC).join(''):`<div style="text-align:center;color:var(--tx2);padding:40px;">ไม่มีรายการที่รอดำเนินการ 🎉</div>`;
+  }catch(e){el.innerHTML=`<div style="color:var(--er);padding:20px;">❌ ${e.message}</div>`;}
+};
+
+window.ldHist=async function(){
+  const el=document.getElementById('hl');const f=document.getElementById('hf')?.value||'';
+  el.innerHTML=`<div style="text-align:center;color:var(--tx2);padding:60px;">⏳ กำลังโหลด...</div>`;
+  try{
+    const sn=await getDocs(collection(db,'deliveries'));
+    let all=[];sn.forEach(x=>all.push({id:x.id,...x.data()}));
+    all.sort((a,b)=>b.timestamp-a.timestamp);
+    if(f)all=all.filter(x=>x.status===f);
+    el.innerHTML=all.length?all.map(x=>rDC(x,true)).join(''):`<div style="text-align:center;color:var(--tx2);padding:60px;">ไม่มีข้อมูล</div>`;
+  }catch(e){el.innerHTML=`<div style="color:var(--er);padding:20px;">❌ ${e.message}</div>`;}
+};
+
+function bdg(s){const m={waiting:'<span class="badge bw">⏳ รอขนส่ง</span>',transit:'<span class="badge bt">🚚 กำลังส่ง</span>',done:'<span class="badge bd2">✅ ส่งสำเร็จ</span>',cancel:'<span class="badge bc">❌ ยกเลิก</span>'};return m[s]||`<span class="badge bw">${s}</span>`;}
+function rDC(x){
+  const cl=x.status==='transit'?'tr':x.status==='done'?'dn':'wt';
+  const itms=(x.items||[]).map(i=>`${i.name} ${i.qty} ${i.unit}`).join(', ');
+  return`<div class="dc ${cl}" onclick="opDet('${x.id}')">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:var(--ac);">${x.doNumber}</span>
+          ${bdg(x.status)}
+          ${x.status==='transit'&&!x.recipientSig?'<span class="badge" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.25);">⚠️ รอปลายทางเซ็น</span>':''}
+        </div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:2px;">📍 ${x.recipient||'—'}</div>
+        <div style="font-size:11px;color:var(--tx2);">${x.address||''}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:4px;">📦 ${itms.slice(0,80)}${itms.length>80?'…':''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:11px;color:var(--tx2);">${x.doDate||''}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px;">🚛 ${x.driver||''}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+window.opDet=async function(id){
+  const sn=await getDoc(doc(db,'deliveries',id));if(!sn.exists())return;
+  const x={id,...sn.data()};const url=x.token?mkURL(x.token,id):null;
+  document.getElementById('detT').textContent=`📦 ${x.doNumber}`;
+  document.getElementById('detB').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div><div class="fl" style="margin-bottom:4px;">สถานะ</div>${bdg(x.status)}</div>
+      <div><div class="fl" style="margin-bottom:4px;">วันที่ส่ง</div><div style="font-size:13px;">${x.doDate||'—'}</div></div>
+      <div><div class="fl" style="margin-bottom:4px;">ผู้รับ</div><div style="font-size:13px;font-weight:600;">${x.recipient||'—'}</div></div>
+      <div><div class="fl" style="margin-bottom:4px;">เบอร์</div><div style="font-size:13px;">${x.phone||'—'}</div></div>
+      <div style="grid-column:1/-1;"><div class="fl" style="margin-bottom:4px;">ที่อยู่</div><div style="font-size:13px;">${x.address||'—'}</div></div>
+      <div><div class="fl" style="margin-bottom:4px;">ขนส่ง</div><div style="font-size:13px;">${x.driver||'—'}</div></div>
+      <div><div class="fl" style="margin-bottom:4px;">ทะเบียน</div><div style="font-size:13px;font-family:monospace;">${x.plate||'—'}</div></div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div class="fl" style="margin-bottom:8px;">📦 รายการสินค้า</div>
+      <div style="background:var(--sf2);border-radius:8px;overflow:hidden;border:1px solid var(--bd);">
+        ${(x.items||[]).map(i=>`<div style="padding:9px 14px;border-bottom:1px solid var(--bd);font-size:13px;display:flex;justify-content:space-between;"><span>${i.name}</span><span style="color:var(--tx2);">${i.qty} ${i.unit}${i.note?' • '+i.note:''}</span></div>`).join('')}
+      </div>
+    </div>
+    ${x.driverSig?`<div style="margin-bottom:14px;"><div class="fl" style="margin-bottom:6px;">✍️ ลายเซ็นขนส่ง — ${x.driverSignName||''}</div><img src="${x.driverSig}" style="max-width:220px;border:1px solid var(--bd);border-radius:8px;background:white;display:block;"></div>`:''}
+    ${x.recipientSig?`<div style="margin-bottom:14px;"><div class="fl" style="color:var(--ok);margin-bottom:6px;">✅ ลายเซ็นผู้รับ — ${x.recipientSignName||''}</div><img src="${x.recipientSig}" style="max-width:220px;border:1px solid var(--bd);border-radius:8px;background:white;display:block;"></div>`:''}
+    ${url?`<div class="lbx"><span class="ltx">${url}</span><button class="btn bg bsm" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('📋 Copied','#10b981'))">Copy</button></div>`:''}
+  `;
+  document.getElementById('detF').innerHTML=`
+    ${url?`<button class="btn bg bsm" onclick="shQR('${url}')">📱 QR Code</button>`:''}
+    <button class="btn bg" onclick="clM('mDet')">ปิด</button>
+  `;
+  opM('mDet');
+};
+window.shQR=function(url){clM('mDet');document.getElementById('lnktx').textContent=url;const qb=document.getElementById('qrb');qb.innerHTML='';const img=new Image();img.src=`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;img.style.cssText='width:180px;height:180px;border-radius:8px;';qb.appendChild(img);opM('mLnk');};
+
+window.gp=function(nm){document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(n=>n.classList.remove('on'));document.getElementById('p-'+nm).classList.add('on');document.getElementById('n-'+nm)?.classList.add('on');if(nm==='dash')ldDash();if(nm==='hist')ldHist();if(window.innerWidth<769)tgSB();};
+window.opM=function(id){document.getElementById(id).classList.add('sh');};
+window.clM=function(id){document.getElementById(id).classList.remove('sh');};
+window.tgSB=function(){document.getElementById('sb').classList.toggle('op');document.getElementById('bgov').classList.toggle('sh');};
+window.toast=function(msg,c='#10b981'){const d=document.createElement('div');d.className='toast';d.style.borderLeftColor=c;d.textContent=msg;document.getElementById('toasts').appendChild(d);setTimeout(()=>d.remove(),3500);};
+
+ldDash();
+</script>
+</body>
+</html>
