@@ -232,29 +232,64 @@
                     ⚠️ <b>โหมดดูอย่างเดียว:</b> คุณสามารถดูข้อมูลได้ทั้งหมด แต่ไม่สามารถแก้ไขหรือบันทึกได้
                 </div>
 
-                <!-- alert banner -->
-                <div id="dashAlertBanner"></div>
-                <!-- greeting -->
-                <div style="margin-bottom:24px;">
-                    <h2 style="margin:0;color:var(--primary-dark);" id="greetingText">สวัสดี...</h2>
-                    <p style="margin:4px 0 0;color:#64748b;font-size:14px;" id="greetingDate"></p>
+                <!-- GREETING -->
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+                    <div>
+                        <h2 style="margin:0;color:var(--primary-dark);font-size:22px;" id="greetingText">สวัสดี...</h2>
+                        <p style="margin:4px 0 0;color:#64748b;font-size:13px;" id="greetingDate"></p>
+                    </div>
+                    <!-- QUICK ACTIONS -->
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:9px 16px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">🚚 สร้าง GR</button>
+                        <button onclick="openCreateRequisition()" style="background:#10b981;color:white;border:none;padding:9px 16px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">📋 ใบเบิก</button>
+                        <button onclick="openQCCheck()" style="background:#7c3aed;color:white;border:none;padding:9px 16px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">🔍 QC Check</button>
+                    </div>
                 </div>
 
-                <!-- SUMMARY CARDS -->
-                <div id="dashSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:28px;">
+                <!-- ALERT BANNERS -->
+                <div id="dashAlertBanner"></div>
+
+                <!-- STAT CARDS ROW 1: คลัง -->
+                <div id="dashSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-bottom:16px;">
                     <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;text-align:center;color:#94a3b8;">กำลังโหลด...</div>
                 </div>
 
-                <!-- CHART + RECENT -->
+                <!-- STAT CARDS ROW 2: KPI วันนี้ -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-bottom:20px;">
+                    <div id="dashKpiGR" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;" onclick="openGRHistory()">
+                        <div style="font-size:10px;color:#06b6d4;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">GR วันนี้</div>
+                        <div style="font-size:26px;font-weight:800;color:#06b6d4;margin:4px 0;" id="dashKpiGRVal">—</div>
+                        <div style="font-size:11px;color:#94a3b8;" id="dashKpiGRSub">ใบรับสินค้า</div>
+                    </div>
+                    <div id="dashKpiMR" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;" onclick="openPendingRequisitions()">
+                        <div style="font-size:10px;color:#f59e0b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">ใบเบิกรออนุมัติ</div>
+                        <div style="font-size:26px;font-weight:800;color:#f59e0b;margin:4px 0;" id="dashKpiMRVal">—</div>
+                        <div style="font-size:11px;color:#94a3b8;">รายการรอดำเนินการ</div>
+                    </div>
+                    <div id="dashKpiQC" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;" onclick="openQCHistory()">
+                        <div style="font-size:10px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">QC Pass Rate ล่าสุด</div>
+                        <div style="font-size:26px;font-weight:800;color:#7c3aed;margin:4px 0;" id="dashKpiQCVal">—</div>
+                        <div style="font-size:11px;color:#94a3b8;" id="dashKpiQCSub">session ล่าสุด</div>
+                    </div>
+                    <div id="dashKpiEXP" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;" onclick="openLotRegister()">
+                        <div style="font-size:10px;color:#ef4444;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">EXP ใกล้หมด (≤30 วัน)</div>
+                        <div style="font-size:26px;font-weight:800;color:#ef4444;margin:4px 0;" id="dashKpiEXPVal">—</div>
+                        <div style="font-size:11px;color:#94a3b8;">Lot ที่ต้องระวัง</div>
+                    </div>
+                </div>
+
+                <!-- CHART + ACTIVITY FEED -->
                 <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;">
                     <!-- trend chart -->
-                    <div style="background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;">
-                        <h4 style="margin:0 0 16px;color:var(--primary-dark);">📈 Trend การนับสต๊อก 7 วันล่าสุด</h4>
+                    <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                            <h4 style="margin:0;color:var(--primary-dark);font-size:14px;">📈 Trend การนับสต๊อก 7 วันล่าสุด</h4>
+                        </div>
                         <canvas id="trendChart" height="180"></canvas>
                     </div>
-                    <!-- recent sessions -->
-                    <div style="background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;">
-                        <h4 style="margin:0 0 16px;color:var(--primary-dark);">🕐 การนับล่าสุด</h4>
+                    <!-- activity feed -->
+                    <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;overflow-y:auto;max-height:360px;">
+                        <h4 style="margin:0 0 14px;color:var(--primary-dark);font-size:14px;">⚡ กิจกรรมล่าสุด</h4>
                         <div id="dashRecentList"><p style="color:#94a3b8;font-size:13px;">กำลังโหลด...</p></div>
                     </div>
                 </div>
@@ -402,7 +437,6 @@
         let trendChartInstance = null;
 
         async function initDashboard() {
-            // greeting
             const hour = new Date().getHours();
             const greet = hour<12?'🌅 อรุณสวัสดิ์':hour<17?'☀️ สวัสดีตอนบ่าย':'🌙 สวัสดีตอนเย็น';
             const el = document.getElementById('greetingText');
@@ -414,8 +448,78 @@
             }
             await loadCountData();
             renderSummaryCards();
-            await loadDashHistory();
-            renderStockAlerts();
+            // โหลด parallel ทุกอย่างพร้อมกัน
+            await Promise.all([
+                loadDashHistory(),
+                loadDashKPIs(),
+                renderStockAlerts(),
+            ]);
+        }
+
+        async function loadDashKPIs() {
+            const today = new Date().toISOString().slice(0,10);
+
+            // ── GR วันนี้ ──
+            try {
+                const grSnap = await getDocs(collection(db,'goodsReceipts'));
+                let grToday = 0, grSuppliers = new Set();
+                grSnap.forEach(d=>{ const x=d.data(); if(x.date===today){grToday++;if(x.supplier)grSuppliers.add(x.supplier);} });
+                const grVal = document.getElementById('dashKpiGRVal');
+                const grSub = document.getElementById('dashKpiGRSub');
+                if(grVal) grVal.innerText = grToday;
+                if(grSub) grSub.innerText = grToday ? [...grSuppliers].slice(0,2).join(', ')||'ใบรับสินค้า' : 'ยังไม่มีวันนี้';
+                const grCard = document.getElementById('dashKpiGR');
+                if(grCard && grToday>0) grCard.style.borderTop='4px solid #06b6d4';
+            } catch(e){}
+
+            // ── ใบเบิกรออนุมัติ ──
+            try {
+                const mrSnap = await getDocs(collection(db,'requisitions'));
+                let pending = 0;
+                mrSnap.forEach(d=>{ if(d.data().status==='pending') pending++; });
+                const mrVal = document.getElementById('dashKpiMRVal');
+                if(mrVal) mrVal.innerText = pending;
+                const mrCard = document.getElementById('dashKpiMR');
+                if(mrCard && pending>0) { mrCard.style.borderTop='4px solid #f59e0b'; mrCard.style.background='#fffbeb'; }
+            } catch(e){}
+
+            // ── QC Pass Rate ล่าสุด ──
+            try {
+                const qcSnap = await getDocs(collection(db,'qcChecks'));
+                let qcChecks = [];
+                qcSnap.forEach(d=>qcChecks.push(d.data()));
+                qcChecks.sort((a,b)=>b.timestamp-a.timestamp);
+                const latest = qcChecks[0];
+                const qcVal = document.getElementById('dashKpiQCVal');
+                const qcSub = document.getElementById('dashKpiQCSub');
+                if(qcVal) qcVal.innerText = latest ? Math.round(latest.passCount/latest.totalChecked*100)+'%' : '—';
+                if(qcSub) qcSub.innerText = latest ? isoToDMY(latest.date) : 'ยังไม่มีข้อมูล';
+                const qcCard = document.getElementById('dashKpiQC');
+                if(qcCard && latest) {
+                    const rate = latest.passCount/latest.totalChecked*100;
+                    qcCard.style.borderTop = '4px solid '+(rate>=80?'#7c3aed':rate>=50?'#f59e0b':'#ef4444');
+                }
+            } catch(e){}
+
+            // ── EXP ใกล้หมด ──
+            try {
+                const lotSnap = await getDoc(doc(db,'config','lotRegister'));
+                const lots = lotSnap.exists() ? (lotSnap.data().lots||{}) : {};
+                let expWarnCount = 0;
+                const now = new Date(); now.setHours(0,0,0,0);
+                Object.values(lots).forEach(lotList=>{
+                    lotList.forEach(l=>{
+                        if(!l.qtyRemaining||!l.exp) return;
+                        const diff = Math.floor((new Date(l.exp)-now)/(1000*60*60*24));
+                        if(diff<=30) expWarnCount++;
+                    });
+                });
+                const expVal = document.getElementById('dashKpiEXPVal');
+                if(expVal) expVal.innerText = expWarnCount;
+                const expCard = document.getElementById('dashKpiEXP');
+                if(expCard && expWarnCount>0) { expCard.style.borderTop='4px solid #ef4444'; expCard.style.background='#fef2f2'; }
+                else if(expCard) { expCard.style.borderTop='4px solid #10b981'; }
+            } catch(e){}
         }
 
         function renderSummaryCards() {
@@ -447,30 +551,64 @@
 
         async function loadDashHistory() {
             try {
-                const snap = await getDocs(collection(db,'stockHistory'));
-                let sessions = [];
-                snap.forEach(d => sessions.push({id:d.id,...d.data()}));
-                sessions.sort((a,b) => b.timestamp - a.timestamp);
+                const [stockSnap, grSnap, mrSnap, qcSnap] = await Promise.all([
+                    getDocs(collection(db,'stockHistory')),
+                    getDocs(collection(db,'goodsReceipts')),
+                    getDocs(collection(db,'requisitions')),
+                    getDocs(collection(db,'qcChecks')),
+                ]);
 
-                // recent 5
-                renderRecentSessions(sessions.slice(0,5));
+                // รวม activity ทุกประเภท
+                let activities = [];
 
-                // trend chart: นับ session ย้อนหลัง 7 วัน
-                renderTrendChart(sessions);
+                stockSnap.forEach(d=>{ const x=d.data();
+                    activities.push({type:'stock', icon:'📦', color:'#3b82f6',
+                        title: x.zone+' — นับสต็อก',
+                        sub: (x.countedBy||'-')+' • '+(x.items||[]).length+' รายการ',
+                        ts: x.timestamp||0, date: x.date||'' });
+                });
+                grSnap.forEach(d=>{ const x=d.data();
+                    activities.push({type:'gr', icon:'🚚', color:'#06b6d4',
+                        title: (x.grNumber||'GR')+' — รับสินค้า',
+                        sub: (x.supplier||'-')+' • '+(x.items||[]).length+' รายการ',
+                        ts: x.timestamp||0, date: x.date||'' });
+                });
+                mrSnap.forEach(d=>{ const x=d.data();
+                    const statusIcon={pending:'⏳',approved:'✅',rejected:'❌'}[x.status]||'📋';
+                    activities.push({type:'mr', icon:'📋', color:'#10b981',
+                        title: (x.mrNumber||'MR')+' '+statusIcon,
+                        sub: (x.requester||'-')+' • '+(x.items||[]).length+' รายการ',
+                        ts: x.timestamp||0, date: x.date||'' });
+                });
+                qcSnap.forEach(d=>{ const x=d.data();
+                    activities.push({type:'qc', icon:'🔍', color:'#7c3aed',
+                        title: (x.checkNo||'QC')+' — Spot Check',
+                        sub: (x.inspector||'-')+' • Pass '+(x.passCount||0)+'/'+(x.totalChecked||0),
+                        ts: x.timestamp||0, date: x.date||'' });
+                });
+
+                activities.sort((a,b)=>b.ts-a.ts);
+                renderRecentSessions(activities.slice(0,8));
+
+                // trend chart ยังใช้ stock sessions
+                let stockSessions = [];
+                stockSnap.forEach(d=>stockSessions.push({id:d.id,...d.data()}));
+                stockSessions.sort((a,b)=>b.timestamp-a.timestamp);
+                renderTrendChart(stockSessions);
             } catch(e) { console.error(e); }
         }
 
-        function renderRecentSessions(sessions) {
+        function renderRecentSessions(activities) {
             const c = document.getElementById('dashRecentList');
             if(!c) return;
-            if(!sessions.length){c.innerHTML='<p style="color:#94a3b8;font-size:13px;">ยังไม่มีประวัติการนับ</p>';return;}
-            c.innerHTML = sessions.map(s => {
-                const itemCount = (s.items||[]).length;
-                return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
-                    <div style="width:36px;height:36px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">📦</div>
+            if(!activities.length){c.innerHTML='<p style="color:#94a3b8;font-size:13px;">ยังไม่มีกิจกรรม</p>';return;}
+            c.innerHTML = activities.map(a => {
+                const dateStr = a.date ? isoToDMY(a.date) : (a.ts ? new Date(a.ts).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit'}) : '-');
+                return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f8fafc;">
+                    <div style="width:32px;height:32px;border-radius:50%;background:${a.color}18;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">${a.icon}</div>
                     <div style="flex:1;min-width:0;">
-                        <div style="font-weight:bold;font-size:13px;color:var(--primary-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.zone}</div>
-                        <div style="font-size:11px;color:#64748b;">${s.date} • ${s.countedBy||'-'} • ${itemCount} รายการ</div>
+                        <div style="font-weight:700;font-size:12px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.title}</div>
+                        <div style="font-size:11px;color:#94a3b8;">${dateStr} • ${a.sub}</div>
                     </div>
                 </div>`;
             }).join('');
@@ -971,7 +1109,11 @@
                         ${visibleZones.map(w=>`<option ${w===zone?'selected':''}>${w}</option>`).join('')}
                     </select></div>
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ (บังคับเลือก)</label>
-                    <input type="date" id="countDate" value="${selectedDate}" onchange="selectedDate=this.value" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+                    <input type="text" id="countDate_txt" placeholder="dd/mm/yyyy" maxlength="10"
+    value="${selectedDate.split('-').reverse().join('/')}"
+    oninput="formatDateInput(this,'countDate');selectedDate=document.getElementById('countDate').value||selectedDate"
+    style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+<input type="hidden" id="countDate" value="${selectedDate}">
                 </div>
                 <div class="input-group" style="border:2px solid var(--info);"><label>👤 เลือกชื่อคนนับ</label>
                     <select id="staffSelect" onchange="selectedStaff=this.value" style="width:100%;border:none;font-weight:bold;outline:none;">
@@ -1131,8 +1273,18 @@
                         <option value="">— ทุกคลัง —</option>
                         ${visibleZones.map(w=>`<option value="${w}">${w}</option>`).join('')}
                     </select></div>
-                <div id="dateFromWrap"><label>📅 วันที่เริ่มต้น</label><input type="date" id="filterDateFrom" onchange="loadCurrentReport()"></div>
-                <div id="dateToWrap"><label>📅 วันที่สิ้นสุด</label><input type="date" id="filterDateTo" onchange="loadCurrentReport()"></div>
+                <div id="dateFromWrap"><label>📅 วันที่เริ่มต้น</label>
+    <input type="text" id="filterDateFrom_txt" placeholder="dd/mm/yyyy" maxlength="10"
+        oninput="formatDateInput(this,'filterDateFrom');loadCurrentReport()"
+        style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;width:130px;outline:none;">
+    <input type="hidden" id="filterDateFrom">
+</div>
+                <div id="dateToWrap"><label>📅 วันที่สิ้นสุด</label>
+    <input type="text" id="filterDateTo_txt" placeholder="dd/mm/yyyy" maxlength="10"
+        oninput="formatDateInput(this,'filterDateTo');loadCurrentReport()"
+        style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;width:130px;outline:none;">
+    <input type="hidden" id="filterDateTo">
+</div>
                 <div style="display:flex;gap:8px;align-items:flex-end;">
                     <button onclick="exportCurrentReport()" style="background:var(--success);color:white;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
                     <button onclick="window.print()" style="background:var(--danger);color:white;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">🖨️ Print PDF</button>
@@ -1569,7 +1721,11 @@
                     </select>
                 </div>
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ (บังคับ)</label>
-                    <input type="date" id="invDate" value="${today}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+                    <input type="text" id="invDate_txt" placeholder="dd/mm/yyyy" maxlength="10"
+    value="${today.split('-').reverse().join('/')}"
+    oninput="formatDateInput(this,'invDate')"
+    style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+<input type="hidden" id="invDate" value="${today}">
                 </div>
                 <div class="input-group" style="border:2px solid var(--info);"><label>👤 ผู้นับ</label>
                     <select id="invStaff" style="width:100%;border:none;font-weight:bold;outline:none;">
@@ -1865,6 +2021,7 @@ ${it.zone}`);
                     <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">ใช้ไปจากรอบก่อน</th>
                     <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">หมายเหตุ</th>
                     <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">ผู้นับ</th>
+                    <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;"></th>
                 </tr></thead>
                 <tbody>${filteredItems.map((it,i)=>{
                     const usage=usages[i];
@@ -1880,6 +2037,7 @@ ${it.zone}`);
                         <td style="padding:10px;text-align:center;font-weight:bold;color:${usageColor};">${i===0?'—':usageText}</td>
                         <td style="padding:10px;color:#64748b;font-size:12px;">${it.note||'-'}</td>
                         <td style="padding:10px;color:#64748b;font-size:12px;">${it.countedBy||'-'}</td>
+                        <td style="padding:10px;text-align:center;">${currentUser?.role==='admin'?`<button onclick="deleteInventoryItem('${it.sheetId||''}','${it.id||''}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:11px;">🗑️</button>`:''}</td>
                     </tr>`;}).join('')}
                 </tbody>
             </table>`;
@@ -1890,6 +2048,25 @@ ${it.zone}`);
                 ใช้ไปจากรอบก่อน:i===0?'':usages[i],
                 หมายเหตุ:it.note||'',ผู้นับ:it.countedBy||'',
             }));
+        };
+
+        window.deleteInventoryItem = async function(sheetId, productId) {
+            if(!confirm('ยืนยันลบรายการนี้?')) return;
+            try {
+                const snap = await getDoc(doc(db,'inventoryHistory',sheetId));
+                if(!snap.exists()) { toast('❌ ไม่พบข้อมูล','#c2410c'); return; }
+                const sheet = snap.data();
+                const newItems = (sheet.items||[]).filter(it=>it.id!==productId);
+                if(newItems.length===0) {
+                    await deleteDoc(doc(db,'inventoryHistory',sheetId));
+                } else {
+                    await updateDoc(doc(db,'inventoryHistory',sheetId),{items:newItems});
+                }
+                toast('🗑️ ลบเรียบร้อย','#059669');
+                const zEl=document.getElementById('invZoneFilter');
+                const pEl=document.getElementById('invProdFilter');
+                window.loadInvHistory?.(zEl?.value||'', pEl?.value||'');
+            } catch(e) { toast('❌ ลบไม่สำเร็จ','#c2410c'); }
         };
 
         window.exportInventoryExcel=function(){
@@ -2262,9 +2439,17 @@ ${it.zone}`);
                     <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">ชื่อคู่ค้า / บริษัท</label>
                         <input id="tr_sup_name" placeholder="ชื่อ Supplier" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
                     <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">วันที่เอกสาร</label>
-                        <input id="tr_doc_date" type="date" value="${todayISO}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                        <input id="tr_doc_date_txt" type="text" placeholder="dd/mm/yyyy" maxlength="10"
+    value="${todayISO.split('-').reverse().join('/')}"
+    oninput="formatDateInput(this,'tr_doc_date')"
+    style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;">
+<input type="hidden" id="tr_doc_date" value="${todayISO}"></div>
                     <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">กำหนดส่งของ</label>
-                        <input id="tr_due_date" type="date" value="${todayISO}" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
+                        <input id="tr_due_date_txt" type="text" placeholder="dd/mm/yyyy" maxlength="10"
+    value="${todayISO.split('-').reverse().join('/')}"
+    oninput="formatDateInput(this,'tr_due_date')"
+    style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;">
+<input type="hidden" id="tr_due_date" value="${todayISO}"></div>
                 </div>
                 <div style="margin-bottom:16px;"><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">หมายเหตุ</label>
                     <textarea id="tr_note" placeholder="หมายเหตุ (ถ้ามี)" rows="2" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;resize:none;"></textarea>
@@ -2540,7 +2725,11 @@ ${it.zone}`);
 
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;">
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่ขอเบิก (บังคับ)</label>
-                    <input type="date" id="mr_date" value="${today}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+                    <input type="text" id="mr_date_txt" placeholder="dd/mm/yyyy" maxlength="10"
+    value="${today.split('-').reverse().join('/')}"
+    oninput="formatDateInput(this,'mr_date')"
+    style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+<input type="hidden" id="mr_date" value="${today}">
                 </div>
                 <div class="input-group" style="border:2px solid var(--info);"><label>👤 ผู้ขอเบิก</label>
                     <select id="mr_requester" style="width:100%;border:none;font-weight:bold;outline:none;">
@@ -2765,6 +2954,9 @@ ${it.zone}`);
                             ${canReject?`<button onclick="rejectReq('${d.id}')" style="background:#ef4444;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">❌ ไม่อนุมัติ</button>`:''}
                             ${canIssue?`<button onclick="issueReq('${d.id}')" style="background:#10b981;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">📦 จ่ายของแล้ว</button>`:''}
                             <button onclick="printReq('${d.id}')" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">🖨️ พิมพ์</button>
+                            ${(currentUser?.role==='admin')?`
+                            <button onclick="deleteMR('${d.id}','${d.mrNumber}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;">🗑️</button>
+                            `:''}
                         </div>
                     </div>
                     ${d.purpose?`<div style="padding:8px 0;font-size:13px;color:#475569;">📝 ${d.purpose}</div>`:''}
@@ -2838,6 +3030,17 @@ ${it.zone}`);
         };
 
         // ---- Print PDF ----
+        window.deleteMR = async function(docId, mrNumber) {
+            const confirmText = prompt(`พิมพ์เลขใบเบิก "${mrNumber}" เพื่อยืนยันการลบ:`);
+            if(confirmText?.trim() !== mrNumber) { toast('❌ ยกเลิก','#c2410c'); return; }
+            try {
+                await deleteDoc(doc(db,'requisitions',docId));
+                toast(`🗑️ ลบ ${mrNumber} เรียบร้อย`,'#059669');
+                loadReqBadge();
+                openMyRequisitions();
+            } catch(e) { toast('❌ ลบไม่สำเร็จ','#c2410c'); }
+        };
+
         window.printReq = async function(docId) {
             const snap = await getDoc(doc(db,'requisitions',docId));
             if(!snap.exists())return;
@@ -3399,8 +3602,11 @@ ${it.zone}`);
 
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;">
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่บันทึก</label>
-                    <input type="date" id="dsc_date" value="${today}" onchange="loadDSCOpening()"
+                    <input type="text" id="dsc_date_txt" placeholder="dd/mm/yyyy" maxlength="10"
+                        value="${today.split('-').reverse().join('/')}"
+                        oninput="formatDateInput(this,'dsc_date');if(document.getElementById('dsc_date').value)loadDSCOpening()"
                         style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
+                    <input type="hidden" id="dsc_date" value="${today}">
                 </div>
                 <div class="input-group"><label>📦 คลัง/โซน</label>
                     <select id="dsc_zone" onchange="renderDSCItems()" style="width:100%;border:none;font-weight:bold;outline:none;">
@@ -3666,7 +3872,7 @@ ${it.zone}`);
             const rows = [];
             cards.forEach(card=>{
                 (card.items||[]).forEach(it=>{
-                    if(!prodId||it.id===prodId) rows.push({date:card.date,zone:card.zone,recordedBy:card.recordedBy,...it});
+                    if(!prodId||it.id===prodId) rows.push({date:card.date,zone:card.zone,recordedBy:card.recordedBy,cardId:card.id,...it});
                 });
             });
 
@@ -3699,6 +3905,7 @@ ${r.zone}`);
                     <th style="padding:10px;font-size:11px;color:#64748b;text-align:center;">ผลต่าง</th>
                     <th style="padding:10px;font-size:11px;color:#64748b;text-align:center;">หน่วย</th>
                     <th style="padding:10px;font-size:11px;color:#64748b;text-align:left;">หมายเหตุ</th>
+                    <th style="padding:10px;font-size:11px;color:#64748b;text-align:center;"></th>
                 </tr></thead>
                 <tbody>${rows.map(r=>{
                     const varColor=r.variance>0?'#3b82f6':r.variance<0?'#ef4444':'#10b981';
@@ -3715,10 +3922,32 @@ ${r.zone}`);
                         <td style="padding:9px;text-align:center;font-weight:bold;color:${varColor};">${varText}</td>
                         <td style="padding:9px;text-align:center;color:#64748b;font-size:11px;">${r.unit}</td>
                         <td style="padding:9px;font-size:11px;color:#64748b;">${r.note||'-'}</td>
+                        <td style="padding:9px;text-align:center;">${(currentUser?.role==='admin'&&r.cardId)?`<button onclick="deleteDSCRow('${r.cardId||''}','${r.id||''}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:11px;">🗑️</button>`:''}
+                        </td>
                     </tr>`;
                 }).join('')}</tbody>
             </table>`;
             window._dscExportRows = rows;
+        };
+
+        window.deleteDSCRow = async function(cardId, productId) {
+            if(!confirm('ยืนยันลบรายการนี้?')) return;
+            try {
+                const snap = await getDoc(doc(db,'dailyStockCards',cardId));
+                if(!snap.exists()) { toast('❌ ไม่พบข้อมูล','#c2410c'); return; }
+                const card = snap.data();
+                const newItems = (card.items||[]).filter(it=>it.id!==productId);
+                if(newItems.length===0) {
+                    await deleteDoc(doc(db,'dailyStockCards',cardId));
+                } else {
+                    await updateDoc(doc(db,'dailyStockCards',cardId),{items:newItems});
+                }
+                toast('🗑️ ลบเรียบร้อย','#059669');
+                // refresh
+                const zoneEl = document.getElementById('dscFilterZone');
+                const prodEl = document.getElementById('dscFilterProduct');
+                window.loadDSCHistory(zoneEl?.value||'', prodEl?.value||'');
+            } catch(e) { toast('❌ ลบไม่สำเร็จ','#c2410c'); }
         };
 
         window.exportDSCExcel = function() {
@@ -4314,6 +4543,17 @@ ${r.zone}`);
             if(v.length > 2) v = v.slice(0,2) + '/' + v.slice(2);
             if(v.length > 5) v = v.slice(0,5) + '/' + v.slice(5);
             if(v.length > 10) v = v.slice(0,10);
+            // validate mm ไม่เกิน 12
+            if(v.length >= 5) {
+                const mm = parseInt(v.slice(3,5));
+                if(mm > 12) v = v.slice(0,3) + '12' + v.slice(5);
+            }
+            // validate dd ไม่เกิน 31
+            if(v.length >= 2) {
+                const dd = parseInt(v.slice(0,2));
+                if(dd > 31) v = '31' + v.slice(2);
+                if(dd < 1 && v.length >= 3) v = '01' + v.slice(2);
+            }
             el.value = v;
             const hidden = document.getElementById(hiddenId);
             if(hidden) {
@@ -4771,8 +5011,9 @@ ${r.zone}`);
             await addDoc(collection(db,'qcChecks'),{
                 checkNo, date:dateTH, checkDate:today,
                 inspector:currentUser.name, timestamp:Date.now(),
-                items, passCount, failCount, warnCount, overall,
-                totalChecked:items.length
+                items, passCount, failCount, warnCount:warnCount||0, overall,
+                totalChecked:items.length,
+                signOff: null  // จะถูก set เมื่อผู้บริหารรับทราบ
             });
 
             toast(`✅ บันทึก QC Check สำเร็จ — ผ่าน ${passCount}/${items.length} รายการ`, overall==='pass'?'#059669':'#c2410c');
@@ -5143,6 +5384,23 @@ ${r.zone}`);
                             }).join('')}</tbody>
                         </table>
                     </div>
+                    <!-- Sign Off + PDF -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
+                        ${chk.signOff
+                            ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 16px;font-size:12px;">
+                                ✅ <b style="color:#059669;">รับทราบโดย ${chk.signOff.by}</b>
+                                &nbsp;·&nbsp; ${chk.signOff.atDisplay||''}
+                                ${chk.signOff.comment?`<br><span style="color:#475569;">💬 ${chk.signOff.comment}</span>`:''}
+                               </div>`
+                            : `<button onclick="qcSignOff('${chk.id}')"
+                                style="background:#059669;color:white;border:none;padding:8px 18px;border-radius:9px;cursor:pointer;font-weight:700;font-size:12px;">
+                                ✅ รับทราบ / Sign Off
+                               </button>`}
+                        <button onclick="exportQCPDF('${chk.id}')"
+                            style="background:#7c3aed;color:white;border:none;padding:8px 18px;border-radius:9px;cursor:pointer;font-weight:700;font-size:12px;">
+                            🖨️ Export PDF
+                        </button>
+                    </div>
                 </div>
             </div>`).join('');
         }
@@ -5202,7 +5460,141 @@ ${r.zone}`);
             a.click(); URL.revokeObjectURL(url);
             toast('📥 Export เรียบร้อย','#059669');
         };
-        window.logout=async function(){
+        // ── QC SIGN OFF (Boss/Admin) ──────────────────────
+        window.qcSignOff = async function(qcId) {
+            const comment = prompt('ความเห็น / บันทึก (ไม่บังคับ):') ?? null;
+            if(comment === null) return; // กด cancel
+            try {
+                await updateDoc(doc(db,'qcChecks',qcId), {
+                    signOff: {
+                        by: currentUser.name,
+                        role: currentUser.role||'',
+                        at: Date.now(),
+                        atDisplay: isoToDMY(new Date().toISOString().slice(0,10)),
+                        comment: comment||''
+                    }
+                });
+                // update local
+                const idx = window._qcAllChecks?.findIndex(x=>x.id===qcId);
+                if(idx>=0) window._qcAllChecks[idx].signOff = {
+                    by:currentUser.name, atDisplay:isoToDMY(new Date().toISOString().slice(0,10)), comment:comment||''
+                };
+                toast('✅ รับทราบเรียบร้อย','#059669');
+                renderQCReport(window._qcAllChecks||[]);
+            } catch(e) { toast('❌ ไม่สำเร็จ: '+e.message,'#c2410c'); }
+        };
+
+        // ── QC EXPORT PDF (ทางการ) ──────────────────────
+        window.exportQCPDF = function(qcId) {
+            const chk = window._qcAllChecks?.find(x=>x.id===qcId);
+            if(!chk) { toast('❌ ไม่พบข้อมูล','#c2410c'); return; }
+
+            const overallTH = {pass:'ผ่าน ✅',warning:'น่าสงสัย ⚠️',fail:'ไม่ผ่าน ❌'}[chk.overall]||'-';
+            const passRate = chk.totalChecked>0?Math.round(chk.passCount/chk.totalChecked*100):0;
+            const signOffHtml = chk.signOff
+                ? `<div style="margin-top:24px;padding:14px 20px;border:2px solid #10b981;border-radius:10px;background:#f0fdf4;">
+                    <b style="color:#059669;">✅ รับทราบโดย</b>: ${chk.signOff.by}
+                    &nbsp;|&nbsp; <b>วันที่</b>: ${chk.signOff.atDisplay||'-'}
+                    ${chk.signOff.comment?`<br><b>ความเห็น</b>: ${chk.signOff.comment}`:''}
+                   </div>`
+                : `<div style="margin-top:24px;padding:14px 20px;border:2px dashed #e2e8f0;border-radius:10px;color:#94a3b8;text-align:center;">
+                    ⏳ ยังไม่มีการรับทราบจากผู้บริหาร
+                   </div>`;
+
+            const itemRows = (chk.items||[]).map((it,i)=>{
+                const rc={pass:'#10b981',warning:'#f59e0b',fail:'#ef4444'}[it.result]||'#94a3b8';
+                const rl={pass:'ผ่าน',warning:'น่าสงสัย',fail:'ไม่ผ่าน'}[it.result]||'-';
+                return `<tr style="${i%2?'background:#f8fafc':''}">
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;">${i+1}</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:700;">${it.productId}</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;">${it.productName||''}</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px;color:#06b6d4;">${it.expectedLot||'-'}</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px;">${it.foundLot||'-'}</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;text-align:center;">${it.location||'-'}</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;text-align:center;font-weight:700;color:${rc};">${rl}</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:11px;">${it.note||''}</td>
+                </tr>`;
+            }).join('');
+
+            const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;700&display=swap');
+                * { font-family: 'IBM Plex Sans Thai', sans-serif; box-sizing:border-box; }
+                body { margin:0; padding:28px 36px; color:#1e293b; font-size:13px; }
+                .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #7c3aed; padding-bottom:14px; margin-bottom:20px; }
+                .logo { font-size:20px; font-weight:800; color:#7c3aed; }
+                .logo span { font-size:11px; color:#64748b; font-weight:400; display:block; }
+                .doc-title { font-size:17px; font-weight:800; color:#1e293b; text-align:right; }
+                .doc-title span { font-size:12px; color:#64748b; font-weight:400; display:block; }
+                .info-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px; }
+                .info-box { background:#f8fafc; border-radius:8px; padding:10px 14px; border:1px solid #e2e8f0; }
+                .info-box label { font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; display:block; }
+                .info-box value { font-size:15px; font-weight:800; color:#1e293b; }
+                table { width:100%; border-collapse:collapse; }
+                thead tr { background:#7c3aed; color:white; }
+                thead th { padding:9px 10px; text-align:left; font-size:11px; font-weight:700; }
+                .footer { margin-top:30px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+                .sig-box { border-top:2px solid #1e293b; padding-top:8px; text-align:center; }
+                .sig-box .name { font-size:11px; color:#64748b; }
+                @media print { body { padding:14px 20px; } }
+            </style></head>
+            <body>
+                <div class="header">
+                    <div class="logo">T+ TTGPlus<span>Management System</span></div>
+                    <div class="doc-title">รายงาน QC Spot Check<span>ตรวจสอบ FIFO — ออกโดยระบบอัตโนมัติ</span></div>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-box"><label>QC Check No.</label><value>${chk.checkNo}</value></div>
+                    <div class="info-box"><label>วันที่ตรวจ</label><value>${chk.date?isoToDMY(chk.date):'-'}</value></div>
+                    <div class="info-box"><label>ผู้ตรวจ</label><value>${chk.inspector}</value></div>
+                    <div class="info-box"><label>Pass Rate</label><value style="color:${passRate>=80?'#059669':passRate>=50?'#d97706':'#dc2626'}">${passRate}%</value></div>
+                    <div class="info-box"><label>ผล</label><value>${overallTH}</value></div>
+                    <div class="info-box"><label>รายการทั้งหมด</label><value>${chk.totalChecked} รายการ</value></div>
+                </div>
+
+                <table>
+                    <thead><tr>
+                        <th>#</th><th>รหัส</th><th>ชื่อสินค้า</th>
+                        <th>Lot คาด (FIFO)</th><th>Lot พบจริง</th>
+                        <th>ตำแหน่ง</th><th>ผล</th><th>หมายเหตุ</th>
+                    </tr></thead>
+                    <tbody>${itemRows}</tbody>
+                </table>
+
+                ${signOffHtml}
+
+                <div class="footer">
+                    <div class="sig-box">
+                        <div style="height:50px;"></div>
+                        <div>____________________________</div>
+                        <div class="name">ผู้ตรวจ / ${chk.inspector}</div>
+                    </div>
+                    <div class="sig-box">
+                        <div style="height:50px;"></div>
+                        <div>____________________________</div>
+                        <div class="name">หัวหน้าคลัง</div>
+                    </div>
+                    <div class="sig-box">
+                        <div style="height:50px;"></div>
+                        <div>____________________________</div>
+                        <div class="name">ผู้บริหาร / รับทราบ</div>
+                    </div>
+                </div>
+
+                <div style="margin-top:20px;border-top:1px solid #e2e8f0;padding-top:10px;font-size:10px;color:#94a3b8;text-align:right;">
+                    พิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')} | TTGPlus Management System
+                </div>
+            </body></html>`;
+
+            const w = window.open('','_blank','width=900,height=700');
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            setTimeout(()=>w.print(), 600);
+        };
+
+                window.logout=async function(){
             // ลบ session record เมื่อ logout ตั้งใจ
             try { if(currentUser) await deleteDoc(doc(db,'activeSessions',currentUser.username)); } catch(e){}
             try { const uid=currentUser?.username; if(uid){ set(ref(rtdb,`presence/${uid}`),null).catch(()=>{}); } } catch(e){}
