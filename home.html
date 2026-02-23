@@ -4300,118 +4300,74 @@ ${r.zone}`);
             return `LOT-${productId}-${d}-${suffix}`;
         }
 
+        // ══════════════════════════════════════════
+        // GR STEP 1: สร้างแบบร่าง (Draft)
+        // ══════════════════════════════════════════
+        // ══════════════════════════════════════════════
+        // หน้า 1: สร้างแบบร่าง GR (WAREHOUSE / ADMIN)
+        // ══════════════════════════════════════════════
         window.openCreateGR = async function() {
+            const role = currentUser?.role||'guest';
+            const allowed = role==='admin'||role==='warehouse'||roleSettings[role]?.menus?.includes('admin');
+            if(!allowed){ toast('⚠️ เฉพาะ WAREHOUSE / ADMIN เท่านั้น','#c2410c'); return; }
+
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
             const today = new Date().toISOString().slice(0,10);
-            const usersSnap = await getDocs(collection(db,'users'));
-            let staffOpts = '';
-            usersSnap.forEach(d=>{ const u=d.data(); if(u.status!=='suspended') staffOpts+=`<option value="${u.name}">${u.name}</option>`; });
+            const todayTxt = today.split('-').reverse().join('/');
 
             c.innerHTML = `
             <div class="tool-header no-print">
                 <div>
-                    <h2>🚚 สร้างใบรับสินค้า (GR)</h2>
-                    <p style="margin:4px 0 0;font-size:12px;color:#64748b;">บันทึกสินค้าที่รับเข้าคลัง พร้อม Lot และวันหมดอายุ</p>
+                    <h2>📝 สร้างแบบร่าง GR</h2>
+                    <p style="margin:4px 0 0;font-size:12px;color:#64748b;">ระบุสินค้าที่คาดว่าจะเข้าและจำนวน — Supplier ดึงจากระบบอัตโนมัติ</p>
                 </div>
                 <div style="display:flex;gap:8px;">
                     <button onclick="openGRHistory()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">📄 ประวัติ GR</button>
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
-
-            <!-- Header Info -->
-            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;">
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
                     <div class="input-group" style="border:2px solid #06b6d4;margin:0;">
                         <label style="font-size:10px;">📋 GR NUMBER</label>
-                        <b id="grNumber" style="font-size:13px;color:#06b6d4;word-break:break-all;">${genGRNumber()}</b>
+                        <b id="grNumber" style="font-size:13px;color:#06b6d4;">${genGRNumber()}</b>
                     </div>
                     <div class="input-group" style="border:2px solid var(--danger);margin:0;">
-                        <label style="font-size:10px;">📅 วันที่รับสินค้า</label>
-                        <input type="text" id="gr_date_txt" placeholder="dd/mm/yyyy" maxlength="10"
-                            value="${today.split('-').reverse().join('/')}"
-                            oninput="formatDateInput(this,'gr_date')"
+                        <label style="font-size:10px;">📅 วันที่คาดรับสินค้า</label>
+                        <input type="text" id="gr_date_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
+                            value="${todayTxt}" oninput="formatDateInput(this,'gr_date')"
                             style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;box-sizing:border-box;">
                         <input type="hidden" id="gr_date" value="${today}">
                     </div>
                     <div class="input-group" style="margin:0;">
-                        <label style="font-size:10px;">🏢 SUPPLIER / ผู้ส่ง</label>
-                        <input type="text" id="gr_supplier" placeholder="ชื่อบริษัท/ผู้ส่ง" style="width:100%;border:none;outline:none;font-size:13px;font-weight:bold;box-sizing:border-box;">
-                    </div>
-                    <div class="input-group" style="margin:0;">
-                        <label style="font-size:10px;">👤 ผู้รับสินค้า</label>
-                        <select id="gr_receiver" style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;">
-                            <option value="">-- เลือก --</option>${staffOpts}
-                        </select>
-                    </div>
-                </div>
-                <div style="margin-top:12px;">
-                    <div class="input-group" style="margin:0;">
-                        <label style="font-size:10px;">📝 หมายเหตุทั่วไป</label>
-                        <input type="text" id="gr_note" placeholder="เช่น รถส่งช้า, ของมาไม่ครบบางส่วน" style="width:100%;border:none;outline:none;font-size:13px;">
-                    </div>
-                </div>
-                <div style="margin-top:12px;background:#f0fdf4;border-radius:10px;padding:12px 16px;border:1px solid #bbf7d0;">
-                    <div style="font-size:10px;color:#15803d;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;">📎 เอกสารที่ได้รับ</div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                        <label style="display:flex;align-items:center;gap:6px;background:white;border:1px solid #d1fae5;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:500;">
-                            <input type="checkbox" id="doc_invoice" style="accent-color:#059669;width:14px;height:14px;"> ใบส่งของ/ใบกำกับภาษี</label>
-                        <label style="display:flex;align-items:center;gap:6px;background:white;border:1px solid #d1fae5;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:500;">
-                            <input type="checkbox" id="doc_receipt" style="accent-color:#059669;width:14px;height:14px;"> ใบเสร็จรับเงิน</label>
-                        <label style="display:flex;align-items:center;gap:6px;background:white;border:1px solid #d1fae5;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:500;">
-                            <input type="checkbox" id="doc_billing" style="accent-color:#059669;width:14px;height:14px;"> ใบวางบิล</label>
-                        <label style="display:flex;align-items:center;gap:6px;background:white;border:1px solid #d1fae5;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:500;">
-                            <input type="checkbox" id="doc_debit" style="accent-color:#059669;width:14px;height:14px;"> ใบแจ้งหนี้</label>
-                        <div style="display:flex;align-items:center;gap:6px;background:white;border:1px solid #d1fae5;padding:4px 10px;border-radius:20px;">
-                            <span style="font-size:12px;font-weight:500;white-space:nowrap;">อื่นๆ:</span>
-                            <input type="text" id="doc_other" placeholder="CN, COA, ..." style="border:none;outline:none;font-size:12px;width:120px;background:transparent;">
-                        </div>
+                        <label style="font-size:10px;">📝 หมายเหตุ</label>
+                        <input type="text" id="gr_note" placeholder="เช่น รอบส่งพิเศษ, โปรโมชั่น..." style="width:100%;border:none;outline:none;font-size:13px;">
                     </div>
                 </div>
             </div>
-
-            <!-- Zone + Product Search -->
-            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:20px;">
-                <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
-                    <div class="input-group" style="flex:1;min-width:180px;">
-                        <label>📦 เลือกคลัง</label>
-                        <select id="gr_zone" onchange="renderGRProductSearch()" style="width:100%;border:none;font-weight:bold;outline:none;">
-                            ${getVisibleWarehouses().map(z=>`<option value="${z}">${z}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div style="flex:2;min-width:240px;">
-                        <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">ค้นหาสินค้าเพื่อเพิ่ม</div>
-                        <input type="text" id="gr_search" placeholder="🔍 พิมพ์รหัสหรือชื่อสินค้า..." oninput="renderGRProductSearch()"
-                            style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;box-sizing:border-box;outline:none;"
-                            onfocus="this.style.borderColor='#06b6d4'" onblur="this.style.borderColor='#e2e8f0'">
-                        <div id="grSearchResults" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;margin-top:6px;display:none;background:white;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:10;position:relative;"></div>
-                    </div>
-                </div>
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:8px;">🔍 ค้นหาสินค้าเพื่อเพิ่มในร่าง</div>
+                <input type="text" id="gr_search" placeholder="พิมพ์รหัสหรือชื่อสินค้า..." oninput="renderGRProductSearch()"
+                    style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;box-sizing:border-box;outline:none;"
+                    onfocus="this.style.borderColor='#06b6d4'" onblur="this.style.borderColor='#e2e8f0'">
+                <div id="grSearchResults" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;margin-top:6px;display:none;background:white;box-shadow:0 4px 16px rgba(0,0,0,0.1);position:relative;z-index:10;"></div>
             </div>
-
-            <!-- GR Items Table -->
             <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:24px;">
-                <div style="padding:14px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
-                    <span style="font-weight:700;font-size:14px;">รายการสินค้าที่รับเข้า</span>
+                <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;font-size:14px;">📋 รายการสินค้าที่คาดว่าจะเข้า</span>
                     <span id="grItemCount" style="font-size:12px;color:#64748b;">0 รายการ</span>
                 </div>
-                <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-                    <div id="grItemsContainer">
-                        <div style="padding:40px;text-align:center;color:#94a3b8;">
-                            <div style="font-size:36px;margin-bottom:8px;">📦</div>
-                            <div>ค้นหาสินค้าด้านบนเพื่อเพิ่มรายการ</div>
-                        </div>
+                <div id="grItemsContainer">
+                    <div style="padding:40px;text-align:center;color:#94a3b8;">
+                        <div style="font-size:36px;margin-bottom:8px;">📦</div>
+                        <div>ค้นหาสินค้าด้านบนแล้วกดเพื่อเพิ่ม</div>
                     </div>
                 </div>
             </div>
-
-            <div style="text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;" class="no-print">
-                <button onclick="saveGR('draft')" style="background:white;color:#475569;padding:14px 32px;border:2px solid #e2e8f0;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">
-                    📝 บันทึกแบบร่าง
-                </button>
-                <button onclick="saveGR('pending')" style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:white;padding:14px 48px;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(6,182,212,0.35);">
-                    📨 ส่งรออนุมัติ
+            <div style="text-align:center;" class="no-print">
+                <button onclick="saveDraftGR()" style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:white;padding:14px 56px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(6,182,212,0.35);">
+                    📝 บันทึกแบบร่าง GR
                 </button>
             </div>`;
 
@@ -4420,41 +4376,32 @@ ${r.zone}`);
         };
 
         window.renderGRProductSearch = function() {
-            const zone = document.getElementById('gr_zone')?.value||'';
             const q = (document.getElementById('gr_search')?.value||'').toLowerCase().trim();
             const resultsEl = document.getElementById('grSearchResults');
             if(!resultsEl) return;
-            if(!q) { resultsEl.style.display='none'; return; }
-            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
-            const filtered = zoneProds.filter(p=>p.id.toLowerCase().includes(q)||p.name.toLowerCase().includes(q)).slice(0,8);
-            if(!filtered.length) { resultsEl.style.display='none'; return; }
+            if(!q){ resultsEl.style.display='none'; return; }
+            const filtered = allProducts.filter(p=>p.id.toLowerCase().includes(q)||p.name.toLowerCase().includes(q)).slice(0,8);
+            if(!filtered.length){ resultsEl.style.display='none'; return; }
             resultsEl.style.display='block';
             resultsEl.innerHTML = filtered.map(p=>{
-                const u=(p.units||[{name:p.unit||''}])[0]?.name||'';
                 const already = window._grItems?.find(i=>i.id===p.id);
-                return `<div onclick="addGRItem('${p.id}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f8fafc;display:flex;align-items:center;gap:10px;${already?'background:#f0fdf4;':''}"
+                const u=(p.units||[{name:p.unit||''}])[0]?.name||'';
+                return `<div onclick="addGRItem('${p.id}')"
+                    style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f8fafc;${already?'background:#f0fdf4;':''}"
                     onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${already?'#f0fdf4':'white'}'">
-                    <div>
-                        <div style="font-weight:700;font-size:12px;color:#0f172a;">${p.id} ${already?'✅':''}</div>
-                        <div style="font-size:12px;color:#64748b;">${p.name} <span style="color:#94a3b8;">(${u})</span></div>
-                    </div>
+                    <div style="font-weight:700;font-size:12px;">${p.id} ${already?'✅':''}</div>
+                    <div style="font-size:12px;color:#64748b;">${p.name} <span style="color:#94a3b8;">${u}</span></div>
+                    ${p.supplier?`<div style="font-size:10px;color:#06b6d4;">🏢 ${p.supplier}</div>`:''}
                 </div>`;
             }).join('');
         };
 
         window.addGRItem = function(productId) {
             if(!window._grItems) window._grItems=[];
-            if(window._grItems.find(i=>i.id===productId)) { toast('⚠️ สินค้านี้อยู่ในรายการแล้ว','#c2410c'); return; }
-            // auto-fill supplier ถ้ายังว่างอยู่
-            const supplierEl = document.getElementById('gr_supplier');
-            if(supplierEl && !supplierEl.value.trim()) {
-                const prod = allProducts.find(p=>p.id===productId);
-                if(prod?.supplier) supplierEl.value = prod.supplier;
-            }
+            if(window._grItems.find(i=>i.id===productId)){ toast('⚠️ สินค้านี้อยู่ในรายการแล้ว','#c2410c'); return; }
             const p = allProducts.find(x=>x.id===productId); if(!p) return;
             const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
-            const grDate = document.getElementById('gr_date')?.value||new Date().toISOString().slice(0,10);
-            window._grItems.push({id:p.id, name:p.name, unit:u, lotNumber:genLotNumber(p.id,grDate)});
+            window._grItems.push({id:p.id, name:p.name, unit:u, supplier:p.supplier||''});
             document.getElementById('gr_search').value='';
             document.getElementById('grSearchResults').style.display='none';
             renderGRItemsTable();
@@ -4468,19 +4415,17 @@ ${r.zone}`);
         function renderGRItemsTable() {
             const c = document.getElementById('grItemsContainer'); if(!c) return;
             const items = window._grItems||[];
-            document.getElementById('grItemCount').innerText = `${items.length} รายการ`;
-            if(!items.length) {
-                c.innerHTML=`<div style="padding:40px;text-align:center;color:#94a3b8;"><div style="font-size:36px;margin-bottom:8px;">📦</div><div>ค้นหาสินค้าด้านบนเพื่อเพิ่มรายการ</div></div>`;
+            const countEl = document.getElementById('grItemCount');
+            if(countEl) countEl.innerText=`${items.length} รายการ`;
+            if(!items.length){
+                c.innerHTML=`<div style="padding:40px;text-align:center;color:#94a3b8;"><div style="font-size:36px;margin-bottom:8px;">📦</div><div>ค้นหาสินค้าด้านบนแล้วกดเพื่อเพิ่ม</div></div>`;
                 return;
             }
-            c.innerHTML=`<table style="width:100%;border-collapse:collapse;">
+            c.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:480px;">
                 <thead><tr style="background:#f8fafc;">
                     <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748b;font-weight:700;">สินค้า</th>
-                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#059669;font-weight:700;">รับจริง (จำนวน)</th>
-                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">Lot Number</th>
-                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#dc2626;font-weight:700;">วันผลิต (MFD)</th>
-                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#b45309;font-weight:700;">วันหมดอายุ (EXP)</th>
-                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">สถานะ</th>
+                    <th style="padding:10px 14px;text-align:left;font-size:11px;color:#06b6d4;font-weight:700;">Supplier</th>
+                    <th style="padding:10px 14px;text-align:center;font-size:11px;color:#059669;font-weight:700;">จำนวนคาดรับ</th>
                     <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748b;font-weight:700;">หมายเหตุ</th>
                     <th style="padding:10px;"></th>
                 </tr></thead>
@@ -4491,45 +4436,12 @@ ${r.zone}`);
                         <div style="font-size:12px;color:#64748b;">${it.name}</div>
                         <div style="font-size:10px;color:#94a3b8;">${it.unit}</div>
                     </td>
+                    <td style="padding:12px 14px;font-size:12px;color:#06b6d4;font-weight:600;">${it.supplier||'—'}</td>
                     <td style="padding:12px 14px;text-align:center;">
                         <input type="number" id="gr_qty_${it.id}" min="0" placeholder="0"
                             style="width:80px;padding:8px;border:2px solid #10b981;border-radius:8px;text-align:center;font-weight:700;font-size:15px;outline:none;"
                             onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#10b981'">
                         <div style="font-size:10px;color:#64748b;margin-top:2px;">${it.unit}</div>
-                    </td>
-                    <td style="padding:12px 14px;text-align:center;">
-                        <div style="background:#f0f9ff;border:1.5px solid #06b6d4;border-radius:7px;padding:6px 10px;font-size:11px;font-family:monospace;color:#0891b2;font-weight:700;letter-spacing:0.3px;display:inline-block;max-width:180px;word-break:break-all;">
-                            ${it.lotNumber}
-                        </div>
-                        <div style="font-size:9px;color:#94a3b8;margin-top:3px;">🔒 ระบบสร้างอัตโนมัติ</div>
-                        <input type="hidden" id="gr_lot_${it.id}" value="${it.lotNumber}">
-                    </td>
-                    <td style="padding:12px 14px;text-align:center;">
-                        <div style="position:relative;display:inline-block;">
-                            <input type="text" id="gr_mfd_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10"
-                                oninput="formatDateInput(this,'gr_mfd_${it.id}')"
-                                style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;outline:none;width:110px;text-align:center;"
-                                onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#e2e8f0'">
-                            <input type="hidden" id="gr_mfd_${it.id}">
-                        </div>
-                    </td>
-                    <td style="padding:12px 14px;text-align:center;">
-                        <div style="position:relative;display:inline-block;">
-                            <input type="text" id="gr_exp_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10"
-                                oninput="formatDateInput(this,'gr_exp_${it.id}',true)"
-                                style="padding:6px 8px;border:2px solid #f59e0b;border-radius:7px;font-size:12px;outline:none;font-weight:bold;width:110px;text-align:center;"
-                                onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#f59e0b'">
-                            <input type="hidden" id="gr_exp_${it.id}">
-                        </div>
-                        <div id="exp_warn_${it.id}" style="font-size:9px;margin-top:3px;"></div>
-                    </td>
-                    <td style="padding:12px 14px;text-align:center;">
-                        <select id="gr_status_${it.id}" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;outline:none;">
-                            <option value="complete">✅ ครบ</option>
-                            <option value="partial">⚠️ ไม่ครบ</option>
-                            <option value="extra">➕ ของแทรก</option>
-                            <option value="damaged">❌ เสียหาย</option>
-                        </select>
                     </td>
                     <td style="padding:12px 14px;">
                         <input type="text" id="gr_itemnote_${it.id}" placeholder="หมายเหตุ"
@@ -4539,344 +4451,443 @@ ${r.zone}`);
                         <button onclick="removeGRItem('${it.id}')" style="background:#fef2f2;color:#ef4444;border:none;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:14px;">✕</button>
                     </td>
                 </tr>`).join('')}</tbody>
-            </table>`;
+            </table></div>`;
         }
 
-        // แปลง yyyy-mm-dd → dd/mm/yyyy
+        window.saveDraftGR = async function() {
+            const grNumber = document.getElementById('grNumber')?.innerText||genGRNumber();
+            const grDate   = document.getElementById('gr_date')?.value;
+            const note     = document.getElementById('gr_note')?.value.trim()||'';
+            const items    = window._grItems||[];
+            if(!grDate){ toast('⚠️ กรุณาระบุวันที่','#c2410c'); return; }
+            if(!items.length){ toast('⚠️ กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','#c2410c'); return; }
+            const [y,m,d] = grDate.split('-');
+            const dateTH = `${d}/${m}/${parseInt(y)+543}`;
+            const grItems = items.map(it=>({
+                id:it.id, name:it.name, unit:it.unit, supplier:it.supplier||'',
+                qtyExpected: parseFloat(document.getElementById(`gr_qty_${it.id}`)?.value)||0,
+                note: document.getElementById(`gr_itemnote_${it.id}`)?.value||''
+            }));
+            if(!confirm(`บันทึกแบบร่าง GR ${grNumber}\n${items.length} รายการ | ${dateTH}`)) return;
+            await addDoc(collection(db,'goodsReceipts'),{
+                grNumber, date:dateTH, grDate, note,
+                timestamp:Date.now(), createdBy:currentUser.name,
+                items:grItems, status:'draft'
+            });
+            toast(`📝 บันทึกแบบร่าง ${grNumber} สำเร็จ`,'#059669');
+            setTimeout(()=>openGRHistory(), 600);
+        };
+
         function isoToDMY(val) {
             if(!val) return '';
             const [y,m,d] = val.split('-');
             return `${d}/${m}/${y}`;
         }
-
-        // แปลง dd/mm/yyyy → yyyy-mm-dd
         function dmyToISO(val) {
             if(!val||val.length!==10) return '';
             const [d,m,y] = val.split('/');
             if(!d||!m||!y||y.length!==4) return '';
             return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
         }
-
-        // auto-format ขณะพิมพ์: แทรก / อัตโนมัติ, update hidden ISO field
         window.formatDateInput = function(el, hiddenId, checkExp) {
             let v = el.value.replace(/[^0-9]/g,'');
-            if(v.length > 2) v = v.slice(0,2) + '/' + v.slice(2);
-            if(v.length > 5) v = v.slice(0,5) + '/' + v.slice(5);
-            if(v.length > 10) v = v.slice(0,10);
-            // validate mm ไม่เกิน 12
-            if(v.length >= 5) {
-                const mm = parseInt(v.slice(3,5));
-                if(mm > 12) v = v.slice(0,3) + '12' + v.slice(5);
-            }
-            // validate dd ไม่เกิน 31
-            if(v.length >= 2) {
-                const dd = parseInt(v.slice(0,2));
-                if(dd > 31) v = '31' + v.slice(2);
-                if(dd < 1 && v.length >= 3) v = '01' + v.slice(2);
-            }
-            el.value = v;
-            const hidden = document.getElementById(hiddenId);
-            if(hidden) {
-                const iso = dmyToISO(v);
-                hidden.value = iso;
-                if(checkExp && iso) checkExpWarning(hiddenId.replace('gr_exp_',''));
-            }
-            // validation color
-            if(v.length===10) {
-                const iso = dmyToISO(v);
-                el.style.borderColor = iso ? (checkExp?'#f59e0b':'#dc2626') : '#ef4444';
-            }
+            if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
+            if(v.length>5) v=v.slice(0,5)+'/'+v.slice(5);
+            if(v.length>10) v=v.slice(0,10);
+            if(v.length>=5){const mm=parseInt(v.slice(3,5));if(mm>12) v=v.slice(0,3)+'12'+v.slice(5);}
+            if(v.length>=2){const dd=parseInt(v.slice(0,2));if(dd>31) v='31'+v.slice(2);if(dd<1&&v.length>=3) v='01'+v.slice(2);}
+            el.value=v;
+            if(hiddenId){const hidden=document.getElementById(hiddenId);if(hidden){const iso=dmyToISO(v);hidden.value=iso;if(checkExp&&iso)checkExpWarning(hiddenId.replace('gr_exp_','').replace('recv_exp_',''));}}
+            if(v.length===10){const iso=dmyToISO(v);el.style.borderColor=iso?(checkExp?'#f59e0b':'#10b981'):'#ef4444';}
         };
-
         window.checkExpWarning = function(id) {
-            const val = document.getElementById(`gr_exp_${id}`)?.value;
+            const el = document.getElementById(`gr_exp_${id}`)||document.getElementById(`recv_exp_${id}`);
+            const val = el?.value;
             const warnEl = document.getElementById(`exp_warn_${id}`);
             if(!val||!warnEl) return;
-            const diff = Math.floor((new Date(val)-new Date())/(1000*60*60*24));
+            const diff=Math.floor((new Date(val)-new Date())/(1000*60*60*24));
             if(diff<0) warnEl.innerHTML='<span style="color:#ef4444;font-weight:bold;">⚠️ หมดอายุแล้ว!</span>';
             else if(diff<=30) warnEl.innerHTML=`<span style="color:#f59e0b;font-weight:bold;">⚠️ เหลือ ${diff} วัน</span>`;
-            else warnEl.innerHTML=`<span style="color:#10b981;">✓ ${isoToDMY(val)} (เหลือ ${diff} วัน)</span>`;
+            else warnEl.innerHTML=`<span style="color:#10b981;">✓ เหลือ ${diff} วัน</span>`;
         };
 
-        window.saveGR = async function(grStatus='draft') {
-            const grNumber = document.getElementById('grNumber')?.innerText||genGRNumber();
-            const grDate   = document.getElementById('gr_date')?.value;
-            const supplier = document.getElementById('gr_supplier')?.value.trim()||'';
-            const receiver = document.getElementById('gr_receiver')?.value;
-            const note     = document.getElementById('gr_note')?.value.trim()||'';
-            const zone     = document.getElementById('gr_zone')?.value;
-            const items    = window._grItems||[];
+        // ══════════════════════════════════════════════
+        // หน้า 2: รับสินค้าจริง (เปิดจาก draft ใน History)
+        // ══════════════════════════════════════════════
+        window.openReceiveGR = async function(grId) {
+            const snap = await getDoc(doc(db,'goodsReceipts',grId));
+            if(!snap.exists()){ toast('❌ ไม่พบ GR','#c2410c'); return; }
+            const gr = {id:grId, ...snap.data()};
+            const usersSnap = await getDocs(collection(db,'users'));
+            let staffOpts='';
+            usersSnap.forEach(d=>{ const u=d.data(); if(u.status!=='suspended') staffOpts+=`<option value="${u.name}" ${u.name===currentUser.name?'selected':''}>${u.name}</option>`; });
+            const warehouseOpts = getVisibleWarehouses().map(z=>`<option value="${z}">${z}</option>`).join('');
+            const grDate = gr.grDate||new Date().toISOString().slice(0,10);
+            const todayISO = new Date().toISOString().slice(0,10);
+            const todayTxt = todayISO.split('-').reverse().join('/');
 
-            // เอกสารแนบ
-            const docs = {
-                invoice: document.getElementById('doc_invoice')?.checked||false,
-                receipt: document.getElementById('doc_receipt')?.checked||false,
-                billing: document.getElementById('doc_billing')?.checked||false,
-                debit:   document.getElementById('doc_debit')?.checked||false,
-                other:   document.getElementById('doc_other')?.value.trim()||''
-            };
+            const itemRows = (gr.items||[]).map(it=>`
+            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                    <div>
+                        <span style="font-weight:800;font-size:14px;color:#0f172a;">${it.id}</span>
+                        <span style="font-size:13px;color:#475569;margin-left:8px;">${it.name}</span>
+                        <span style="font-size:11px;color:#94a3b8;margin-left:6px;">(${it.unit})</span>
+                        ${it.supplier?`<div style="font-size:11px;color:#06b6d4;margin-top:2px;">🏢 ${it.supplier}</div>`:''}
+                    </div>
+                    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 12px;text-align:center;min-width:70px;">
+                        <div style="font-size:9px;color:#15803d;font-weight:700;">คาดรับ</div>
+                        <div style="font-size:20px;font-weight:800;color:#059669;">${it.qtyExpected||'—'}</div>
+                        <div style="font-size:10px;color:#64748b;">${it.unit}</div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:12px;">
+                    <div>
+                        <label style="font-size:10px;color:#64748b;font-weight:700;display:block;margin-bottom:4px;">📦 คลังที่รับเข้า</label>
+                        <select id="recv_zone_${it.id}" style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;outline:none;box-sizing:border-box;">
+                            ${warehouseOpts}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:#059669;font-weight:700;display:block;margin-bottom:4px;">✅ จำนวนรับจริง</label>
+                        <input type="number" id="recv_qty_${it.id}" min="0" placeholder="0"
+                            value="${it.qtyReceived||''}"
+                            style="width:100%;padding:8px;border:2px solid #10b981;border-radius:8px;text-align:center;font-weight:700;font-size:16px;outline:none;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:#64748b;font-weight:700;display:block;margin-bottom:4px;">🏷️ Lot Number</label>
+                        <input type="text" id="recv_lot_${it.id}" placeholder="LOT-..."
+                            value="${it.lotNumber||genLotNumber(it.id,grDate)}"
+                            style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-family:monospace;outline:none;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:#dc2626;font-weight:700;display:block;margin-bottom:4px;">🗓 วันผลิต (MFD)</label>
+                        <input type="text" id="recv_mfd_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
+                            value="${it.mfd?isoToDMY(it.mfd):''}"
+                            oninput="formatDateInput(this,'recv_mfd_${it.id}')"
+                            style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;text-align:center;outline:none;box-sizing:border-box;">
+                        <input type="hidden" id="recv_mfd_${it.id}" value="${it.mfd||''}">
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:#b45309;font-weight:700;display:block;margin-bottom:4px;">⏰ วันหมดอายุ (EXP)</label>
+                        <input type="text" id="recv_exp_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
+                            value="${it.exp?isoToDMY(it.exp):''}"
+                            oninput="formatDateInput(this,'recv_exp_${it.id}',true)"
+                            style="width:100%;padding:8px;border:2px solid #f59e0b;border-radius:8px;font-size:12px;text-align:center;font-weight:bold;outline:none;box-sizing:border-box;">
+                        <input type="hidden" id="recv_exp_${it.id}" value="${it.exp||''}">
+                        <div id="exp_warn_${it.id}" style="font-size:9px;margin-top:3px;"></div>
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:#64748b;font-weight:700;display:block;margin-bottom:4px;">📊 สถานะ</label>
+                        <select id="recv_status_${it.id}" style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
+                            <option value="complete" ${(it.status||'complete')==='complete'?'selected':''}>✅ ครบ</option>
+                            <option value="partial" ${it.status==='partial'?'selected':''}>⚠️ ไม่ครบ</option>
+                            <option value="extra" ${it.status==='extra'?'selected':''}>➕ ของแทรก</option>
+                            <option value="damaged" ${it.status==='damaged'?'selected':''}>❌ เสียหาย</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="background:#f0fdf4;border-radius:8px;padding:10px 14px;border:1px solid #bbf7d0;margin-bottom:8px;">
+                    <div style="font-size:10px;color:#15803d;font-weight:800;margin-bottom:8px;">📎 เอกสารที่ได้รับ (รายการนี้)</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <label style="display:flex;align-items:center;gap:5px;background:white;border:1px solid #d1fae5;padding:5px 10px;border-radius:16px;cursor:pointer;font-size:11px;">
+                            <input type="checkbox" id="doc_inv_${it.id}" ${it.docs?.invoice?'checked':''} style="accent-color:#059669;"> ใบกำกับภาษี</label>
+                        <label style="display:flex;align-items:center;gap:5px;background:white;border:1px solid #d1fae5;padding:5px 10px;border-radius:16px;cursor:pointer;font-size:11px;">
+                            <input type="checkbox" id="doc_rec_${it.id}" ${it.docs?.receipt?'checked':''} style="accent-color:#059669;"> ใบเสร็จ</label>
+                        <label style="display:flex;align-items:center;gap:5px;background:white;border:1px solid #d1fae5;padding:5px 10px;border-radius:16px;cursor:pointer;font-size:11px;">
+                            <input type="checkbox" id="doc_bil_${it.id}" ${it.docs?.billing?'checked':''} style="accent-color:#059669;"> ใบวางบิล</label>
+                        <label style="display:flex;align-items:center;gap:5px;background:white;border:1px solid #d1fae5;padding:5px 10px;border-radius:16px;cursor:pointer;font-size:11px;">
+                            <input type="checkbox" id="doc_deb_${it.id}" ${it.docs?.debit?'checked':''} style="accent-color:#059669;"> ใบแจ้งหนี้</label>
+                        <div style="display:flex;align-items:center;gap:5px;background:white;border:1px solid #d1fae5;padding:4px 10px;border-radius:16px;">
+                            <span style="font-size:11px;white-space:nowrap;">อื่นๆ:</span>
+                            <input type="text" id="doc_oth_${it.id}" placeholder="CN, COA..." value="${it.docs?.other||''}"
+                                style="border:none;outline:none;font-size:11px;width:100px;background:transparent;">
+                        </div>
+                    </div>
+                </div>
+                <input type="text" id="recv_note_${it.id}" placeholder="📝 หมายเหตุรายการนี้ (ถ้ามี)"
+                    value="${it.note||''}"
+                    style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;">
+            </div>`).join('');
 
-            if(!grDate) { toast('⚠️ กรุณาเลือกวันที่','#c2410c'); return; }
-            if(!items.length) { toast('⚠️ กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','#c2410c'); return; }
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            document.getElementById('dashboardView').classList.add('hidden');
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <div>
+                    <h2>🚚 รับสินค้าจริง — ${gr.grNumber}</h2>
+                    <p style="margin:4px 0 0;font-size:12px;color:#64748b;">กรอกข้อมูลตามจริง • วันที่คาด: ${gr.date}</p>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openGRHistory()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">📄 ประวัติ GR</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+                    <div class="input-group" style="border:2px solid var(--danger);margin:0;">
+                        <label style="font-size:10px;">📅 วันที่รับจริง</label>
+                        <input type="text" id="recv_date_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
+                            value="${todayTxt}" oninput="formatDateInput(this,'recv_date')"
+                            style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;box-sizing:border-box;">
+                        <input type="hidden" id="recv_date" value="${todayISO}">
+                    </div>
+                    <div class="input-group" style="margin:0;">
+                        <label style="font-size:10px;">👤 ผู้รับสินค้า</label>
+                        <select id="recv_receiver" style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;">
+                            ${staffOpts}
+                        </select>
+                    </div>
+                    <div class="input-group" style="margin:0;">
+                        <label style="font-size:10px;">📝 หมายเหตุรวม</label>
+                        <input type="text" id="recv_note_general" placeholder="รถช้า, ของไม่ครบ..." value="${gr.note||''}"
+                            style="width:100%;border:none;outline:none;font-size:13px;">
+                    </div>
+                </div>
+            </div>
+            <div style="margin-bottom:24px;">
+                <div style="font-weight:700;font-size:14px;color:#0f172a;margin-bottom:12px;">
+                    📦 รายการสินค้า (${gr.items?.length||0} รายการ)
+                </div>
+                ${itemRows}
+            </div>
+            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;" class="no-print">
+                <button onclick="saveReceiveGR('${grId}','draft')"
+                    style="background:white;color:#475569;padding:13px 32px;border:2px solid #e2e8f0;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">
+                    💾 บันทึก (ยังไม่ส่งอนุมัติ)
+                </button>
+                <button onclick="saveReceiveGR('${grId}','pending')"
+                    style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:white;padding:13px 40px;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(6,182,212,0.35);">
+                    📨 บันทึกและส่งขออนุมัติ
+                </button>
+            </div>`;
+        };
 
-            const [y,m,d] = grDate.split('-');
-            const dateTH = `${d}/${m}/${parseInt(y)+543}`;
-
-            const grItems = items.map(it=>({
-                id:it.id, name:it.name, unit:it.unit,
-                lotNumber: document.getElementById(`gr_lot_${it.id}`)?.value||it.lotNumber||'',
-                qtyReceived: parseFloat(document.getElementById(`gr_qty_${it.id}`)?.value)||0,
-                qtyExpected: it.qtyExpected||0,
-                mfd: document.getElementById(`gr_mfd_${it.id}`)?.value||'',
-                exp: document.getElementById(`gr_exp_${it.id}`)?.value||'',
-                status: document.getElementById(`gr_status_${it.id}`)?.value||'complete',
-                note: document.getElementById(`gr_itemnote_${it.id}`)?.value||''
+        window.saveReceiveGR = async function(grId, newStatus) {
+            const snap = await getDoc(doc(db,'goodsReceipts',grId));
+            if(!snap.exists()){ toast('❌ ไม่พบ GR','#c2410c'); return; }
+            const gr = snap.data();
+            const receiver = document.getElementById('recv_receiver')?.value||currentUser.name;
+            const noteGeneral = document.getElementById('recv_note_general')?.value||'';
+            const recvDateISO = document.getElementById('recv_date')?.value||new Date().toISOString().slice(0,10);
+            const [ry,rm,rd] = recvDateISO.split('-');
+            const recvDateTH = `${rd}/${rm}/${parseInt(ry)+543}`;
+            const updatedItems = (gr.items||[]).map(it=>({
+                ...it,
+                zone:        document.getElementById(`recv_zone_${it.id}`)?.value||'',
+                qtyReceived: parseFloat(document.getElementById(`recv_qty_${it.id}`)?.value)||0,
+                lotNumber:   document.getElementById(`recv_lot_${it.id}`)?.value||'',
+                mfd:         document.getElementById(`recv_mfd_${it.id}`)?.value||'',
+                exp:         document.getElementById(`recv_exp_${it.id}`)?.value||'',
+                status:      document.getElementById(`recv_status_${it.id}`)?.value||'complete',
+                note:        document.getElementById(`recv_note_${it.id}`)?.value||'',
+                docs:{
+                    invoice: document.getElementById(`doc_inv_${it.id}`)?.checked||false,
+                    receipt: document.getElementById(`doc_rec_${it.id}`)?.checked||false,
+                    billing: document.getElementById(`doc_bil_${it.id}`)?.checked||false,
+                    debit:   document.getElementById(`doc_deb_${it.id}`)?.checked||false,
+                    other:   document.getElementById(`doc_oth_${it.id}`)?.value||''
+                }
             }));
-
-            // ถ้าเป็นแบบร่าง ไม่ต้อง validate qty เข้มงวด
-            if(grStatus !== 'draft') {
-                if(!receiver) { toast('⚠️ กรุณาเลือกผู้รับสินค้า','#c2410c'); return; }
-                const missingQty = grItems.filter(i=>i.qtyReceived<=0 && i.status!=='damaged');
-                if(missingQty.length) { toast(`⚠️ กรอกจำนวนรับสินค้าให้ครบ (${missingQty.length} รายการ)`,'#c2410c'); return; }
-                const missingExp = grItems.filter(i=>!i.exp && i.status!=='damaged' && i.status!=='extra');
-                if(missingExp.length && !confirm(`⚠️ มี ${missingExp.length} รายการที่ไม่ได้กรอกวันหมดอายุ\nยืนยันบันทึกต่อไหม?`)) return;
+            if(newStatus==='pending'){
+                const missing = updatedItems.filter(i=>i.qtyReceived<=0&&i.status!=='damaged');
+                if(missing.length&&!confirm(`⚠️ มี ${missing.length} รายการยังไม่กรอกจำนวน ยืนยันส่งอนุมัติต่อไหม?`)) return;
             }
-
-            const statusLabel = {draft:'แบบร่าง', pending:'รออนุมัติ', approved:'อนุมัติแล้ว'};
-            if(!confirm(`ยืนยันบันทึก GR ${grNumber} (${statusLabel[grStatus]||grStatus})\n${items.length} รายการ | ${dateTH} | ${zone}`)) return;
-
-            const payload = {
-                grNumber, date:dateTH, grDate, zone, supplier,
-                receiver: receiver||currentUser.name,
-                note, docs, timestamp:Date.now(), createdBy:currentUser.name,
-                items:grItems, status:grStatus
-            };
-
-            await addDoc(collection(db,'goodsReceipts'), payload);
-
-            // อัปเดต Lot Register เฉพาะเมื่อ approved เท่านั้น
-            if(grStatus === 'approved') {
-                await _applyGRToLot(grItems, grNumber, grDate, zone);
-            }
-
-            const msg = grStatus==='draft' ? '📝 บันทึกแบบร่างแล้ว' : grStatus==='pending' ? '📨 ส่งรออนุมัติแล้ว' : `✅ อนุมัติ ${grNumber} สำเร็จ`;
+            await updateDoc(doc(db,'goodsReceipts',grId),{
+                items:updatedItems, receiver, note:noteGeneral,
+                recvDate:recvDateTH, recvDateISO,
+                status:newStatus, updatedAt:Date.now(), updatedBy:currentUser.name
+            });
+            const msg = newStatus==='pending'?'📨 ส่งขออนุมัติสำเร็จ':'💾 บันทึกแล้ว';
             toast(msg,'#059669');
-            setTimeout(()=>openGRHistory(), 800);
+            setTimeout(()=>openGRHistory(), 600);
         };
 
-        // ── ฟังก์ชัน apply Lot เมื่ออนุมัติ ──
-        window._applyGRToLot = async function(grItems, grNumber, grDate, zone) {
+        window._applyGRToLot = async function(grItems, grNumber, grDate, defaultZone) {
             const lotRef = doc(db,'config','lotRegister');
             const lotSnap = await getDoc(lotRef);
-            const lotData = lotSnap.exists() ? (lotSnap.data().lots||{}) : {};
+            const lotData = lotSnap.exists()?(lotSnap.data().lots||{}):{};
             grItems.forEach(it=>{
+                if(!it.qtyReceived||it.qtyReceived<=0) return;
                 if(!lotData[it.id]) lotData[it.id]=[];
                 lotData[it.id].push({
-                    lotNumber:it.lotNumber, qtyReceived:it.qtyReceived,
-                    qtyRemaining:it.qtyReceived, mfd:it.mfd, exp:it.exp,
-                    grNumber, grDate, zone, status:'active'
+                    lotNumber:it.lotNumber||'', qtyReceived:it.qtyReceived,
+                    qtyRemaining:it.qtyReceived, mfd:it.mfd||'', exp:it.exp||'',
+                    grNumber, grDate, zone:it.zone||defaultZone, status:'active'
                 });
-                lotData[it.id].sort((a,b)=>{
-                    if(!a.exp) return 1; if(!b.exp) return -1;
-                    return new Date(a.exp)-new Date(b.exp);
-                });
+                lotData[it.id].sort((a,b)=>{if(!a.exp)return 1;if(!b.exp)return -1;return new Date(a.exp)-new Date(b.exp);});
             });
-            await setDoc(lotRef, {lots:lotData}, {merge:true});
+            await setDoc(lotRef,{lots:lotData},{merge:true});
         };
 
-        // ── อนุมัติ GR ──
         window.approveGR = async function(grId) {
-            const isAdmin = currentUser?.role==='admin' || roleSettings[currentUser?.role]?.menus?.includes('admin');
-            if(!isAdmin) { toast('⚠️ ไม่มีสิทธิ์อนุมัติ','#c2410c'); return; }
+            const isAdmin = currentUser?.role==='admin'||roleSettings[currentUser?.role]?.menus?.includes('admin');
+            if(!isAdmin){ toast('⚠️ ไม่มีสิทธิ์อนุมัติ','#c2410c'); return; }
             if(!confirm('ยืนยันอนุมัติ GR นี้? Stock จะถูกอัปเดตทันที')) return;
             const snap = await getDoc(doc(db,'goodsReceipts',grId));
             if(!snap.exists()) return;
             const gr = snap.data();
-            await updateDoc(doc(db,'goodsReceipts',grId), {
-                status:'approved', approvedBy:currentUser.name, approvedAt:Date.now()
-            });
-            await _applyGRToLot(gr.items||[], gr.grNumber, gr.grDate, gr.zone);
-            toast(`✅ อนุมัติ ${gr.grNumber} สำเร็จ — Stock อัปเดตแล้ว`,'#059669');
+            await updateDoc(doc(db,'goodsReceipts',grId),{status:'approved',approvedBy:currentUser.name,approvedAt:Date.now()});
+            await _applyGRToLot(gr.items||[], gr.grNumber, gr.recvDateISO||gr.grDate||'', gr.zone||'');
+            toast(`✅ อนุมัติ ${gr.grNumber} — Stock อัปเดตแล้ว`,'#059669');
             openGRHistory();
         };
 
-        // ── ปฏิเสธ GR ──
         window.rejectGR = async function(grId) {
-            const isAdmin = currentUser?.role==='admin' || roleSettings[currentUser?.role]?.menus?.includes('admin');
-            if(!isAdmin) { toast('⚠️ ไม่มีสิทธิ์','#c2410c'); return; }
-            const reason = prompt('เหตุผลที่ปฏิเสธ (ถ้ามี):') ?? '';
-            if(reason === null) return;
-            await updateDoc(doc(db,'goodsReceipts',grId), {
-                status:'rejected', rejectedBy:currentUser.name, rejectedAt:Date.now(), rejectReason:reason
-            });
+            const isAdmin = currentUser?.role==='admin'||roleSettings[currentUser?.role]?.menus?.includes('admin');
+            if(!isAdmin){ toast('⚠️ ไม่มีสิทธิ์','#c2410c'); return; }
+            const reason = prompt('เหตุผลที่ปฏิเสธ:')??'';
+            if(reason===null) return;
+            await updateDoc(doc(db,'goodsReceipts',grId),{status:'rejected',rejectedBy:currentUser.name,rejectedAt:Date.now(),rejectReason:reason});
             toast('❌ ปฏิเสธ GR แล้ว','#ef4444');
             openGRHistory();
         };
+
+        window.saveGR = async function(){ toast('⚠️ กรุณาใช้ระบบสร้างแบบร่างใหม่','#c2410c'); };
 
         // ════ GR HISTORY ════
         window.openGRHistory = async function() {
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
-            c.innerHTML=`<div class="tool-header"><h2>📄 ประวัติการรับสินค้า</h2></div>
-            <p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
+            c.innerHTML=`<div class="tool-header"><h2>📄 ประวัติ GR</h2></div><p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
 
             const snap = await getDocs(collection(db,'goodsReceipts'));
-            let allDocs = [];
-            snap.forEach(d=>allDocs.push({id:d.id,...d.data()}));
-            allDocs.sort((a,b)=>b.timestamp-a.timestamp);
+            let allGRDocs = [];
+            snap.forEach(d=>allGRDocs.push({id:d.id,...d.data()}));
+            allGRDocs.sort((a,b)=>b.timestamp-a.timestamp);
+            window._allGRDocs = allGRDocs;
 
-            const isAdmin = currentUser?.role==='admin' || roleSettings[currentUser?.role]?.menus?.includes('admin');
-            const pendingCount = allDocs.filter(g=>g.status==='pending').length;
-
-            const grStatusConfig = {
-                draft:    {label:'แบบร่าง',    bg:'#f1f5f9', color:'#475569', border:'#e2e8f0'},
-                pending:  {label:'รออนุมัติ',  bg:'#fff7ed', color:'#c2410c', border:'#fed7aa'},
-                approved: {label:'อนุมัติแล้ว',bg:'#f0fdf4', color:'#059669', border:'#bbf7d0'},
-                rejected: {label:'ปฏิเสธ',    bg:'#fef2f2', color:'#dc2626', border:'#fecaca'},
-                completed:{label:'เสร็จสิ้น',  bg:'#f0fdf4', color:'#059669', border:'#bbf7d0'},
-            };
-            const itemStatusColors={complete:'#10b981',partial:'#f59e0b',extra:'#3b82f6',damaged:'#ef4444'};
-            const itemStatusLabels={complete:'ครบ',partial:'ไม่ครบ',extra:'ของแทรก',damaged:'เสียหาย'};
-
-            const renderDocBadges = (docs={}) => {
-                const badges = [];
-                if(docs.invoice) badges.push('ใบกำกับภาษี');
-                if(docs.receipt) badges.push('ใบเสร็จ');
-                if(docs.billing) badges.push('ใบวางบิล');
-                if(docs.debit)   badges.push('ใบแจ้งหนี้');
-                if(docs.other)   badges.push(docs.other);
-                if(!badges.length) return '<span style="color:#94a3b8;font-size:11px;">-</span>';
-                return badges.map(b=>`<span style="background:#f0fdf4;color:#059669;font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid #bbf7d0;">${b}</span>`).join(' ');
-            };
-
-            const listHtml = allDocs.length ? allDocs.map(gr=>{
-                const sc = grStatusConfig[gr.status] || grStatusConfig.draft;
-                const hasIssue = gr.items?.some(i=>i.status&&i.status!=='complete');
-                const leftBorder = gr.status==='pending'?'4px solid #f59e0b': gr.status==='rejected'?'4px solid #ef4444': gr.status==='approved'||gr.status==='completed'?'4px solid #10b981':'4px solid #e2e8f0';
-                return `<div class="history-card" style="border-left:${leftBorder};">
-                    <div class="history-card-header" style="cursor:pointer;" onclick="toggleDetail('grdet_${gr.id}')">
-                        <div style="flex:1;">
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <span style="font-weight:700;font-size:14px;color:#06b6d4;">${gr.grNumber}</span>
-                                <span style="background:${sc.bg};color:${sc.color};border:1px solid ${sc.border};font-size:10px;padding:2px 10px;border-radius:10px;font-weight:700;">${sc.label}</span>
-                                ${hasIssue?'<span style="background:#fff7ed;color:#c2410c;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:bold;">⚠️ มีรายการผิดปกติ</span>':''}
-                                ${gr.status==='approved'?`<span style="font-size:10px;color:#059669;">✓ โดย ${gr.approvedBy||'-'}</span>`:''}
-                                ${gr.status==='rejected'?`<span style="font-size:10px;color:#dc2626;">✗ ${gr.rejectReason||''}</span>`:''}
-                            </div>
-                            <div style="font-size:12px;color:#64748b;margin-top:3px;">
-                                📅 ${gr.date||'-'} • 📦 ${gr.zone||'-'} • 🏢 ${gr.supplier||'ไม่ระบุ'} • 👤 ${gr.receiver||'-'}
-                            </div>
-                            ${gr.docs?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;"><span style="font-size:10px;color:#64748b;margin-right:2px;">📎</span>${renderDocBadges(gr.docs)}</div>`:''}
-                        </div>
-                        <div style="font-size:12px;color:#94a3b8;white-space:nowrap;">${gr.items?.length||0} รายการ ▼</div>
-                    </div>
-                    <div id="grdet_${gr.id}" style="display:none;padding:16px 20px;">
-                        <div style="overflow-x:auto;">
-                        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px;">
-                            <thead><tr style="background:#f8fafc;">
-                                <th style="padding:8px;text-align:left;">รหัส/ชื่อ</th>
-                                <th style="padding:8px;text-align:center;">Lot</th>
-                                <th style="padding:8px;text-align:center;">คาด/รับจริง</th>
-                                <th style="padding:8px;text-align:center;">MFD</th>
-                                <th style="padding:8px;text-align:center;">EXP</th>
-                                <th style="padding:8px;text-align:center;">สถานะ</th>
-                            </tr></thead>
-                            <tbody>${(gr.items||[]).map(it=>`
-                            <tr style="border-top:1px solid #f1f5f9;">
-                                <td style="padding:8px;"><b>${it.id}</b><br><span style="color:#64748b;">${it.name}</span></td>
-                                <td style="padding:8px;text-align:center;font-family:monospace;font-size:11px;color:#06b6d4;">${it.lotNumber||'-'}</td>
-                                <td style="padding:8px;text-align:center;">
-                                    ${it.qtyExpected?`<span style="color:#94a3b8;font-size:10px;">${it.qtyExpected}</span> / `:''}
-                                    <b>${it.qtyReceived||0}</b> ${it.unit}
-                                </td>
-                                <td style="padding:8px;text-align:center;">${it.mfd?isoToDMY(it.mfd):'-'}</td>
-                                <td style="padding:8px;text-align:center;${it.exp&&new Date(it.exp)<new Date()?'color:#ef4444;font-weight:bold;':''}">${it.exp?isoToDMY(it.exp):'-'}</td>
-                                <td style="padding:8px;text-align:center;"><span style="background:${(itemStatusColors[it.status]||'#64748b')}20;color:${itemStatusColors[it.status]||'#64748b'};padding:2px 8px;border-radius:8px;font-size:11px;font-weight:bold;">${itemStatusLabels[it.status]||it.status||'-'}</span></td>
-                            </tr>`).join('')}</tbody>
-                        </table>
-                        </div>
-                        ${gr.note?`<div style="margin-top:8px;font-size:12px;color:#64748b;padding:8px;background:#f8fafc;border-radius:8px;">📝 ${gr.note}</div>`:''}
-                        <div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;flex-wrap:wrap;">
-                            <button onclick="exportGRPDF('${gr.id}')" style="background:#7c3aed;color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">📄 Export PDF</button>
-                            ${isAdmin && (gr.status==='pending') ? `
-                            <button onclick="approveGR('${gr.id}')" style="background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">✅ อนุมัติ</button>
-                            <button onclick="rejectGR('${gr.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">❌ ปฏิเสธ</button>` : ''}
-                            ${isAdmin ? `
-                            <button onclick="editGR('${gr.id}')" style="background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">✏️ แก้ไข</button>
-                            <button onclick="deleteGR('${gr.id}','${gr.grNumber}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">🗑️ ลบ</button>` : ''}
-                        </div>
-                    </div>
-                </div>`;
-            }).join('') : '<p style="text-align:center;color:#94a3b8;padding:40px;">ยังไม่มีการรับสินค้า</p>';
+            const isAdmin = currentUser?.role==='admin'||currentUser?.role==='warehouse'||roleSettings[currentUser?.role]?.menus?.includes('admin');
+            const pendingCount = allGRDocs.filter(g=>g.status==='pending').length;
 
             c.innerHTML=`
             <div class="tool-header">
                 <h2>📄 ประวัติการรับสินค้า</h2>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    ${pendingCount>0&&isAdmin?`<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;">⏳ รออนุมัติ ${pendingCount} รายการ</span>`:''}
-                    <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ สร้าง GR ใหม่</button>
-                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                    ${pendingCount>0&&isAdmin?`<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;" onclick="document.getElementById('grFilterStatus').value='pending';renderGRHistoryList()">⏳ รออนุมัติ ${pendingCount} รายการ</span>`:''}
+                    <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ สร้าง GR</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
                 </div>
             </div>
-            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-                <select id="grFilterStatus" onchange="filterGRList()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
+            <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+                <select id="grFilterStatus" onchange="renderGRHistoryList()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
                     <option value="">ทุกสถานะ</option>
-                    <option value="draft">แบบร่าง</option>
-                    <option value="pending">รออนุมัติ</option>
-                    <option value="approved">อนุมัติแล้ว</option>
-                    <option value="rejected">ปฏิเสธ</option>
+                    <option value="draft">📝 แบบร่าง</option>
+                    <option value="pending">⏳ รออนุมัติ</option>
+                    <option value="approved">✅ อนุมัติแล้ว</option>
+                    <option value="rejected">❌ ปฏิเสธ</option>
                 </select>
-                <input type="text" id="grFilterDate" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
-                    oninput="formatDateInput(this,null);filterGRList()"
-                    style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;width:120px;">
+                <input type="text" id="grFilterDate" placeholder="กรองวันที่ dd/mm/yyyy" maxlength="10" inputmode="numeric"
+                    oninput="formatDateInput(this,null);renderGRHistoryList()"
+                    style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;width:160px;">
             </div>
-            <div id="grListContainer">${listHtml}</div>`;
+            <div id="grHistoryList"></div>`;
 
-            window._allGRDocs = allDocs;
+            renderGRHistoryList();
         };
 
-        window.filterGRList = function() {
-            const status = document.getElementById('grFilterStatus')?.value||'';
+        window.renderGRHistoryList = function() {
+            const statusFilter = document.getElementById('grFilterStatus')?.value||'';
             const dateFilter = document.getElementById('grFilterDate')?.value||'';
             const allDocs = window._allGRDocs||[];
+            const isAdmin = currentUser?.role==='admin'||currentUser?.role==='warehouse'||roleSettings[currentUser?.role]?.menus?.includes('admin');
+
             const filtered = allDocs.filter(gr=>{
-                if(status && gr.status !== status) return false;
-                if(dateFilter && dateFilter.length===10 && gr.date !== dateFilter) return false;
+                if(statusFilter && gr.status!==statusFilter) return false;
+                if(dateFilter && dateFilter.length===10 && gr.date!==dateFilter) return false;
                 return true;
             });
-            const isAdmin = currentUser?.role==='admin' || roleSettings[currentUser?.role]?.menus?.includes('admin');
-            const grStatusConfig = {
-                draft:{label:'แบบร่าง',bg:'#f1f5f9',color:'#475569',border:'#e2e8f0'},
-                pending:{label:'รออนุมัติ',bg:'#fff7ed',color:'#c2410c',border:'#fed7aa'},
-                approved:{label:'อนุมัติแล้ว',bg:'#f0fdf4',color:'#059669',border:'#bbf7d0'},
-                rejected:{label:'ปฏิเสธ',bg:'#fef2f2',color:'#dc2626',border:'#fecaca'},
-                completed:{label:'เสร็จสิ้น',bg:'#f0fdf4',color:'#059669',border:'#bbf7d0'},
+
+            const SC = {
+                draft:    {label:'📝 แบบร่าง',   bg:'#f1f5f9',color:'#475569',border:'#e2e8f0',lb:'#cbd5e1'},
+                pending:  {label:'⏳ รออนุมัติ', bg:'#fff7ed',color:'#c2410c',border:'#fed7aa',lb:'#f59e0b'},
+                approved: {label:'✅ อนุมัติ',   bg:'#f0fdf4',color:'#059669',border:'#bbf7d0',lb:'#10b981'},
+                rejected: {label:'❌ ปฏิเสธ',   bg:'#fef2f2',color:'#dc2626',border:'#fecaca',lb:'#ef4444'},
+                completed:{label:'✅ เสร็จสิ้น', bg:'#f0fdf4',color:'#059669',border:'#bbf7d0',lb:'#10b981'},
             };
-            const container = document.getElementById('grListContainer');
+
+            const container = document.getElementById('grHistoryList');
             if(!container) return;
-            container.innerHTML = filtered.length ? filtered.map(gr=>{
-                const sc = grStatusConfig[gr.status]||grStatusConfig.draft;
-                const leftBorder = gr.status==='pending'?'4px solid #f59e0b':gr.status==='rejected'?'4px solid #ef4444':gr.status==='approved'||gr.status==='completed'?'4px solid #10b981':'4px solid #e2e8f0';
-                return `<div class="history-card" style="border-left:${leftBorder};">
-                    <div class="history-card-header" style="cursor:pointer;" onclick="toggleDetail('grdet2_${gr.id}')">
-                        <div>
+            if(!filtered.length){ container.innerHTML='<p style="text-align:center;color:#94a3b8;padding:40px;">ไม่พบรายการ</p>'; return; }
+
+            container.innerHTML = filtered.map(gr=>{
+                const sc = SC[gr.status]||SC.draft;
+                const isDraft = gr.status==='draft';
+                const isPending = gr.status==='pending';
+                const isApproved = gr.status==='approved'||gr.status==='completed';
+                const itemSummary = (gr.items||[]).slice(0,3).map(it=>it.id).join(', ')+(gr.items?.length>3?` +${gr.items.length-3} อื่นๆ`:'');
+                return `<div class="history-card" style="border-left:4px solid ${sc.lb};">
+                    <div class="history-card-header" style="cursor:pointer;" onclick="toggleDetail('ghd_${gr.id}')">
+                        <div style="flex:1;">
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                                 <span style="font-weight:700;font-size:14px;color:#06b6d4;">${gr.grNumber}</span>
                                 <span style="background:${sc.bg};color:${sc.color};border:1px solid ${sc.border};font-size:10px;padding:2px 10px;border-radius:10px;font-weight:700;">${sc.label}</span>
+                                ${isApproved&&gr.approvedBy?`<span style="font-size:10px;color:#059669;">✓ ${gr.approvedBy}</span>`:''}
+                                ${gr.status==='rejected'&&gr.rejectReason?`<span style="font-size:10px;color:#dc2626;">${gr.rejectReason}</span>`:''}
                             </div>
-                            <div style="font-size:12px;color:#64748b;margin-top:3px;">📅 ${gr.date||'-'} • 📦 ${gr.zone||'-'} • 🏢 ${gr.supplier||'-'} • 👤 ${gr.receiver||'-'}</div>
+                            <div style="font-size:12px;color:#64748b;margin-top:3px;">
+                                📅 ${gr.date||'-'} • 👤 ${gr.createdBy||'-'}
+                                ${gr.items?.length?` • ${gr.items.length} SKU: ${itemSummary}`:''}
+                            </div>
                         </div>
-                        <div style="font-size:12px;color:#94a3b8;">${gr.items?.length||0} รายการ ▼</div>
+                        <span style="font-size:18px;color:#94a3b8;">▾</span>
                     </div>
-                    <div id="grdet2_${gr.id}" style="display:none;padding:12px 16px;">
+                    <div id="ghd_${gr.id}" style="display:none;padding:14px 16px;border-top:1px solid #f1f5f9;">
+                        <!-- ตารางรายการ draft -->
+                        <div style="overflow-x:auto;margin-bottom:12px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px;">
+                            <thead><tr style="background:#f8fafc;">
+                                <th style="padding:7px 10px;text-align:left;">สินค้า</th>
+                                <th style="padding:7px 10px;text-align:center;">Supplier</th>
+                                <th style="padding:7px 10px;text-align:center;">คาดรับ</th>
+                                ${!isDraft?`<th style="padding:7px 10px;text-align:center;">รับจริง</th>
+                                <th style="padding:7px 10px;text-align:center;">คลัง</th>
+                                <th style="padding:7px 10px;text-align:center;">Lot</th>
+                                <th style="padding:7px 10px;text-align:center;">EXP</th>
+                                <th style="padding:7px 10px;text-align:center;">เอกสาร</th>`:''}
+                                <th style="padding:7px 10px;text-align:center;">สถานะ</th>
+                            </tr></thead>
+                            <tbody>${(gr.items||[]).map(it=>{
+                                const rd = gr.receiveData?.[it.id]||{};
+                                const iSC = {complete:'#10b981',partial:'#f59e0b',damaged:'#ef4444',extra:'#3b82f6'};
+                                const iSL = {complete:'ครบ',partial:'ไม่ครบ',damaged:'เสียหาย',extra:'ของแทรก'};
+                                const docList = [];
+                                if(rd.docs?.invoice) docList.push('ใบกำกับ');
+                                if(rd.docs?.receipt) docList.push('ใบเสร็จ');
+                                if(rd.docs?.billing) docList.push('ใบวางบิล');
+                                if(rd.docs?.debit)   docList.push('ใบแจ้งหนี้');
+                                if(rd.docs?.other)   docList.push(rd.docs.other);
+                                return `<tr style="border-top:1px solid #f1f5f9;">
+                                    <td style="padding:7px 10px;"><b>${it.id}</b><br><span style="color:#64748b;font-size:11px;">${it.name}</span></td>
+                                    <td style="padding:7px 10px;text-align:center;font-size:11px;color:#06b6d4;">${it.supplier||'-'}</td>
+                                    <td style="padding:7px 10px;text-align:center;">${it.qtyExpected||'-'} ${it.unit}</td>
+                                    ${!isDraft?`<td style="padding:7px 10px;text-align:center;font-weight:700;">${rd.qtyReceived||'-'} ${it.unit}</td>
+                                    <td style="padding:7px 10px;text-align:center;font-size:11px;">${rd.zone||'-'}</td>
+                                    <td style="padding:7px 10px;text-align:center;font-family:monospace;font-size:10px;color:#06b6d4;">${rd.lotNumber||'-'}</td>
+                                    <td style="padding:7px 10px;text-align:center;font-size:11px;">${rd.expTxt||'-'}</td>
+                                    <td style="padding:7px 10px;font-size:10px;">${docList.join(', ')||'-'}</td>`:''}
+                                    <td style="padding:7px 10px;text-align:center;">
+                                        ${!isDraft&&rd.status?`<span style="background:${(iSC[rd.status]||'#64748b')}18;color:${iSC[rd.status]||'#64748b'};padding:2px 7px;border-radius:7px;font-size:10px;font-weight:700;">${iSL[rd.status]||rd.status}</span>`:'-'}
+                                    </td>
+                                </tr>`;
+                            }).join('')}</tbody>
+                        </table>
+                        </div>
+                        ${gr.note?`<div style="font-size:12px;color:#64748b;padding:6px 10px;background:#f8fafc;border-radius:7px;margin-bottom:10px;">📝 ${gr.note}</div>`:''}
+                        <!-- ปุ่มดำเนินการ -->
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button onclick="exportGRPDF('${gr.id}')" style="background:#7c3aed;color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">📄 PDF</button>
-                            ${isAdmin&&gr.status==='pending'?`<button onclick="approveGR('${gr.id}')" style="background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">✅ อนุมัติ</button><button onclick="rejectGR('${gr.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">❌ ปฏิเสธ</button>`:''}
+                            ${isDraft?`<button onclick="openReceiveGR('${gr.id}')" style="background:#06b6d4;color:white;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">🚚 เปิดรับสินค้าจริง</button>`:''}
+                            ${(isDraft||isPending)?`<button onclick="openReceiveGR('${gr.id}')" style="background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;">✏️ แก้ไขข้อมูลรับ</button>`:''}
+                            ${isAdmin&&isPending?`
+                            <button onclick="approveGR('${gr.id}')" style="background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">✅ อนุมัติ</button>
+                            <button onclick="rejectGR('${gr.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;">❌ ปฏิเสธ</button>`:''}
+                            <button onclick="exportGRPDF('${gr.id}')" style="background:#7c3aed;color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;">📄 PDF</button>
+                            ${isAdmin?`<button onclick="deleteGR('${gr.id}','${gr.grNumber}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;">🗑️ ลบ</button>`:''}
                         </div>
                     </div>
                 </div>`;
-            }).join('') : '<p style="text-align:center;color:#94a3b8;padding:30px;">ไม่พบรายการ</p>';
+            }).join('');
         };
 
         window.toggleDetail = function(id) {
@@ -5181,132 +5192,90 @@ ${r.zone}`);
         };
 
         // ════ QC HISTORY REPORT ════
-        // ── GR EXPORT PDF ──────────────────────────────────
+        // ── GR EXPORT PDF ─────────────────────────────────
         window.exportGRPDF = async function(grId) {
             const snap = await getDoc(doc(db,'goodsReceipts',grId));
-            if(!snap.exists()) { toast('❌ ไม่พบ GR','#c2410c'); return; }
+            if(!snap.exists()){ toast('❌ ไม่พบ GR','#c2410c'); return; }
             const gr = snap.data();
-            const grStatusTH = {draft:'แบบร่าง',pending:'รออนุมัติ',approved:'อนุมัติแล้ว',rejected:'ปฏิเสธ',completed:'เสร็จสิ้น'};
-            const docLabels = [];
-            if(gr.docs?.invoice) docLabels.push('ใบส่งของ/ใบกำกับภาษี');
-            if(gr.docs?.receipt) docLabels.push('ใบเสร็จรับเงิน');
-            if(gr.docs?.billing) docLabels.push('ใบวางบิล');
-            if(gr.docs?.debit)   docLabels.push('ใบแจ้งหนี้');
-            if(gr.docs?.other)   docLabels.push(gr.docs.other);
-
-            const itemRows = (gr.items||[]).map((it,i)=>`
-                <tr>
-                    <td style="text-align:center;">${i+1}</td>
-                    <td><b>${it.id}</b><br><span style="font-size:11px;color:#555;">${it.name}</span></td>
-                    <td style="text-align:center;">${it.unit||'-'}</td>
-                    <td style="text-align:center;">${it.qtyExpected||'-'}</td>
-                    <td style="text-align:center;font-weight:bold;">${it.qtyReceived||0}</td>
-                    <td style="text-align:center;font-size:11px;font-family:monospace;">${it.lotNumber||'-'}</td>
-                    <td style="text-align:center;font-size:11px;">${it.mfd?isoToDMY(it.mfd):'-'}</td>
-                    <td style="text-align:center;font-size:11px;">${it.exp?isoToDMY(it.exp):'-'}</td>
-                    <td style="text-align:center;">${{complete:'ครบ',partial:'ไม่ครบ',extra:'ของแทรก',damaged:'เสียหาย'}[it.status]||'-'}</td>
-                    <td style="font-size:11px;color:#555;">${it.note||''}</td>
-                </tr>`).join('');
-
-            const docBadges = docLabels.length
-                ? docLabels.map(l=>`<span style="background:#f0fdf4;border:1px solid #bbf7d0;padding:2px 8px;border-radius:6px;font-size:11px;margin-right:4px;">${l}</span>`).join('')
-                : '<span style="color:#94a3b8;font-size:11px;">ไม่ระบุ</span>';
-
+            const statusTH = {draft:'แบบร่าง',pending:'รออนุมัติ',approved:'อนุมัติแล้ว',rejected:'ปฏิเสธ',completed:'เสร็จสิ้น'};
+            const rows = (gr.items||[]).map((it,i)=>{
+                const rd = gr.receiveData?.[it.id]||{};
+                const docList=[];
+                if(rd.docs?.invoice) docList.push('ใบกำกับ');
+                if(rd.docs?.receipt) docList.push('ใบเสร็จ');
+                if(rd.docs?.billing) docList.push('ใบวางบิล');
+                if(rd.docs?.debit)   docList.push('ใบแจ้งหนี้');
+                if(rd.docs?.other)   docList.push(rd.docs.other);
+                const iSL={complete:'ครบ',partial:'ไม่ครบ',damaged:'เสียหาย',extra:'ของแทรก'};
+                return `<tr style="${i%2===0?'':'background:#f8fafc'}">
+                    <td style="text-align:center;padding:6px 8px;">${i+1}</td>
+                    <td style="padding:6px 8px;"><b>${it.id}</b><br><span style="font-size:10px;color:#555;">${it.name}</span></td>
+                    <td style="padding:6px 8px;font-size:11px;">${it.supplier||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;">${it.unit||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;">${it.qtyExpected||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;font-weight:bold;color:#059669;">${rd.qtyReceived||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;font-family:monospace;color:#0891b2;">${rd.lotNumber||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${rd.mfdTxt||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${rd.expTxt||'-'}</td>
+                    <td style="padding:6px 8px;font-size:10px;">${docList.join(', ')||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${rd.zone||'-'}</td>
+                    <td style="text-align:center;padding:6px 8px;font-size:10px;">${iSL[rd.status]||'-'}</td>
+                    <td style="padding:6px 8px;font-size:10px;color:#555;">${rd.note||it.note||''}</td>
+                </tr>`;
+            }).join('');
             const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
-                * { box-sizing:border-box; margin:0; padding:0; }
-                body { font-family:'Sarabun',sans-serif; font-size:13px; color:#1e293b; padding:24px 32px; }
-                .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
-                .company { font-size:11px; color:#64748b; line-height:1.6; }
-                .company b { font-size:15px; color:#0f172a; display:block; margin-bottom:2px; }
-                .gr-title { text-align:right; }
-                .gr-title h1 { font-size:18px; font-weight:700; color:#0f172a; }
-                .gr-title .gr-number { font-size:22px; font-weight:800; color:#06b6d4; margin-top:4px; }
-                .status-badge { display:inline-block; padding:3px 12px; border-radius:10px; font-size:11px; font-weight:700; margin-top:6px; background:${gr.status==='approved'?'#f0fdf4':gr.status==='pending'?'#fff7ed':'#f1f5f9'}; color:${gr.status==='approved'?'#059669':gr.status==='pending'?'#c2410c':'#475569'}; border:1px solid ${gr.status==='approved'?'#bbf7d0':gr.status==='pending'?'#fed7aa':'#e2e8f0'}; }
-                .info-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px; }
-                .info-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; }
-                .info-box label { font-size:9px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px; }
-                .info-box value { font-size:14px; font-weight:700; color:#0f172a; display:block; }
-                .doc-section { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px; margin-bottom:20px; }
-                .doc-section label { font-size:9px; color:#15803d; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:6px; }
-                table { width:100%; border-collapse:collapse; margin-bottom:20px; }
-                thead tr { background:#0f172a; color:white; }
-                thead th { padding:8px 10px; font-size:11px; font-weight:600; text-align:center; }
-                thead th:nth-child(2) { text-align:left; }
-                tbody tr:nth-child(even) { background:#f8fafc; }
-                tbody td { padding:7px 10px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
-                .note-section { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; margin-bottom:24px; font-size:12px; }
-                .footer-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-top:32px; }
-                .sign-box { border-top:1px solid #cbd5e1; padding-top:8px; text-align:center; }
-                .sign-box .name { font-size:12px; color:#64748b; margin-top:4px; }
-                .sign-box .role { font-size:10px; color:#94a3b8; }
-                @media print { body { padding:16px; } }
+                *{box-sizing:border-box;margin:0;padding:0;}
+                body{font-family:'Sarabun',sans-serif;font-size:11px;color:#1e293b;padding:18px 24px;}
+                .hdr{display:flex;justify-content:space-between;margin-bottom:14px;}
+                .co{font-size:11px;color:#64748b;line-height:1.6;} .co b{font-size:14px;color:#0f172a;display:block;}
+                .gr-no{text-align:right;} .gr-no h1{font-size:15px;font-weight:700;}
+                .gr-no .num{font-size:18px;font-weight:800;color:#06b6d4;}
+                .info{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+                .ib{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:7px 10px;}
+                .ib label{font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:2px;}
+                table{width:100%;border-collapse:collapse;margin-bottom:14px;}
+                thead tr{background:#0f172a;color:white;}
+                thead th{padding:6px 7px;font-size:9px;font-weight:600;text-align:center;}
+                tbody td{border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+                .footer{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:24px;}
+                .sign{border-top:1px solid #cbd5e1;padding-top:5px;text-align:center;}
+                .sign .nm{font-size:11px;color:#64748b;margin-top:2px;} .sign .rl{font-size:9px;color:#94a3b8;}
+                @media print{body{padding:10px;}}
             </style></head><body>
-            <div class="header">
-                <div class="company">
-                    <b>บริษัท ทีทีจี ฟู้ด จำกัด</b>
-                    279 ซอยบางนา-ตราด 16 แขวงบางนาใต้ เขตบางนา กทม. 10260<br>
-                    รายงานการรับสินค้า (Goods Receipt)
-                </div>
-                <div class="gr-title">
-                    <h1>ใบรับสินค้า</h1>
-                    <div class="gr-number">${gr.grNumber}</div>
-                    <span class="status-badge">${grStatusTH[gr.status]||gr.status}</span>
-                </div>
+            <div class="hdr">
+                <div class="co"><b>บริษัท ทีทีจี ฟู้ด จำกัด</b>279 ซอยบางนา-ตราด 16 แขวงบางนาใต้ เขตบางนา กทม. 10260</div>
+                <div class="gr-no"><h1>ใบรับสินค้า (GR)</h1><div class="num">${gr.grNumber}</div>
+                <span style="background:#f1f5f9;color:#475569;font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;">${statusTH[gr.status]||gr.status}</span></div>
             </div>
-            <div class="info-grid">
-                <div class="info-box"><label>📅 วันที่รับสินค้า</label><value>${gr.date||'-'}</value></div>
-                <div class="info-box"><label>🏢 Supplier / ผู้ส่ง</label><value>${gr.supplier||'ไม่ระบุ'}</value></div>
-                <div class="info-box"><label>📦 คลัง</label><value>${gr.zone||'-'}</value></div>
-                <div class="info-box"><label>👤 ผู้รับสินค้า</label><value>${gr.receiver||'-'}</value></div>
-                <div class="info-box"><label>✍️ สร้างโดย</label><value>${gr.createdBy||'-'}</value></div>
-                <div class="info-box"><label>✅ อนุมัติโดย</label><value>${gr.approvedBy||'-'}</value></div>
+            <div class="info">
+                <div class="ib"><label>📅 วันที่</label><b>${gr.date||'-'}</b></div>
+                <div class="ib"><label>✍️ สร้างโดย</label><b>${gr.createdBy||'-'}</b></div>
+                <div class="ib"><label>👤 ผู้รับ</label><b>${gr.receiver||'-'}</b></div>
+                <div class="ib"><label>✅ อนุมัติโดย</label><b>${gr.approvedBy||'-'}</b></div>
             </div>
-            <div class="doc-section">
-                <label>📎 เอกสารที่ได้รับ</label>
-                <div>${docBadges}</div>
-            </div>
+            ${gr.note?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:7px 10px;margin-bottom:12px;font-size:11px;">📝 ${gr.note}</div>`:''}
             <table>
                 <thead><tr>
-                    <th style="width:30px;">#</th>
-                    <th style="text-align:left;">รหัส / ชื่อสินค้า</th>
-                    <th>หน่วย</th>
-                    <th>คาดรับ</th>
-                    <th>รับจริง</th>
-                    <th>Lot Number</th>
-                    <th>MFD</th>
-                    <th>EXP</th>
-                    <th>สถานะ</th>
-                    <th>หมายเหตุ</th>
+                    <th>#</th><th style="text-align:left;min-width:120px;">รหัส/ชื่อสินค้า</th>
+                    <th style="text-align:left;">Supplier</th>
+                    <th>หน่วย</th><th>คาดรับ</th><th>รับจริง</th>
+                    <th>Lot Number</th><th>MFD</th><th>EXP</th>
+                    <th>เอกสาร</th><th>คลัง</th><th>สถานะ</th><th>หมายเหตุ</th>
                 </tr></thead>
-                <tbody>${itemRows}</tbody>
+                <tbody>${rows}</tbody>
             </table>
-            ${gr.note?`<div class="note-section">📝 หมายเหตุ: ${gr.note}</div>`:''}
-            <div class="footer-grid">
-                <div class="sign-box">
-                    <div style="height:48px;"></div>
-                    <div class="name">${gr.receiver||'...........................'}</div>
-                    <div class="role">ผู้รับสินค้า / คลังสินค้า</div>
-                </div>
-                <div class="sign-box">
-                    <div style="height:48px;"></div>
-                    <div class="name">.............................</div>
-                    <div class="role">จัดซื้อ</div>
-                </div>
-                <div class="sign-box">
-                    <div style="height:48px;"></div>
-                    <div class="name">${gr.approvedBy||'...........................'}</div>
-                    <div class="role">ผู้อนุมัติ / บัญชี</div>
-                </div>
+            <div class="footer">
+                <div class="sign"><div style="height:36px;"></div><div class="nm">${gr.receiver||'.......................'}</div><div class="rl">ผู้รับสินค้า / คลังสินค้า</div></div>
+                <div class="sign"><div style="height:36px;"></div><div class="nm">.......................</div><div class="rl">จัดซื้อ</div></div>
+                <div class="sign"><div style="height:36px;"></div><div class="nm">${gr.approvedBy||'.......................'}</div><div class="rl">ผู้อนุมัติ / บัญชี</div></div>
             </div>
-            <div style="text-align:right;font-size:10px;color:#94a3b8;margin-top:20px;">พิมพ์วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
+            <div style="text-align:right;font-size:9px;color:#94a3b8;margin-top:14px;">พิมพ์วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
             </body></html>`;
-
             const w = window.open('','_blank');
-            w.document.write(html);
-            w.document.close();
-            setTimeout(()=>w.print(), 500);
+            w.document.write(html); w.document.close();
+            setTimeout(()=>w.print(),500);
         };
 
         // ── GR EDIT & DELETE (Admin) ──────────────────────
