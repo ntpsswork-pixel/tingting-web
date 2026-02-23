@@ -198,7 +198,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
 #printArea .pa-table tr:nth-child(even) td { background: #f8fafc; }
 #printArea .pa-sig-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
   margin-top: 14px;
 }
@@ -262,8 +262,10 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
       <div class="uav" id="uav">?</div>
       <div><div style="font-size:12px;font-weight:600;" id="unm">—</div><div style="font-size:10px;color:var(--tx2);" id="url2">—</div></div>
     </div>
-    <div style="margin-top:8px;">
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:2px;">
+      <div class="nb" onclick="exportDOExcel()"><span class="ni">📥</span>Export Excel</div>
       <div class="nb" onclick="location.href='home.html'"><span class="ni">🏠</span>กลับ Home</div>
+      <div class="nb" onclick="doLogout()" style="color:#ef4444;"><span class="ni">🚪</span>ออกจากระบบ</div>
     </div>
   </div>
 </div>
@@ -392,7 +394,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import{getFirestore,collection,addDoc,getDocs,getDoc,doc}
+import{getFirestore,collection,addDoc,getDocs,getDoc,doc,updateDoc}
   from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const FB={apiKey:"AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",authDomain:"tingting-3d57f.firebaseapp.com",
@@ -403,7 +405,7 @@ const db=getFirestore(initializeApp(FB));
 
 let CU=null;
 try{const r=sessionStorage.getItem('currentUser')||localStorage.getItem('currentUser');if(r)CU=JSON.parse(r);}catch(e){}
-if(!CU){const n=prompt('ชื่อผู้ใช้งาน:');if(!n){location.href='home.html';}else CU={name:n,role:'staff'};}
+if(!CU){location.href='login.html';}
 document.getElementById('unm').textContent=CU?.name||'—';
 document.getElementById('url2').textContent=(CU?.role||'STAFF').toUpperCase();
 document.getElementById('uav').textContent=(CU?.name||'?')[0].toUpperCase();
@@ -554,101 +556,15 @@ window.opDet=async function(id){
   `;
   document.getElementById('detF').innerHTML=`
     ${url?`<button class="btn bg bsm" onclick="shQR('${url}')">📱 QR Code</button>`:''}
-    ${x.status==='done'?`<button class="btn bg bsm" onclick="printDO()" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);">🖨️ Print / PDF</button>`:''}
+    <button class="btn bg bsm" onclick="buildPrint(window._xd);printDO()" style="background:rgba(0,201,255,.12);color:var(--ac);border:1px solid rgba(0,201,255,.25);">🖨️ Print / PDF</button>
+    ${(x.status!=='done'&&x.status!=='cancel')?`<button class="btn bg bsm" onclick="cancelDO('${x.id}')" style="background:rgba(239,68,68,.1);color:var(--er);border:1px solid rgba(239,68,68,.2);">❌ ยกเลิก</button>`:''}
     <button class="btn bg" onclick="clM('mDet')">ปิด</button>
   `;
-  if(x.status==='done'){
-    const itemRows=(x.items||[]).map((i,idx)=>`
-      <tr>
-        <td>${idx+1}</td>
-        <td>${i.name}</td>
-        <td style="text-align:center;">${i.qty}</td>
-        <td style="text-align:center;">${i.unit}</td>
-        <td>${i.note||'—'}</td>
-      </tr>`).join('');
-    const now=new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'short'});
-    const drvTime=x.driverSignedAt?new Date(x.driverSignedAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}):'—';
-    const rcpTime=x.signedAt?new Date(x.signedAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}):'—';
-    document.getElementById('printArea').innerHTML=`
-      <div class="pa-header">
-        <div>
-          <div class="pa-logo">TTG<span>Plus</span></div>
-          <div style="font-size:11px;color:#888;margin-top:2px;">ระบบจัดการขนส่ง</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="pa-docnum">${x.doNumber}</div>
-          <div class="pa-status">✅ ส่งสำเร็จ</div>
-        </div>
-      </div>
-
-      <div class="pa-section-title">ข้อมูลการจัดส่ง</div>
-      <div class="pa-grid">
-        <div>
-          <div class="pa-label">วันที่ส่ง</div>
-          <div class="pa-val">${x.doDate||'—'}</div>
-        </div>
-        <div>
-          <div class="pa-label">เบอร์ติดต่อ</div>
-          <div class="pa-val">${x.phone||'—'}</div>
-        </div>
-        <div>
-          <div class="pa-label">ผู้รับ</div>
-          <div class="pa-val">${x.recipient||'—'}</div>
-        </div>
-        <div>
-          <div class="pa-label">พนักงานขนส่ง</div>
-          <div class="pa-val">${x.driver||'—'}</div>
-        </div>
-        <div style="grid-column:1/-1;">
-          <div class="pa-label">ที่อยู่จัดส่ง</div>
-          <div class="pa-val">${x.address||'—'}</div>
-        </div>
-        <div>
-          <div class="pa-label">ทะเบียนรถ</div>
-          <div class="pa-val">${x.plate||'—'}</div>
-        </div>
-        ${x.note?`<div><div class="pa-label">หมายเหตุ</div><div class="pa-val">${x.note}</div></div>`:''}
-      </div>
-
-      <div class="pa-section-title">รายการสินค้า</div>
-      <table class="pa-table">
-        <thead>
-          <tr>
-            <th style="width:36px;">#</th>
-            <th>สินค้า / รายละเอียด</th>
-            <th style="width:70px;text-align:center;">จำนวน</th>
-            <th style="width:70px;text-align:center;">หน่วย</th>
-            <th style="width:110px;">หมายเหตุ</th>
-          </tr>
-        </thead>
-        <tbody>${itemRows}</tbody>
-      </table>
-
-      <div class="pa-section-title">ลายเซ็นยืนยัน</div>
-      <div class="pa-sig-row">
-        <div class="pa-sig-box">
-          <div class="pa-label" style="color:#0070f3;">✍️ พนักงานขนส่ง</div>
-          ${x.driverSig
-            ? `<img src="${x.driverSig}" />`
-            : `<div class="pa-sig-empty"></div>`}
-          <div class="pa-sig-name">ชื่อ: <b>${x.driverSignName||'—'}</b></div>
-          <div class="pa-sig-name">วันเวลา: ${drvTime}</div>
-        </div>
-        <div class="pa-sig-box">
-          <div class="pa-label" style="color:#166534;">✅ ผู้รับปลายทาง</div>
-          ${x.recipientSig
-            ? `<img src="${x.recipientSig}" />`
-            : `<div class="pa-sig-empty"></div>`}
-          <div class="pa-sig-name">ชื่อ: <b>${x.recipientSignName||'—'}</b></div>
-          <div class="pa-sig-name">วันเวลา: ${rcpTime}</div>
-        </div>
-      </div>
-
-      <div class="pa-footer">พิมพ์โดย TTGPlus Management System &nbsp;•&nbsp; ${now}</div>
-    `;
-  }
+  window._xd=x;
+  buildPrint(x);
   opM('mDet');
 };
+
 window.printDO=function(){
   const imgs=document.querySelectorAll('#printArea img');
   let loaded=0;
@@ -659,6 +575,104 @@ window.printDO=function(){
   });
 };
 window.shQR=function(url){clM('mDet');document.getElementById('lnktx').textContent=url;const qb=document.getElementById('qrb');qb.innerHTML='';const img=new Image();img.src=`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;img.style.cssText='width:180px;height:180px;border-radius:8px;';qb.appendChild(img);opM('mLnk');};
+
+window.buildPrint=function(x){
+  const stTH={waiting:'รอขนส่ง',transit:'กำลังขนส่ง',done:'ส่งสำเร็จ',cancel:'ยกเลิก'};
+  const stC={waiting:'#8b949e',transit:'#00c9ff',done:'#10b981',cancel:'#ef4444'};
+  const rows=(x.items||[]).map((i,n)=>`<tr><td>${n+1}</td><td>${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:center;">${i.unit}</td><td>${i.note||'—'}</td></tr>`).join('');
+  const now=new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'short'});
+  const fmt=t=>t?new Date(t).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}):'—';
+  const sc=stC[x.status]||'#8b949e';
+  document.getElementById('printArea').innerHTML=`
+    <div class="pa-header">
+      <div>
+        <div class="pa-logo">TTG<span>Plus</span></div>
+        <div style="font-size:11px;color:#888;margin-top:2px;">ระบบจัดการขนส่ง — บริษัท ทีทีจี ฟู้ด จำกัด</div>
+        <div style="font-size:10px;color:#aaa;">279 ซอยบางนา-ตราด 16 แขวงบางนาใต้ เขตบางนา กทม. 10260</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="pa-docnum">${x.doNumber}</div>
+        <div style="display:inline-block;border-radius:20px;padding:2px 14px;font-size:12px;font-weight:700;margin-top:4px;background:${sc}20;color:${sc};border:1px solid ${sc}40;">${stTH[x.status]||x.status}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:4px;">สร้างโดย: ${x.createdBy||'—'}</div>
+      </div>
+    </div>
+    <div class="pa-section-title">ข้อมูลการจัดส่ง</div>
+    <div class="pa-grid">
+      <div><div class="pa-label">วันที่ส่ง</div><div class="pa-val">${x.doDate||'—'}</div></div>
+      <div><div class="pa-label">เบอร์ติดต่อ</div><div class="pa-val">${x.phone||'—'}</div></div>
+      <div><div class="pa-label">ผู้รับ</div><div class="pa-val">${x.recipient||'—'}</div></div>
+      <div><div class="pa-label">พนักงานขนส่ง</div><div class="pa-val">${x.driver||'—'}</div></div>
+      <div style="grid-column:1/-1;"><div class="pa-label">ที่อยู่จัดส่ง</div><div class="pa-val">${x.address||'—'}</div></div>
+      <div><div class="pa-label">ทะเบียนรถ</div><div class="pa-val">${x.plate||'—'}</div></div>
+      ${x.note?`<div><div class="pa-label">หมายเหตุ</div><div class="pa-val">${x.note}</div></div>`:''}
+    </div>
+    <div class="pa-section-title">รายการสินค้า</div>
+    <table class="pa-table">
+      <thead><tr><th style="width:36px;">#</th><th>สินค้า / รายละเอียด</th><th style="width:70px;text-align:center;">จำนวน</th><th style="width:70px;text-align:center;">หน่วย</th><th style="width:110px;">หมายเหตุ</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="pa-section-title">ลายเซ็นยืนยัน</div>
+    <div class="pa-sig-row">
+      <div class="pa-sig-box">
+        <div class="pa-label" style="color:#0070f3;">✍️ พนักงานขนส่ง</div>
+        ${x.driverSig?`<img src="${x.driverSig}"/>`:'<div class="pa-sig-empty"></div>'}
+        <div class="pa-sig-name">ชื่อ: <b>${x.driverSignName||'—'}</b></div>
+        <div class="pa-sig-name">วันเวลา: ${fmt(x.driverSignedAt)}</div>
+      </div>
+      <div class="pa-sig-box">
+        <div class="pa-label" style="color:#166534;">✅ ผู้รับปลายทาง</div>
+        ${x.recipientSig?`<img src="${x.recipientSig}"/>`:'<div class="pa-sig-empty"></div>'}
+        <div class="pa-sig-name">ชื่อ: <b>${x.recipientSignName||'—'}</b></div>
+        <div class="pa-sig-name">วันเวลา: ${fmt(x.signedAt)}</div>
+      </div>
+      <div class="pa-sig-box">
+        <div class="pa-label" style="color:#b45309;">📋 ผู้ออกเอกสาร</div>
+        <div class="pa-sig-empty"></div>
+        <div class="pa-sig-name">ชื่อ: <b>${x.createdBy||'—'}</b></div>
+        <div class="pa-sig-name">วันเวลา: ${fmt(x.createdAt)}</div>
+      </div>
+    </div>
+    <div class="pa-footer">พิมพ์โดย TTGPlus Management System &nbsp;•&nbsp; ${now}</div>
+  `;
+};
+
+window.cancelDO=async function(id){
+  if(!confirm('ยืนยันยกเลิกใบส่งสินค้านี้?'))return;
+  try{
+    await updateDoc(doc(db,'deliveries',id),{status:'cancel',cancelledBy:CU.name,cancelledAt:Date.now()});
+    toast('🗑️ ยกเลิกใบส่งเรียบร้อย','#ef4444');
+    clM('mDet');ldDash();
+  }catch(e){toast('❌ '+e.message,'#ef4444');}
+};
+
+window.exportDOExcel=async function(){
+  toast('⏳ กำลัง export...','#00c9ff');
+  try{
+    const sn=await getDocs(collection(db,'deliveries'));
+    const stTH={waiting:'รอขนส่ง',transit:'กำลังส่ง',done:'ส่งสำเร็จ',cancel:'ยกเลิก'};
+    const BOM='﻿';
+    const rows=[['เลขที่ DO','วันที่ส่ง','ผู้รับ','เบอร์','ที่อยู่','พนักงานขนส่ง','ทะเบียน','สถานะ','ชื่อขนส่ง(เซ็น)','ชื่อผู้รับ(เซ็น)','วันเวลาส่งสำเร็จ','สร้างโดย','หมายเหตุ']];
+    const fmt=t=>t?new Date(t).toLocaleString('th-TH'):'';
+    sn.forEach(d=>{
+      const x=d.data();
+      rows.push([x.doNumber,x.doDate,x.recipient,x.phone,x.address,x.driver,x.plate,
+        stTH[x.status]||x.status,x.driverSignName||'',x.recipientSignName||'',
+        fmt(x.signedAt),x.createdBy||'',x.note||'']);
+    });
+    const csv=BOM+rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+    a.download=`Delivery_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    toast('📥 Export เรียบร้อย','#10b981');
+  }catch(e){toast('❌ '+e.message,'#ef4444');}
+};
+
+window.doLogout=function(){
+  sessionStorage.removeItem('currentUser');
+  localStorage.removeItem('currentUser');
+  location.href='login.html';
+};
 
 window.gp=function(nm){document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(n=>n.classList.remove('on'));document.getElementById('p-'+nm).classList.add('on');document.getElementById('n-'+nm)?.classList.add('on');if(nm==='dash')ldDash();if(nm==='hist')ldHist();if(window.innerWidth<769)tgSB();};
 window.opM=function(id){document.getElementById(id).classList.add('sh');};

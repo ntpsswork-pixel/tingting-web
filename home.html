@@ -283,6 +283,11 @@
                         <div style="font-size:26px;font-weight:800;color:#ef4444;margin:4px 0;" id="dashKpiEXPVal">—</div>
                         <div style="font-size:11px;color:#94a3b8;">Lot ที่ต้องระวัง</div>
                     </div>
+                    <div id="dashKpiDelivery" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;" onclick="window.open('delivery.html','_blank')">
+                        <div style="font-size:10px;color:#00c9ff;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">🚚 งานขนส่งวันนี้</div>
+                        <div style="font-size:26px;font-weight:800;color:#00c9ff;margin:4px 0;" id="dashKpiDeliveryVal">—</div>
+                        <div style="font-size:11px;color:#94a3b8;" id="dashKpiDeliverySub">รอส่ง / กำลังส่ง</div>
+                    </div>
                 </div>
 
                 <!-- CHART + ACTIVITY FEED -->
@@ -526,6 +531,21 @@
                 const expCard = document.getElementById('dashKpiEXP');
                 if(expCard && expWarnCount>0) { expCard.style.borderTop='4px solid #ef4444'; expCard.style.background='#fef2f2'; }
                 else if(expCard) { expCard.style.borderTop='4px solid #10b981'; }
+            } catch(e){}
+
+            // ── Delivery วันนี้ ──
+            try {
+                const delSnap = await getDocs(collection(db,'deliveries'));
+                let delWaiting=0, delTransit=0, delDone=0;
+                delSnap.forEach(d=>{ const s=d.data().status; if(s==='waiting')delWaiting++; else if(s==='transit')delTransit++; else if(s==='done')delDone++; });
+                const delActive = delWaiting+delTransit;
+                const delVal = document.getElementById('dashKpiDeliveryVal');
+                const delSub = document.getElementById('dashKpiDeliverySub');
+                if(delVal) delVal.innerText = delActive;
+                if(delSub) delSub.innerText = `รอ ${delWaiting} • ส่ง ${delTransit} • สำเร็จ ${delDone}`;
+                const delCard = document.getElementById('dashKpiDelivery');
+                if(delCard && delActive>0) { delCard.style.borderTop='4px solid #00c9ff'; delCard.style.background='rgba(0,201,255,0.04)'; }
+                else if(delCard) { delCard.style.borderTop='4px solid #10b981'; }
             } catch(e){}
         }
 
