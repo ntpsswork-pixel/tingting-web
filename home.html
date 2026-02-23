@@ -128,6 +128,9 @@
             .tool-header { flex-direction:column; gap:10px; padding-top:50px; }
             .filter-bar { flex-direction:column; }
             .filter-bar select, .filter-bar input[type="date"] { min-width:unset; width:100%; }
+        /* Chart containers - ป้องกันกราฟพุ่ง */
+        .chart-wrap { position:relative; width:100%; overflow:hidden; }
+        .chart-wrap canvas { display:block; }
             .stock-row td { padding:10px 8px; }
             .user-card { padding:14px; }
             #dashSummaryCards { grid-template-columns:1fr 1fr !important; }
@@ -135,6 +138,8 @@
         }
         @media (max-width: 480px) {
             #dashSummaryCards { grid-template-columns:1fr !important; }
+            .qc-chart-grid { grid-template-columns:1fr !important; }
+            .chart-wrap { height:200px !important; }
         }
     </style>
 </head>
@@ -285,7 +290,7 @@
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                             <h4 style="margin:0;color:var(--primary-dark);font-size:14px;">📈 Trend การนับสต๊อก 7 วันล่าสุด</h4>
                         </div>
-                        <canvas id="trendChart" height="180"></canvas>
+                        <div class="chart-wrap" style="height:180px;"><canvas id="trendChart" height="180"></canvas></div>
                     </div>
                     <!-- activity feed -->
                     <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;overflow-y:auto;max-height:360px;">
@@ -617,6 +622,7 @@
         function renderTrendChart(sessions) {
             const canvas = document.getElementById('trendChart');
             if(!canvas) return;
+            canvas.style.height='180px'; canvas.style.maxHeight='180px';
 
             // สร้าง label 7 วันย้อนหลัง
             const days = [];
@@ -636,6 +642,7 @@
             }
 
             if(trendChartInstance) trendChartInstance.destroy();
+            canvas.style.height='180px'; canvas.style.maxHeight='180px';
             trendChartInstance = new Chart(canvas, {
                 type: 'bar',
                 data: {
@@ -1912,7 +1919,8 @@
             <div class="tool-header no-print">
                 <h2>📈 วิเคราะห์สต๊อกคงเหลือ</h2>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="exportInventoryExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                    <button onclick="exportInventoryExcel()" style="background:var(--success);color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Excel</button>
+                    <button onclick="exportInventoryPDF()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ PDF</button>
                     <button onclick="openInventoryCheck()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📋 ใบนับสต๊อก</button>
                     <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
@@ -1936,11 +1944,11 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
                 <div style="background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;">
                     <h4 style="margin:0 0 16px;color:var(--primary-dark);">📊 ยอดคงเหลือ (Trend)</h4>
-                    <canvas id="balanceChart" height="200"></canvas>
+                    <div class="chart-wrap" style="height:200px;"><canvas id="balanceChart" height="200"></canvas></div>
                 </div>
                 <div style="background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;">
                     <h4 style="margin:0 0 16px;color:var(--primary-dark);">📉 ยอดที่ใช้ไปแต่ละรอบ</h4>
-                    <canvas id="usageChart" height="200"></canvas>
+                    <div class="chart-wrap" style="height:200px;"><canvas id="usageChart" height="200"></canvas></div>
                 </div>
             </div>
 
@@ -1991,6 +1999,7 @@ ${it.zone}`);
             const bc=document.getElementById('balanceChart');
             const uc=document.getElementById('usageChart');
             if(bc&&labels.length){
+                bc.style.height='200px'; bc.style.maxHeight='200px';
                 _invBalChart=new Chart(bc,{type:'line',data:{labels,datasets:[{
                     label:'ยอดคงเหลือ',data:balances,
                     borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',
@@ -1999,6 +2008,7 @@ ${it.zone}`);
             } else if(bc){bc.parentElement.innerHTML='<p style="color:#94a3b8;text-align:center;padding:40px;">ยังไม่มีข้อมูล</p>';}
 
             if(uc&&labels.length){
+                uc.style.height='200px'; uc.style.maxHeight='200px';
                 _invUseChart=new Chart(uc,{type:'bar',data:{labels,datasets:[{
                     label:'ใช้ไป',data:usages,
                     backgroundColor:'rgba(239,68,68,0.15)',borderColor:'#ef4444',
@@ -3825,7 +3835,8 @@ ${it.zone}`);
             <div class="tool-header">
                 <h2>📊 ประวัติ Daily Stock Card</h2>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="exportDSCExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                    <button onclick="exportDSCExcel()" style="background:var(--success);color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Excel</button>
+                    <button onclick="exportDSCPDF()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ PDF</button>
                     <button onclick="openDailyStockCard()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📋 บันทึกวันนี้</button>
                     <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
@@ -3845,11 +3856,11 @@ ${it.zone}`);
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
                 <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;">
                     <h4 style="margin:0 0 12px;">📈 ยอดคงเหลือเย็น (Trend)</h4>
-                    <canvas id="dscClosingChart" height="180"></canvas>
+                    <div class="chart-wrap" style="height:180px;"><canvas id="dscClosingChart" height="180"></canvas></div>
                 </div>
                 <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;">
                     <h4 style="margin:0 0 12px;">📉 จ่ายออกแต่ละวัน</h4>
-                    <canvas id="dscIssuedChart" height="180"></canvas>
+                    <div class="chart-wrap" style="height:180px;"><canvas id="dscIssuedChart" height="180"></canvas></div>
                 </div>
             </div>
             <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;" id="dscHistoryTable">
@@ -3886,8 +3897,8 @@ ${r.zone}`);
             if(_dscChart2)_dscChart2.destroy();
             const c1=document.getElementById('dscClosingChart');
             const c2=document.getElementById('dscIssuedChart');
-            if(c1&&rows.length){_dscChart1=new Chart(c1,{type:'line',data:{labels,datasets:[{label:'คงเหลือเย็น',data:closing,borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.08)',borderWidth:2,tension:0.3,fill:true,pointRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{maxRotation:45}}}}});}
-            if(c2&&rows.length){_dscChart2=new Chart(c2,{type:'bar',data:{labels,datasets:[{label:'จ่ายออก',data:issued,backgroundColor:'rgba(239,68,68,0.15)',borderColor:'#ef4444',borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{maxRotation:45}}}}});}
+            if(c1&&rows.length){c1.style.height='180px';c1.style.maxHeight='180px';_dscChart1=new Chart(c1,{type:'line',data:{labels,datasets:[{label:'คงเหลือเย็น',data:closing,borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.08)',borderWidth:2,tension:0.3,fill:true,pointRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{maxRotation:45}}}}});}
+            if(c2&&rows.length){c2.style.height='180px';c2.style.maxHeight='180px';_dscChart2=new Chart(c2,{type:'bar',data:{labels,datasets:[{label:'จ่ายออก',data:issued,backgroundColor:'rgba(239,68,68,0.15)',borderColor:'#ef4444',borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{maxRotation:45}}}}});}
 
             const tbl=document.getElementById('dscHistoryTable');
             if(!tbl)return;
@@ -4765,7 +4776,8 @@ ${r.zone}`);
                 <h2>📄 ประวัติการรับสินค้า</h2>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     ${pendingCount>0&&isAdmin?`<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;" onclick="document.getElementById('grFilterStatus').value='pending';renderGRHistoryList()">⏳ รออนุมัติ ${pendingCount} รายการ</span>`:''}
-                    <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ สร้าง GR</button>
+                    <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">+ สร้าง GR</button>
+                    <button onclick="exportGRExcel()" style="background:#059669;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Excel</button>
                     <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
                 </div>
@@ -4957,9 +4969,12 @@ ${r.zone}`);
             c.innerHTML=`
             <div class="tool-header">
                 <h2>🏷️ ทะเบียน Lot สินค้า</h2>
-                <div style="display:flex;gap:8px;">
-                    <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">+ รับสินค้าใหม่</button>
-                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">+ รับสินค้าใหม่</button>
+                    <button onclick="exportLotExcel()" style="background:#059669;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Excel</button>
+                    <button onclick="exportLotPDF()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ PDF</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
             </div>
             ${expWarnings.length?`
@@ -5497,13 +5512,14 @@ ${r.zone}`);
             </div>
 
             <!-- GRAPH + BREAKDOWN ROW -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            <div class="qc-chart-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
 
                 <!-- กราฟ Pass Rate trend -->
                 <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;">
                     <div style="font-weight:700;font-size:14px;margin-bottom:14px;color:#1e293b;">📈 Pass Rate ย้อนหลัง (10 sessions ล่าสุด)</div>
-                    ${trendData.length>=2 ? `<canvas id="qcTrendChart" height="140"></canvas>` :
-                        `<div style="text-align:center;padding:40px;color:#94a3b8;">ต้องมีอย่างน้อย 2 sessions<br>ถึงจะแสดงกราฟได้</div>`}
+                    ${trendData.length>=2
+                        ? `<div class="chart-wrap" style="height:220px;"><canvas id="qcTrendChart" height="220"></canvas></div>`
+                        : `<div style="text-align:center;padding:40px;color:#94a3b8;">ต้องมีอย่างน้อย 2 sessions<br>ถึงจะแสดงกราฟได้</div>`}
                 </div>
 
                 <!-- Product Breakdown -->
@@ -5564,8 +5580,11 @@ ${r.zone}`);
             // วาด Chart หลัง DOM render
             if(trendData.length>=2) {
                 setTimeout(()=>{
-                    const ctx = document.getElementById('qcTrendChart')?.getContext('2d');
-                    if(!ctx) return;
+                    const canvas = document.getElementById('qcTrendChart');
+                    if(!canvas) return;
+                    canvas.style.height = '220px';
+                    canvas.style.maxHeight = '220px';
+                    const ctx = canvas.getContext('2d');
                     if(window._qcChart) window._qcChart.destroy();
                     window._qcChart = new Chart(ctx, {
                         type:'line',
@@ -5584,12 +5603,19 @@ ${r.zone}`);
                             }]
                         },
                         options:{
-                            responsive:true, maintainAspectRatio:false,
-                            plugins:{legend:{display:false},
-                                tooltip:{callbacks:{label:ctx=>`${ctx.raw}%`}}},
+                            responsive:true,
+                            maintainAspectRatio:false,
+                            plugins:{
+                                legend:{display:false},
+                                tooltip:{callbacks:{label:c=>`${c.raw}%`}}
+                            },
                             scales:{
-                                y:{min:0,max:100,ticks:{callback:v=>v+'%'},grid:{color:'#f1f5f9'}},
-                                x:{grid:{display:false}}
+                                y:{
+                                    min:0, max:100,
+                                    ticks:{stepSize:25,callback:v=>v+'%'},
+                                    grid:{color:'#f1f5f9'}
+                                },
+                                x:{grid:{display:false},ticks:{maxRotation:0}}
                             }
                         }
                     });
@@ -5857,6 +5883,239 @@ ${r.zone}`);
             w.document.close();
             w.focus();
             setTimeout(()=>w.print(), 600);
+        };
+
+                // ── LOT REGISTER EXPORT ──────────────────────────
+        window.exportLotExcel = async function() {
+            const lotSnap = await getDoc(doc(db,'config','lotRegister'));
+            const lots = lotSnap.exists() ? (lotSnap.data().lots||{}) : {};
+            const today = new Date(); today.setHours(0,0,0,0);
+            const rows = [['รหัสสินค้า','ชื่อสินค้า','Lot Number','GR Number','วันที่รับ','MFD','EXP','คงเหลือ','หน่วย','คลัง','สถานะ','วันหมดอายุ (วัน)']];
+            Object.entries(lots).forEach(([pid, lotList])=>{
+                const p = allProducts.find(x=>x.id===pid);
+                lotList.filter(l=>l.qtyRemaining>0).forEach(l=>{
+                    const daysLeft = l.exp ? Math.floor((new Date(l.exp)-today)/(1000*60*60*24)) : '';
+                    rows.push([pid, p?.name||'', l.lotNumber||'', l.grNumber||'',
+                        l.grDate?isoToDMY(l.grDate):'', l.mfd?isoToDMY(l.mfd):'', l.exp?isoToDMY(l.exp):'',
+                        l.qtyRemaining, l.unit||'', l.zone||'', l.status||'', daysLeft]);
+                });
+            });
+            if(rows.length===1){toast('❌ ไม่มีข้อมูล Lot','#c2410c');return;}
+            const ws=XLSX.utils.aoa_to_sheet(rows), wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,'LotRegister');
+            XLSX.writeFile(wb,`LotRegister_${new Date().toISOString().slice(0,10)}.xlsx`);
+            toast('📥 Export Excel เรียบร้อย','#059669');
+        };
+
+        window.exportLotPDF = async function() {
+            const lotSnap = await getDoc(doc(db,'config','lotRegister'));
+            const lots = lotSnap.exists() ? (lotSnap.data().lots||{}) : {};
+            const today = new Date(); today.setHours(0,0,0,0);
+            let rows = '';
+            let rowCount = 0;
+            Object.entries(lots).forEach(([pid, lotList])=>{
+                const p = allProducts.find(x=>x.id===pid);
+                const active = lotList.filter(l=>l.qtyRemaining>0);
+                active.forEach((l,i)=>{
+                    const daysLeft = l.exp ? Math.floor((new Date(l.exp)-today)/(1000*60*60*24)) : null;
+                    const expColor = daysLeft===null?'#1e293b':daysLeft<0?'#ef4444':daysLeft<=30?'#f59e0b':'#059669';
+                    rows += `<tr style="${rowCount%2?'background:#f8fafc':''}">
+                        <td style="padding:7px 10px;${i===0?'font-weight:700':'color:#64748b'}">${pid}</td>
+                        <td style="padding:7px 10px;font-size:11px;">${p?.name||''}</td>
+                        <td style="padding:7px 10px;font-family:monospace;font-size:11px;color:#0891b2;${i===0?'font-weight:700':''}">${i===0?'⭐ ':''} ${l.lotNumber||'-'}</td>
+                        <td style="padding:7px 10px;text-align:center;">${l.exp?isoToDMY(l.exp):'-'}</td>
+                        <td style="padding:7px 10px;text-align:center;font-weight:700;color:${expColor};">${daysLeft===null?'-':daysLeft<0?'หมดแล้ว!':daysLeft+'วัน'}</td>
+                        <td style="padding:7px 10px;text-align:center;font-weight:700;">${l.qtyRemaining}</td>
+                        <td style="padding:7px 10px;text-align:center;font-size:11px;">${l.unit||''}</td>
+                        <td style="padding:7px 10px;text-align:center;font-size:11px;color:#64748b;">${l.zone||'-'}</td>
+                    </tr>`;
+                    rowCount++;
+                });
+            });
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+                *{box-sizing:border-box;margin:0;padding:0;}
+                body{font-family:'Sarabun',sans-serif;font-size:12px;color:#1e293b;padding:20px 28px;}
+                h1{font-size:16px;font-weight:800;margin-bottom:4px;}
+                .sub{font-size:11px;color:#64748b;margin-bottom:16px;}
+                table{width:100%;border-collapse:collapse;}
+                thead tr{background:#0f172a;color:white;}
+                th{padding:8px 10px;font-size:10px;font-weight:700;text-align:center;}
+                th:nth-child(1),th:nth-child(2){text-align:left;}
+                td{border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+                @media print{body{padding:10px;}}
+            </style></head><body>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                <div>
+                    <h1>🏷️ ทะเบียน Lot สินค้า</h1>
+                    <div class="sub">บริษัท ทีทีจี ฟู้ด จำกัด &nbsp;|&nbsp; พิมพ์วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
+                </div>
+                <div style="text-align:right;font-size:11px;color:#64748b;">สินค้า ${Object.keys(lots).length} รายการ</div>
+            </div>
+            <table>
+                <thead><tr>
+                    <th style="text-align:left;">รหัส</th><th style="text-align:left;">ชื่อสินค้า</th>
+                    <th>Lot Number</th><th>EXP</th><th>วันหมดอายุ</th>
+                    <th>คงเหลือ</th><th>หน่วย</th><th>คลัง</th>
+                </tr></thead>
+                <tbody>${rows||'<tr><td colspan="8" style="padding:40px;text-align:center;color:#94a3b8;">ไม่มีข้อมูล</td></tr>'}</tbody>
+            </table>
+            </body></html>`;
+            const w = window.open('','_blank');
+            w.document.write(html); w.document.close();
+            setTimeout(()=>w.print(),500);
+        };
+
+        // ── GR EXPORT EXCEL ──────────────────────────────
+        window.exportGRExcel = async function() {
+            const snap = await getDocs(collection(db,'goodsReceipts'));
+            const rows = [['GR Number','วันที่','สร้างโดย','ผู้รับ','Supplier','สถานะ','รหัสสินค้า','ชื่อสินค้า','คาดรับ','รับจริง','หน่วย','Lot','MFD','EXP','คลัง','สถานะรายการ','หมายเหตุ']];
+            const statusTH = {draft:'แบบร่าง',pending:'รออนุมัติ',approved:'อนุมัติแล้ว',rejected:'ปฏิเสธ',completed:'เสร็จสิ้น'};
+            const iSL = {complete:'ครบ',partial:'ไม่ครบ',damaged:'เสียหาย',extra:'ของแทรก'};
+            snap.forEach(d=>{
+                const gr = d.data();
+                (gr.items||[]).forEach(it=>{
+                    rows.push([gr.grNumber, gr.date||'', gr.createdBy||'', gr.receiver||'', it.supplier||gr.supplier||'',
+                        statusTH[gr.status]||gr.status||'',
+                        it.id, it.name, it.qtyExpected||0, it.qtyReceived||0, it.unit||'',
+                        it.lotNumber||'', it.mfd?isoToDMY(it.mfd):'', it.exp?isoToDMY(it.exp):'',
+                        it.zone||'', iSL[it.status]||'', it.note||'']);
+                });
+            });
+            if(rows.length===1){toast('❌ ไม่มีข้อมูล GR','#c2410c');return;}
+            const ws=XLSX.utils.aoa_to_sheet(rows), wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,'GR');
+            XLSX.writeFile(wb,`GR_${new Date().toISOString().slice(0,10)}.xlsx`);
+            toast('📥 Export GR Excel เรียบร้อย','#059669');
+        };
+
+        // ── DAILY STOCK CARD PDF ──────────────────────────
+        window.exportDSCPDF = function() {
+            const rows = window._dscExportRows||[];
+            if(!rows.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
+            const itemRows = rows.map((r,i)=>{
+                const vc=r.variance>0?'#3b82f6':r.variance<0?'#ef4444':'#10b981';
+                const vt=r.variance===0?'✅':r.variance>0?`+${r.variance}`:`${r.variance}`;
+                return `<tr style="${i%2?'background:#f8fafc':''}">
+                    <td style="padding:7px 10px;">${r.date}</td>
+                    <td style="padding:7px 10px;">${r.zone}</td>
+                    <td style="padding:7px 10px;font-weight:700;">${r.id}</td>
+                    <td style="padding:7px 10px;">${r.name}</td>
+                    <td style="padding:7px 10px;text-align:center;">${r.openingBalance??'-'}</td>
+                    <td style="padding:7px 10px;text-align:center;color:#10b981;font-weight:700;">${r.received||0}</td>
+                    <td style="padding:7px 10px;text-align:center;color:#ef4444;font-weight:700;">${(r.issuedAuto||0)+(r.issuedManual||0)}</td>
+                    <td style="padding:7px 10px;text-align:center;color:#3b82f6;font-weight:700;">${r.closingBalance??'-'}</td>
+                    <td style="padding:7px 10px;text-align:center;color:${vc};font-weight:700;">${vt}</td>
+                    <td style="padding:7px 10px;text-align:center;">${r.unit}</td>
+                </tr>`;
+            }).join('');
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+                *{box-sizing:border-box;margin:0;padding:0;}
+                body{font-family:'Sarabun',sans-serif;font-size:11px;color:#1e293b;padding:20px 28px;}
+                h1{font-size:15px;font-weight:800;margin-bottom:4px;}
+                table{width:100%;border-collapse:collapse;margin-top:14px;}
+                thead tr{background:#0f172a;color:white;}
+                th{padding:7px 10px;font-size:10px;font-weight:700;text-align:center;}
+                th:nth-child(1),th:nth-child(2),th:nth-child(3),th:nth-child(4){text-align:left;}
+                td{border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+                @media print{body{padding:10px;}}
+            </style></head><body>
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                <div>
+                    <h1>📊 Daily Stock Card</h1>
+                    <div style="font-size:11px;color:#64748b;">บริษัท ทีทีจี ฟู้ด จำกัด &nbsp;|&nbsp; พิมพ์วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
+                </div>
+            </div>
+            <table>
+                <thead><tr>
+                    <th style="text-align:left;">วันที่</th><th style="text-align:left;">คลัง</th>
+                    <th style="text-align:left;">รหัส</th><th style="text-align:left;">ชื่อสินค้า</th>
+                    <th>ยกมา</th><th>รับเข้า</th><th>จ่ายออก</th>
+                    <th>คงเหลือเย็น</th><th>ผลต่าง</th><th>หน่วย</th>
+                </tr></thead>
+                <tbody>${itemRows}</tbody>
+            </table>
+            <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
+                    <div style="height:40px;"></div>
+                    <div style="font-size:11px;color:#64748b;">ผู้บันทึก</div>
+                </div>
+                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
+                    <div style="height:40px;"></div>
+                    <div style="font-size:11px;color:#64748b;">ผู้ตรวจสอบ</div>
+                </div>
+                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
+                    <div style="height:40px;"></div>
+                    <div style="font-size:11px;color:#64748b;">ผู้อนุมัติ</div>
+                </div>
+            </div>
+            </body></html>`;
+            const w = window.open('','_blank');
+            w.document.write(html); w.document.close();
+            setTimeout(()=>w.print(),500);
+        };
+
+        // ── INVENTORY CHECK PDF ──────────────────────────
+        window.exportInventoryPDF = function() {
+            const items = window._invExportData||[];
+            if(!items.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
+            const itemRows = items.map((r,i)=>`<tr style="${i%2?'background:#f8fafc':''}">
+                <td style="padding:7px 10px;">${r['วันที่']}</td>
+                <td style="padding:7px 10px;">${r['คลัง']}</td>
+                <td style="padding:7px 10px;font-weight:700;">${r['รหัส']}</td>
+                <td style="padding:7px 10px;">${r['ชื่อสินค้า']}</td>
+                <td style="padding:7px 10px;text-align:center;font-weight:700;color:#059669;">${r['คงเหลือ']}</td>
+                <td style="padding:7px 10px;text-align:center;">${r['หน่วย']}</td>
+                <td style="padding:7px 10px;text-align:center;">${r['ใช้ไปจากรอบก่อน']}</td>
+                <td style="padding:7px 10px;">${r['หมายเหตุ']}</td>
+                <td style="padding:7px 10px;">${r['ผู้นับ']}</td>
+            `).join('');
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+                *{box-sizing:border-box;margin:0;padding:0;}
+                body{font-family:'Sarabun',sans-serif;font-size:11px;color:#1e293b;padding:20px 28px;}
+                h1{font-size:15px;font-weight:800;margin-bottom:4px;}
+                table{width:100%;border-collapse:collapse;margin-top:14px;}
+                thead tr{background:#0f172a;color:white;}
+                th{padding:7px 10px;font-size:10px;font-weight:700;text-align:center;}
+                th:nth-child(1),th:nth-child(2),th:nth-child(3),th:nth-child(4){text-align:left;}
+                td{border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+                @media print{body{padding:10px;}}
+            </style></head><body>
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                <div>
+                    <h1>📋 ใบนับสต็อกคงเหลือ</h1>
+                    <div style="font-size:11px;color:#64748b;">บริษัท ทีทีจี ฟู้ด จำกัด &nbsp;|&nbsp; พิมพ์วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
+                </div>
+            </div>
+            <table>
+                <thead><tr>
+                    <th style="text-align:left;">วันที่</th><th style="text-align:left;">คลัง</th>
+                    <th style="text-align:left;">รหัส</th><th style="text-align:left;">ชื่อสินค้า</th>
+                    <th>คงเหลือ</th><th>หน่วย</th><th>ใช้จากรอบก่อน</th>
+                    <th>หมายเหตุ</th><th>ผู้นับ</th>
+                </tr></thead>
+                <tbody>${itemRows}</tbody>
+            </table>
+            <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
+                    <div style="height:40px;"></div><div style="font-size:11px;color:#64748b;">ผู้นับ</div>
+                </div>
+                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
+                    <div style="height:40px;"></div><div style="font-size:11px;color:#64748b;">ผู้ตรวจสอบ</div>
+                </div>
+                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
+                    <div style="height:40px;"></div><div style="font-size:11px;color:#64748b;">ผู้อนุมัติ</div>
+                </div>
+            </div>
+            </body></html>`;
+            const w = window.open('','_blank');
+            w.document.write(html); w.document.close();
+            setTimeout(()=>w.print(),500);
         };
 
                 window.logout=async function(){
