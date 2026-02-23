@@ -244,6 +244,21 @@ function render(){
       <div class="fg"><div class="fl">ชื่อผู้เซ็น (พิมพ์)</div><input class="fi" id="rnm" placeholder="ชื่อ-นามสกุล"></div>
       <button class="btn bp blg" onclick="submitSig()">✅ ยืนยันรับสินค้า</button>
     </div>`;
+  }else if(x.status==='waiting'){
+    // พนักงานขนส่งเซ็นรับในมือถือ (แบบร่าง)
+    html+=`<div class="sig-section">
+      <div class="sig-title">🚛 เซ็นรับสินค้า — พนักงานขนส่ง</div>
+      <div class="sig-sub">กรุณาเซ็นชื่อยืนยันรับสินค้าออกจากคลัง</div>
+      <div class="sw" id="sigW" style="height:180px;">
+        <canvas id="sigC"></canvas>
+        <div class="sh" id="sigH">เซ็นชื่อที่นี่<br><span style="font-size:11px;color:#bbb;">ลากนิ้ว / เมาส์</span></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn bg2 bsm" onclick="clrSig()">🗑️ ล้าง</button>
+      </div>
+      <div class="fg"><div class="fl">ชื่อพนักงานขนส่ง (พิมพ์)</div><input class="fi" id="rnm" placeholder="ชื่อ-นามสกุลพนักงานขนส่ง"></div>
+      <button class="btn bp blg" onclick="submitDriverSig()">✅ ยืนยันรับสินค้าออกจากคลัง</button>
+    </div>`;
   }
 
   document.getElementById('main').innerHTML=html;
@@ -275,6 +290,23 @@ function initSig(){
 }
 window.clrSig=function(){const c=document.getElementById('sigC');if(sCtx)sCtx.clearRect(0,0,c.width,c.height);document.getElementById('sigH').style.opacity='1';};
 function isEmpty(){const c=document.getElementById('sigC');if(!c)return true;return!Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data).some(x=>x!==0);}
+
+window.submitDriverSig=async function(){
+  if(isEmpty()){toast('⚠️ กรุณาเซ็นชื่อก่อน','#f59e0b');return;}
+  const nm=document.getElementById('rnm')?.value.trim()||'';
+  const sig=document.getElementById('sigC').toDataURL('image/png');
+  const btn=document.querySelector('.btn.bp.blg');
+  if(btn){btn.textContent='⏳ กำลังบันทึก...';btn.disabled=true;}
+  try{
+    await updateDoc(doc(db,'deliveries',ID),{
+      driverSig:sig,driverSignName:nm,status:'transit',
+      driverSignedAt:Date.now()
+    });
+    deliveryData.driverSig=sig;deliveryData.driverSignName=nm;deliveryData.status='transit';
+    toast('✅ เซ็นรับสำเร็จ — สถานะเปลี่ยนเป็นกำลังขนส่ง','#10b981');
+    setTimeout(()=>render(),800);
+  }catch(e){toast('❌ '+e.message,'#ef4444');if(btn){btn.textContent='✅ ยืนยันรับสินค้าออกจากคลัง';btn.disabled=false;}}
+};
 
 window.submitSig=async function(){
   if(isEmpty()){toast('⚠️ กรุณาเซ็นชื่อก่อน','#f59e0b');return;}
