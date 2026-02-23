@@ -4347,10 +4347,9 @@ ${r.zone}`);
                     </div>
                     <div class="input-group" style="border:2px solid var(--danger);margin:0;">
                         <label style="font-size:10px;">📅 วันที่คาดรับสินค้า</label>
-                        <input type="text" id="gr_date_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
-                            value="${todayTxt}" oninput="formatDateInput(this,'gr_date')"
-                            style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;box-sizing:border-box;">
-                        <input type="hidden" id="gr_date" value="${today}">
+                        <input type="date" id="gr_date"
+                            value="${today}"
+                            style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;box-sizing:border-box;cursor:pointer;">
                     </div>
                     <div class="input-group" style="margin:0;">
                         <label style="font-size:10px;">📝 หมายเหตุ</label>
@@ -4574,19 +4573,16 @@ ${r.zone}`);
                     </div>
                     <div>
                         <label style="font-size:10px;color:#dc2626;font-weight:700;display:block;margin-bottom:4px;">🗓 วันผลิต (MFD)</label>
-                        <input type="text" id="recv_mfd_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
-                            value="${it.mfd?isoToDMY(it.mfd):''}"
-                            oninput="formatDateInput(this,'recv_mfd_${it.id}')"
-                            style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;text-align:center;outline:none;box-sizing:border-box;">
-                        <input type="hidden" id="recv_mfd_${it.id}" value="${it.mfd||''}">
+                        <input type="date" id="recv_mfd_${it.id}"
+                            value="${it.mfd||''}"
+                            style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;cursor:pointer;">
                     </div>
                     <div>
                         <label style="font-size:10px;color:#b45309;font-weight:700;display:block;margin-bottom:4px;">⏰ วันหมดอายุ (EXP)</label>
-                        <input type="text" id="recv_exp_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
-                            value="${it.exp?isoToDMY(it.exp):''}"
-                            oninput="formatDateInput(this,'recv_exp_${it.id}',true)"
-                            style="width:100%;padding:8px;border:2px solid #f59e0b;border-radius:8px;font-size:12px;text-align:center;font-weight:bold;outline:none;box-sizing:border-box;">
-                        <input type="hidden" id="recv_exp_${it.id}" value="${it.exp||''}">
+                        <input type="date" id="recv_exp_${it.id}"
+                            value="${it.exp||''}"
+                            onchange="checkExpWarning('${it.id}')"
+                            style="width:100%;padding:8px;border:2px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:bold;outline:none;box-sizing:border-box;cursor:pointer;">
                         <div id="exp_warn_${it.id}" style="font-size:9px;margin-top:3px;"></div>
                     </div>
                     <div>
@@ -4639,10 +4635,9 @@ ${r.zone}`);
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
                     <div class="input-group" style="border:2px solid var(--danger);margin:0;">
                         <label style="font-size:10px;">📅 วันที่รับจริง</label>
-                        <input type="text" id="recv_date_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
-                            value="${todayTxt}" oninput="formatDateInput(this,'recv_date')"
-                            style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;box-sizing:border-box;">
-                        <input type="hidden" id="recv_date" value="${todayISO}">
+                        <input type="date" id="recv_date"
+                            value="${todayISO}"
+                            style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;box-sizing:border-box;cursor:pointer;">
                     </div>
                     <div class="input-group" style="margin:0;">
                         <label style="font-size:10px;">👤 ผู้รับสินค้า</label>
