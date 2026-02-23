@@ -4771,69 +4771,42 @@ ${r.zone}`);
             const isAdmin = currentUser?.role==='admin'||currentUser?.role==='warehouse'||roleSettings[currentUser?.role]?.menus?.includes('admin');
             const pendingCount = allGRDocs.filter(g=>g.status==='pending').length;
 
-            const draftCount  = allGRDocs.filter(g=>g.status==='draft'||g.status==='pending'||g.status==='rejected').length;
-            const approvedCount = allGRDocs.filter(g=>g.status==='approved'||g.status==='completed').length;
-
             c.innerHTML=`
             <div class="tool-header">
                 <h2>📄 ประวัติการรับสินค้า</h2>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    ${pendingCount>0&&isAdmin?`<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;" onclick="switchGRTab('draft')">⏳ รออนุมัติ ${pendingCount} รายการ</span>`:''}
+                    ${pendingCount>0&&isAdmin?`<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;" onclick="document.getElementById('grFilterStatus').value='pending';renderGRHistoryList()">⏳ รออนุมัติ ${pendingCount} รายการ</span>`:''}
                     <button onclick="openCreateGR()" style="background:#06b6d4;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">+ สร้าง GR</button>
                     <button onclick="exportGRExcel()" style="background:#059669;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Excel</button>
                     <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
                 </div>
             </div>
-            <!-- TABS -->
-            <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #e2e8f0;">
-                <button id="grTab_approved" onclick="switchGRTab('approved')"
-                    style="padding:10px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:700;color:#06b6d4;border-bottom:3px solid #06b6d4;margin-bottom:-2px;">
-                    ✅ ประวัติ GR <span style="background:#e0f2fe;color:#0369a1;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:4px;">${approvedCount}</span>
-                </button>
-                <button id="grTab_draft" onclick="switchGRTab('draft')"
-                    style="padding:10px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:#94a3b8;border-bottom:3px solid transparent;margin-bottom:-2px;">
-                    📝 แบบร่าง / รออนุมัติ <span style="background:#f1f5f9;color:#64748b;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:4px;">${draftCount}</span>
-                </button>
-            </div>
-            <!-- FILTER -->
-            <div id="grFilterBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+            <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+                <select id="grFilterStatus" onchange="renderGRHistoryList()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
+                    <option value="">ทุกสถานะ</option>
+                    <option value="draft">📝 แบบร่าง</option>
+                    <option value="pending">⏳ รออนุมัติ</option>
+                    <option value="approved">✅ อนุมัติแล้ว</option>
+                    <option value="rejected">❌ ปฏิเสธ</option>
+                </select>
                 <input type="text" id="grFilterDate" placeholder="กรองวันที่ dd/mm/yyyy" maxlength="10" inputmode="numeric"
                     oninput="formatDateInput(this,null);renderGRHistoryList()"
                     style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;width:160px;">
             </div>
             <div id="grHistoryList"></div>`;
 
-            window._grCurrentTab = 'approved';
-            window.switchGRTab = function(tab) {
-                window._grCurrentTab = tab;
-                const tabA = document.getElementById('grTab_approved');
-                const tabD = document.getElementById('grTab_draft');
-                if(tab==='approved') {
-                    tabA.style.color='#06b6d4'; tabA.style.borderBottomColor='#06b6d4';
-                    tabD.style.color='#94a3b8'; tabD.style.borderBottomColor='transparent';
-                } else {
-                    tabD.style.color='#06b6d4'; tabD.style.borderBottomColor='#06b6d4';
-                    tabA.style.color='#94a3b8'; tabA.style.borderBottomColor='transparent';
-                }
-                renderGRHistoryList();
-            };
             renderGRHistoryList();
         };
 
         window.renderGRHistoryList = function() {
+            const statusFilter = document.getElementById('grFilterStatus')?.value||'';
             const dateFilter = document.getElementById('grFilterDate')?.value||'';
             const allDocs = window._allGRDocs||[];
             const isAdmin = currentUser?.role==='admin'||currentUser?.role==='warehouse'||roleSettings[currentUser?.role]?.menus?.includes('admin');
 
-            const currentTab = window._grCurrentTab||'approved';
-            const approvedStatuses = ['approved','completed'];
-            const draftStatuses    = ['draft','pending','rejected'];
-
             const filtered = allDocs.filter(gr=>{
-                // กรองตาม tab
-                if(currentTab==='approved' && !approvedStatuses.includes(gr.status)) return false;
-                if(currentTab==='draft'    && !draftStatuses.includes(gr.status))    return false;
+                if(statusFilter && gr.status!==statusFilter) return false;
                 if(dateFilter && dateFilter.length===10 && gr.date!==dateFilter) return false;
                 return true;
             });
@@ -4970,21 +4943,15 @@ ${r.zone}`);
                         <span style="background:#f1f5f9;border-radius:10px;padding:3px 10px;font-size:12px;font-weight:bold;">${activeLots.length} Lot</span>
                     </td>
                     <td style="padding:12px 16px;text-align:center;">
-                        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-                            <button onclick="showAllLots('${productId}')" style="background:#eff6ff;color:#3b82f6;border:none;padding:5px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:bold;">ดูทั้งหมด</button>
-                            <button onclick="editLot('${productId}','${oldest.lotNumber}')" style="background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:11px;">✏️ แก้ไข</button>
-                            <button onclick="deleteLot('${productId}','${oldest.lotNumber}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:11px;">🗑️ ลบ</button>
-                        </div>
+                        <button onclick="showAllLots('${productId}')" style="background:#eff6ff;color:#3b82f6;border:none;padding:5px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:bold;">ดูทั้งหมด</button>
                     </td>
                 </tr>
                 <tr id="allLots_${productId}" style="display:none;background:#f8fafc;">
                     <td colspan="6" style="padding:12px 20px;">
                         <div style="font-size:11px;font-weight:bold;color:#64748b;margin-bottom:6px;">Lot ทั้งหมดของ ${productId}:</div>
-                        ${activeLots.map((l,i)=>`<div style="display:inline-flex;align-items:center;gap:6px;margin:3px;background:${i===0?'#dbeafe':'white'};border:1px solid ${i===0?'#93c5fd':'#e2e8f0'};border-radius:8px;padding:4px 10px;font-size:11px;font-family:monospace;">
-                            <span>${i===0?'⭐ ':''}<b>${l.lotNumber}</b> • เหลือ ${l.qtyRemaining} • EXP: ${l.exp?isoToDMY(l.exp):'-'}</span>
-                            <button onclick="editLot('${productId}','${l.lotNumber}')" style="background:#eff6ff;color:#3b82f6;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;font-family:sans-serif;">✏️</button>
-                            <button onclick="deleteLot('${productId}','${l.lotNumber}')" style="background:#fef2f2;color:#ef4444;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;font-family:sans-serif;">🗑️</button>
-                        </div>`).join('')}
+                        ${activeLots.map((l,i)=>`<span style="display:inline-block;margin:3px;background:${i===0?'#dbeafe':'white'};border:1px solid ${i===0?'#93c5fd':'#e2e8f0'};border-radius:8px;padding:4px 10px;font-size:11px;font-family:monospace;">
+                            ${i===0?'⭐ ':''}<b>${l.lotNumber}</b> • เหลือ ${l.qtyRemaining} • EXP: ${l.exp?isoToDMY(l.exp):'-'}
+                        </span>`).join('')}
                     </td>
                 </tr>`;
             }).join('');
@@ -5032,86 +4999,6 @@ ${r.zone}`);
                     <tbody>${rows||'<tr><td colspan="6" style="padding:40px;text-align:center;color:#94a3b8;">ยังไม่มีข้อมูล Lot — เริ่มรับสินค้าเพื่อสร้าง Lot Register</td></tr>'}</tbody>
                 </table>
             </div>`;
-        };
-
-        window.deleteLot = async function(productId, lotNumber) {
-            if(!confirm(`ลบ Lot "${lotNumber}" ของ ${productId} ?
-หากลบแล้วจะไม่สามารถกู้คืนได้`)) return;
-            try {
-                const lotRef = doc(db,'config','lotRegister');
-                const snap = await getDoc(lotRef);
-                if(!snap.exists()) return;
-                const lots = snap.data().lots||{};
-                if(!lots[productId]) return;
-                lots[productId] = lots[productId].filter(l=>l.lotNumber!==lotNumber);
-                if(!lots[productId].length) delete lots[productId];
-                await setDoc(lotRef,{lots},{merge:true});
-                toast(`🗑️ ลบ Lot ${lotNumber} แล้ว`,'#059669');
-                openLotRegister();
-            } catch(e) { toast('❌ ลบไม่สำเร็จ: '+e.message,'#ef4444'); }
-        };
-
-        window.editLot = async function(productId, lotNumber) {
-            const lotRef = doc(db,'config','lotRegister');
-            const snap = await getDoc(lotRef);
-            if(!snap.exists()) return;
-            const lots = snap.data().lots||{};
-            const lot = (lots[productId]||[]).find(l=>l.lotNumber===lotNumber);
-            if(!lot) return;
-
-            const modal = document.createElement('div');
-            modal.id = 'editLotModal';
-            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
-            modal.innerHTML = `
-                <div style="background:white;border-radius:20px;padding:28px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
-                    <h3 style="margin:0 0 6px;color:#0f172a;">✏️ แก้ไข Lot</h3>
-                    <p style="margin:0 0 20px;font-size:13px;color:#64748b;">สินค้า: <b>${productId}</b> • Lot: <b style="color:#06b6d4;">${lotNumber}</b></p>
-                    <div style="display:flex;flex-direction:column;gap:12px;">
-                        <div>
-                            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">จำนวนคงเหลือ</label>
-                            <input id="el_qty" type="number" value="${lot.qtyRemaining}" min="0"
-                                style="width:100%;margin-top:4px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:14px;outline:none;box-sizing:border-box;">
-                        </div>
-                        <div>
-                            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">วันหมดอายุ (dd/mm/yyyy)</label>
-                            <input id="el_exp" type="text" value="${lot.exp?isoToDMY(lot.exp):''}" placeholder="dd/mm/yyyy" maxlength="10"
-                                oninput="this.value=this.value.replace(/[^0-9/]/g,'');let v=this.value.replace(/\//g,'');if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);this.value=v;"
-                                style="width:100%;margin-top:4px;padding:10px 12px;border:1.5px solid #f59e0b;border-radius:9px;font-size:14px;outline:none;box-sizing:border-box;font-weight:700;">
-                        </div>
-                        <div>
-                            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">MFD (dd/mm/yyyy)</label>
-                            <input id="el_mfd" type="text" value="${lot.mfd?isoToDMY(lot.mfd):''}" placeholder="dd/mm/yyyy" maxlength="10"
-                                oninput="this.value=this.value.replace(/[^0-9/]/g,'');let v=this.value.replace(/\//g,'');if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);this.value=v;"
-                                style="width:100%;margin-top:4px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:14px;outline:none;box-sizing:border-box;">
-                        </div>
-                    </div>
-                    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
-                        <button onclick="document.getElementById('editLotModal').remove()" style="background:#f1f5f9;color:#64748b;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:600;">ยกเลิก</button>
-                        <button onclick="saveEditLot('${productId}','${lotNumber}')" style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:700;">💾 บันทึก</button>
-                    </div>
-                </div>`;
-            document.body.appendChild(modal);
-        };
-
-        window.saveEditLot = async function(productId, lotNumber) {
-            const qtyVal = parseFloat(document.getElementById('el_qty')?.value)||0;
-            const expVal = document.getElementById('el_exp')?.value.trim()||'';
-            const mfdVal = document.getElementById('el_mfd')?.value.trim()||'';
-            // แปลง dd/mm/yyyy → yyyy-mm-dd
-            function dmyToIso(s){ if(!s||s.length<10) return ''; const[d,m,y]=s.split('/'); return`${y}-${m}-${d}`; }
-            try {
-                const lotRef = doc(db,'config','lotRegister');
-                const snap = await getDoc(lotRef);
-                const lots = snap.data().lots||{};
-                lots[productId] = (lots[productId]||[]).map(l=>{
-                    if(l.lotNumber!==lotNumber) return l;
-                    return{...l, qtyRemaining:qtyVal, exp:dmyToIso(expVal)||l.exp, mfd:dmyToIso(mfdVal)||l.mfd};
-                });
-                await setDoc(lotRef,{lots},{merge:true});
-                document.getElementById('editLotModal')?.remove();
-                toast('✅ แก้ไข Lot เรียบร้อย','#059669');
-                openLotRegister();
-            } catch(e) { toast('❌ '+e.message,'#ef4444'); }
         };
 
         window.showAllLots = function(pid) {
@@ -5344,9 +5231,9 @@ ${r.zone}`);
                     <td style="text-align:center;padding:6px 8px;">${i+1}</td>
                     <td style="padding:6px 8px;"><b>${it.id}</b><br><span style="font-size:10px;color:#555;">${it.name}</span></td>
                     <td style="padding:6px 8px;font-size:11px;">${it.supplier||'-'}</td>
-                    <td style="text-align:center;padding:6px 8px;">${it.unit||'-'}</td>
                     <td style="text-align:center;padding:6px 8px;">${it.qtyExpected||'-'}</td>
                     <td style="text-align:center;padding:6px 8px;font-weight:bold;color:#059669;">${qtyRecv}</td>
+                    <td style="text-align:center;padding:6px 8px;">${it.unit||'-'}</td>
                     <td style="text-align:center;padding:6px 8px;font-size:10px;font-family:monospace;color:#0891b2;">${it.lotNumber||'-'}</td>
                     <td style="text-align:center;padding:6px 8px;font-size:10px;">${mfdDisp}</td>
                     <td style="text-align:center;padding:6px 8px;font-size:10px;">${expDisp}</td>
@@ -5395,7 +5282,7 @@ ${r.zone}`);
                 <thead><tr>
                     <th>#</th><th style="text-align:left;min-width:120px;">รหัส/ชื่อสินค้า</th>
                     <th style="text-align:left;">Supplier</th>
-                    <th>หน่วย</th><th>คาดรับ</th><th>รับจริง</th>
+                    <th>คาดรับ</th><th>รับจริง</th><th>หน่วย</th>
                     <th>Lot Number</th><th>MFD</th><th>EXP</th>
                     <th>เอกสาร</th><th>คลัง</th><th>สถานะ</th><th>หมายเหตุ</th>
                 </tr></thead>
@@ -5404,7 +5291,6 @@ ${r.zone}`);
             <div class="footer">
                 <div class="sign"><div style="height:40px;"></div><div class="nm">${gr.receiver||'.......................'}</div><div class="rl">ผู้รับสินค้า / คลังสินค้า</div></div>
                 <div class="sign"><div style="height:40px;"></div><div class="nm">.......................</div><div class="rl">จัดซื้อ</div></div>
-                <div class="sign"><div style="height:40px;"></div><div class="nm">${gr.approvedBy||'.......................'}</div><div class="rl">ผู้อนุมัติ</div></div>
                 <div class="sign"><div style="height:40px;"></div><div class="nm">.......................</div><div class="rl">บัญชี</div></div>
             </div>
             <div style="text-align:right;font-size:9px;color:#94a3b8;margin-top:14px;">พิมพ์วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
