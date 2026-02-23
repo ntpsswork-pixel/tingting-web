@@ -1109,7 +1109,7 @@
                         ${visibleZones.map(w=>`<option ${w===zone?'selected':''}>${w}</option>`).join('')}
                     </select></div>
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ (บังคับเลือก)</label>
-                    <input type="text" id="countDate_txt" placeholder="dd/mm/yyyy" maxlength="10"
+                    <input type="text" id="countDate_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
     value="${selectedDate.split('-').reverse().join('/')}"
     oninput="formatDateInput(this,'countDate');selectedDate=document.getElementById('countDate').value||selectedDate"
     style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
@@ -1274,13 +1274,13 @@
                         ${visibleZones.map(w=>`<option value="${w}">${w}</option>`).join('')}
                     </select></div>
                 <div id="dateFromWrap"><label>📅 วันที่เริ่มต้น</label>
-    <input type="text" id="filterDateFrom_txt" placeholder="dd/mm/yyyy" maxlength="10"
+    <input type="text" id="filterDateFrom_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
         oninput="formatDateInput(this,'filterDateFrom');loadCurrentReport()"
         style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;width:130px;outline:none;">
     <input type="hidden" id="filterDateFrom">
 </div>
                 <div id="dateToWrap"><label>📅 วันที่สิ้นสุด</label>
-    <input type="text" id="filterDateTo_txt" placeholder="dd/mm/yyyy" maxlength="10"
+    <input type="text" id="filterDateTo_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
         oninput="formatDateInput(this,'filterDateTo');loadCurrentReport()"
         style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;width:130px;outline:none;">
     <input type="hidden" id="filterDateTo">
@@ -1479,19 +1479,6 @@
                         <input type="text" id="newPdName" placeholder="ชื่อสินค้า" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
                         <input type="text" id="newPdSupplier" placeholder="🏢 Supplier / ผู้ส่ง (ถ้ามี)" style="padding:10px;border:1px solid #ddd;border-radius:8px;grid-column:span 2;">
                     </div>
-                    <div style="background:#f0fdf4;border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid #bbf7d0;">
-                        <div style="font-size:11px;color:#15803d;font-weight:bold;margin-bottom:8px;">📦 บาร์โค้ด (สำหรับสแกนในอนาคต)</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                            <div>
-                                <label style="font-size:10px;color:#64748b;font-weight:bold;display:block;margin-bottom:3px;">บาร์โค้ด หน่วยลัง</label>
-                                <input type="text" id="newPdBarcode1" placeholder="เช่น 8850000000001" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;box-sizing:border-box;">
-                            </div>
-                            <div>
-                                <label style="font-size:10px;color:#64748b;font-weight:bold;display:block;margin-bottom:3px;">บาร์โค้ด หน่วยถุง</label>
-                                <input type="text" id="newPdBarcode2" placeholder="เช่น 8850000000002" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;box-sizing:border-box;">
-                            </div>
-                        </div>
-                    </div>
                     <div style="background:#f8fafc;border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid #e2e8f0;">
                         <div style="font-size:11px;color:#64748b;font-weight:bold;margin-bottom:8px;">หน่วยและอัตราแปลง (สูงสุด 3 หน่วย)</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
@@ -1586,7 +1573,7 @@
                         <button onclick="movePd(${i},1)" ${isLast?'disabled':''} style="background:${isLast?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:4px;width:22px;height:18px;cursor:${isLast?'default':'pointer'};font-size:10px;line-height:1;">▼</button>
                     </div>
                     <span style="font-size:10px;color:#cbd5e1;min-width:18px;text-align:center;">${i+1}</span>
-                    <div style="flex:1;font-size:12px;"><b>${p.id}</b> - ${p.name}${p.supplier?` <span style="background:#f0f9ff;color:#0891b2;font-size:10px;padding:1px 6px;border-radius:10px;border:1px solid #bae6fd;">🏢 ${p.supplier}</span>`:''}<br><span style="color:#94a3b8;font-size:11px;">${unitsStr}</span>${p.barcode1||p.barcode2?`<br><span style="color:#15803d;font-size:10px;">📦 ${p.barcode1?'ลัง:'+p.barcode1:''}${p.barcode1&&p.barcode2?' | ':''}${p.barcode2?'ถุง:'+p.barcode2:''}</span>`:''}</div>
+                    <div style="flex:1;font-size:12px;"><b>${p.id}</b> - ${p.name}${p.supplier?` <span style="background:#f0f9ff;color:#0891b2;font-size:10px;padding:1px 6px;border-radius:10px;border:1px solid #bae6fd;">🏢 ${p.supplier}</span>`:''}<br><span style="color:#94a3b8;font-size:11px;">${unitsStr}</span></div>
                     <button class="btn-sm" style="background:var(--info);color:white;" onclick="toggleEditPd(${i})">✏️</button>
                     <button class="btn-sm" style="background:var(--danger);color:white;" onclick="deletePd(${i})">✕</button>
                 </div>
@@ -1594,19 +1581,6 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
                         <input id="pdEditName_${i}" value="${p.name}" placeholder="ชื่อสินค้า" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;grid-column:span 2;">
                         <input id="pdEditSupplier_${i}" value="${p.supplier||''}" placeholder="🏢 Supplier (ถ้ามี)" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;grid-column:span 2;">
-                        <div style="grid-column:span 2;background:#f0fdf4;border-radius:6px;padding:8px;border:1px solid #bbf7d0;">
-                            <div style="font-size:10px;color:#15803d;font-weight:bold;margin-bottom:6px;">📦 บาร์โค้ด</div>
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                                <div>
-                                    <label style="font-size:10px;color:#64748b;display:block;margin-bottom:2px;">หน่วยลัง</label>
-                                    <input id="pdEditBarcode1_${i}" value="${p.barcode1||''}" placeholder="บาร์โค้ดลัง" style="width:100%;padding:5px;border:1px solid #ddd;border-radius:5px;font-size:11px;box-sizing:border-box;">
-                                </div>
-                                <div>
-                                    <label style="font-size:10px;color:#64748b;display:block;margin-bottom:2px;">หน่วยถุง</label>
-                                    <input id="pdEditBarcode2_${i}" value="${p.barcode2||''}" placeholder="บาร์โค้ดถุง" style="width:100%;padding:5px;border:1px solid #ddd;border-radius:5px;font-size:11px;box-sizing:border-box;">
-                                </div>
-                            </div>
-                        </div>
                         ${units.map((u,ui)=>`
                         <input id="pdEditUnit${ui}_${i}" value="${u.name}" placeholder="หน่วยที่ ${ui+1}" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
                         ${ui<units.length-1?`<input id="pdEditRate${ui}_${i}" value="${u.rate||''}" placeholder="อัตราแปลง ×" type="number" min="1" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">`:'<div></div>'}`).join('')}
@@ -1643,15 +1617,11 @@
             }
             if(!newUnits.length)return;
             const editedSupplier = document.getElementById(`pdEditSupplier_${i}`)?.value.trim()||'';
-            const editedBarcode1 = document.getElementById(`pdEditBarcode1_${i}`)?.value.trim()||'';
-            const editedBarcode2 = document.getElementById(`pdEditBarcode2_${i}`)?.value.trim()||'';
             allProducts[i].name=name;
             allProducts[i].units=newUnits;
             allProducts[i].unit=newUnits[0]?.name||'';
             allProducts[i].subUnit=newUnits[1]?.name||'';
             allProducts[i].supplier=editedSupplier;
-            allProducts[i].barcode1=editedBarcode1;
-            allProducts[i].barcode2=editedBarcode2;
             saveConfig(); renderPdList();
             toast('✅ แก้ไขสินค้าเรียบร้อย','#059669');
         };
@@ -1686,14 +1656,12 @@
             if(u2) units.push({name:u2,rate:r2||0});
             if(u3) units.push({name:u3,rate:0}); // หน่วยสุดท้ายไม่มี rate
             const supplier = document.getElementById('newPdSupplier')?.value.trim()||'';
-            const barcode1 = document.getElementById('newPdBarcode1')?.value.trim()||'';
-            const barcode2 = document.getElementById('newPdBarcode2')?.value.trim()||'';
-            allProducts.push({id,name,units,supplier,barcode1,barcode2,
+            allProducts.push({id,name,units,supplier,
                 // backward compat
                 unit:u1, subUnit:u2||''
             });
             saveConfig(); renderPdList(); renderMapping();
-            ['newPdId','newPdName','newPdSupplier','newPdBarcode1','newPdBarcode2','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
+            ['newPdId','newPdName','newPdSupplier','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
                 const el=document.getElementById(x); if(el) el.value='';
             });
             toast('✅ เพิ่มสินค้าเรียบร้อย','#059669');
@@ -1753,7 +1721,7 @@
                     </select>
                 </div>
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ (บังคับ)</label>
-                    <input type="text" id="invDate_txt" placeholder="dd/mm/yyyy" maxlength="10"
+                    <input type="text" id="invDate_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
     value="${today.split('-').reverse().join('/')}"
     oninput="formatDateInput(this,'invDate')"
     style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
@@ -2471,13 +2439,13 @@ ${it.zone}`);
                     <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">ชื่อคู่ค้า / บริษัท</label>
                         <input id="tr_sup_name" placeholder="ชื่อ Supplier" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;"></div>
                     <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">วันที่เอกสาร</label>
-                        <input id="tr_doc_date_txt" type="text" placeholder="dd/mm/yyyy" maxlength="10"
+                        <input id="tr_doc_date_txt" type="text" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
     value="${todayISO.split('-').reverse().join('/')}"
     oninput="formatDateInput(this,'tr_doc_date')"
     style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;">
 <input type="hidden" id="tr_doc_date" value="${todayISO}"></div>
                     <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">กำหนดส่งของ</label>
-                        <input id="tr_due_date_txt" type="text" placeholder="dd/mm/yyyy" maxlength="10"
+                        <input id="tr_due_date_txt" type="text" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
     value="${todayISO.split('-').reverse().join('/')}"
     oninput="formatDateInput(this,'tr_due_date')"
     style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;">
@@ -2757,7 +2725,7 @@ ${it.zone}`);
 
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;">
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่ขอเบิก (บังคับ)</label>
-                    <input type="text" id="mr_date_txt" placeholder="dd/mm/yyyy" maxlength="10"
+                    <input type="text" id="mr_date_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
     value="${today.split('-').reverse().join('/')}"
     oninput="formatDateInput(this,'mr_date')"
     style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
@@ -3634,7 +3602,7 @@ ${it.zone}`);
 
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;">
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่บันทึก</label>
-                    <input type="text" id="dsc_date_txt" placeholder="dd/mm/yyyy" maxlength="10"
+                    <input type="text" id="dsc_date_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
                         value="${today.split('-').reverse().join('/')}"
                         oninput="formatDateInput(this,'dsc_date');if(document.getElementById('dsc_date').value)loadDSCOpening()"
                         style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
@@ -4361,7 +4329,7 @@ ${r.zone}`);
                     </div>
                     <div class="input-group" style="border:2px solid var(--danger);margin:0;">
                         <label style="font-size:10px;">📅 วันที่รับสินค้า</label>
-                        <input type="text" id="gr_date_txt" placeholder="dd/mm/yyyy" maxlength="10"
+                        <input type="text" id="gr_date_txt" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
                             value="${today.split('-').reverse().join('/')}"
                             oninput="formatDateInput(this,'gr_date')"
                             style="width:100%;border:none;font-weight:bold;outline:none;font-size:13px;box-sizing:border-box;">
@@ -4518,7 +4486,7 @@ ${r.zone}`);
                     </td>
                     <td style="padding:12px 14px;text-align:center;">
                         <div style="position:relative;display:inline-block;">
-                            <input type="text" id="gr_mfd_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10"
+                            <input type="text" id="gr_mfd_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
                                 oninput="formatDateInput(this,'gr_mfd_${it.id}')"
                                 style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;outline:none;width:110px;text-align:center;"
                                 onfocus="this.style.borderColor='#dc2626'" onblur="this.style.borderColor='#e2e8f0'">
@@ -4527,7 +4495,7 @@ ${r.zone}`);
                     </td>
                     <td style="padding:12px 14px;text-align:center;">
                         <div style="position:relative;display:inline-block;">
-                            <input type="text" id="gr_exp_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10"
+                            <input type="text" id="gr_exp_txt_${it.id}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
                                 oninput="formatDateInput(this,'gr_exp_${it.id}',true)"
                                 style="padding:6px 8px;border:2px solid #f59e0b;border-radius:7px;font-size:12px;outline:none;font-weight:bold;width:110px;text-align:center;"
                                 onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#f59e0b'">
@@ -4587,11 +4555,13 @@ ${r.zone}`);
                 if(dd < 1 && v.length >= 3) v = '01' + v.slice(2);
             }
             el.value = v;
-            const hidden = document.getElementById(hiddenId);
-            if(hidden) {
-                const iso = dmyToISO(v);
-                hidden.value = iso;
-                if(checkExp && iso) checkExpWarning(hiddenId.replace('gr_exp_',''));
+            if(hiddenId) {
+                const hidden = document.getElementById(hiddenId);
+                if(hidden) {
+                    const iso = dmyToISO(v);
+                    hidden.value = iso;
+                    if(checkExp && iso) checkExpWarning(hiddenId.replace('gr_exp_',''));
+                }
             }
             // validation color
             if(v.length===10) {
@@ -5079,13 +5049,13 @@ ${r.zone}`);
                             style="width:70px;padding:5px;border:1.5px solid #10b981;border-radius:6px;text-align:center;font-weight:700;font-size:13px;outline:none;">
                     </td>
                     <td style="padding:8px;text-align:center;">
-                        <input type="text" id="gredit_mfd_${it.id}" value="${it.mfd?isoToDMY(it.mfd):''}" placeholder="dd/mm/yyyy" maxlength="10"
+                        <input type="text" id="gredit_mfd_${it.id}" value="${it.mfd?isoToDMY(it.mfd):''}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
                             oninput="formatDateInput(this,'gredit_mfd_iso_${it.id}')"
                             style="width:100px;padding:5px;border:1px solid #e2e8f0;border-radius:6px;text-align:center;font-size:12px;outline:none;">
                         <input type="hidden" id="gredit_mfd_iso_${it.id}" value="${it.mfd||''}">
                     </td>
                     <td style="padding:8px;text-align:center;">
-                        <input type="text" id="gredit_exp_${it.id}" value="${it.exp?isoToDMY(it.exp):''}" placeholder="dd/mm/yyyy" maxlength="10"
+                        <input type="text" id="gredit_exp_${it.id}" value="${it.exp?isoToDMY(it.exp):''}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
                             oninput="formatDateInput(this,'gredit_exp_iso_${it.id}')"
                             style="width:100px;padding:5px;border:2px solid #f59e0b;border-radius:6px;text-align:center;font-size:12px;outline:none;font-weight:bold;">
                         <input type="hidden" id="gredit_exp_iso_${it.id}" value="${it.exp||''}">
@@ -5305,8 +5275,8 @@ ${r.zone}`);
             <!-- FILTER BAR -->
             <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:14px 16px;margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
                 <span style="font-size:12px;font-weight:700;color:#475569;">🔍 กรอง:</span>
-                <input type="text" id="qcFilterDate" placeholder="dd/mm/yyyy" maxlength="10"
-                    oninput="applyQCFilter()"
+                <input type="text" id="qcFilterDate" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
+                    oninput="formatDateInput(this,null);applyQCFilter()"
                     style="padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;width:110px;outline:none;">
                 <input type="text" id="qcFilterProduct" placeholder="รหัส/ชื่อสินค้า"
                     oninput="applyQCFilter()"
@@ -5884,13 +5854,13 @@ ${r.zone}`);
                             style="width:70px;padding:5px;border:1.5px solid #10b981;border-radius:6px;text-align:center;font-weight:700;font-size:13px;outline:none;">
                     </td>
                     <td style="padding:8px;text-align:center;">
-                        <input type="text" id="gredit_mfd_${it.id}" value="${it.mfd?isoToDMY(it.mfd):''}" placeholder="dd/mm/yyyy" maxlength="10"
+                        <input type="text" id="gredit_mfd_${it.id}" value="${it.mfd?isoToDMY(it.mfd):''}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
                             oninput="formatDateInput(this,'gredit_mfd_iso_${it.id}')"
                             style="width:100px;padding:5px;border:1px solid #e2e8f0;border-radius:6px;text-align:center;font-size:12px;outline:none;">
                         <input type="hidden" id="gredit_mfd_iso_${it.id}" value="${it.mfd||''}">
                     </td>
                     <td style="padding:8px;text-align:center;">
-                        <input type="text" id="gredit_exp_${it.id}" value="${it.exp?isoToDMY(it.exp):''}" placeholder="dd/mm/yyyy" maxlength="10"
+                        <input type="text" id="gredit_exp_${it.id}" value="${it.exp?isoToDMY(it.exp):''}" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric"
                             oninput="formatDateInput(this,'gredit_exp_iso_${it.id}')"
                             style="width:100px;padding:5px;border:2px solid #f59e0b;border-radius:6px;text-align:center;font-size:12px;outline:none;font-weight:bold;">
                         <input type="hidden" id="gredit_exp_iso_${it.id}" value="${it.exp||''}">
