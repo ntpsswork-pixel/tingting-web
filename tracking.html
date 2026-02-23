@@ -92,6 +92,23 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
 .done-title{font-size:24px;font-weight:800;color:var(--ok);margin-top:12px;}
 .done-sub{font-size:13px;color:var(--tx2);margin-top:6px;}
 
+/* PRINT */
+@media print {
+  body { background: white !important; color: #000 !important; padding: 0 !important; }
+  .wrap { max-width: 100% !important; }
+  .top { margin-bottom: 16px !important; }
+  .no-print { display: none !important; }
+  .do-card, .tracker, .status-card, .items-box, .sig-section, .signed-box { 
+    background: white !important; border: 1px solid #ccc !important; 
+    border-radius: 8px !important; margin-bottom: 12px !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .road-prog { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .do-num { color: #0070f3 !important; }
+  .done-title { color: #059669 !important; }
+  .truck { display: none !important; }
+  .btn-print { display: none !important; }
+}
 /* LOADING */
 .ld{text-align:center;padding:60px;color:var(--tx2);}
 .spinner{width:40px;height:40px;border:3px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;}
@@ -228,7 +245,10 @@ function render(){
       </div>`;
     }
     if(isDone){
-      html+=`<div class="celebrate"><div class="big-check">🎉</div><div class="done-title">จัดส่งสำเร็จ!</div><div class="done-sub">ขอบคุณที่ใช้บริการ TTGPlus</div></div>`;
+      html+=`<div class="celebrate"><div class="big-check">🎉</div><div class="done-title">จัดส่งสำเร็จ!</div><div class="done-sub">ขอบคุณที่ใช้บริการ TTGPlus</div></div>
+      <div class="no-print" style="text-align:center;margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn bp bsm btn-print" onclick="window.print()" style="background:#0f172a;color:white;border:none;padding:11px 22px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:8px;">🖨️ Print / Save PDF</button>
+      </div>`;
     }
   }else if(x.status==='transit'){
     html+=`<div class="sig-section">
@@ -244,20 +264,6 @@ function render(){
       <div class="fg"><div class="fl">ชื่อผู้เซ็น (พิมพ์)</div><input class="fi" id="rnm" placeholder="ชื่อ-นามสกุล"></div>
       <button class="btn bp blg" onclick="submitSig()">✅ ยืนยันรับสินค้า</button>
     </div>`;
-  }else if(x.status==='waiting'){
-    html+=`<div class="sig-section">
-      <div class="sig-title">🚛 เซ็นรับสินค้า — พนักงานขนส่ง</div>
-      <div class="sig-sub">กรุณาเซ็นชื่อยืนยันรับสินค้าออกจากคลัง</div>
-      <div class="sw" id="sigW" style="height:180px;">
-        <canvas id="sigC"></canvas>
-        <div class="sh" id="sigH">เซ็นชื่อที่นี่<br><span style="font-size:11px;color:#bbb;">ลากนิ้ว / เมาส์</span></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button class="btn bg2 bsm" onclick="clrSig()">🗑️ ล้าง</button>
-      </div>
-      <div class="fg"><div class="fl">ชื่อพนักงานขนส่ง (พิมพ์)</div><input class="fi" id="rnm" placeholder="ชื่อ-นามสกุลพนักงานขนส่ง"></div>
-      <button class="btn bp blg" onclick="submitDriverSig()">✅ ยืนยันรับสินค้าออกจากคลัง</button>
-    </div>`;
   }
 
   document.getElementById('main').innerHTML=html;
@@ -269,7 +275,7 @@ function render(){
   },300);
 
   // Init sig if needed
-  if((x.status==='transit'&&!alreadySigned)||x.status==='waiting'){
+  if(x.status==='transit'&&!alreadySigned){
     setTimeout(initSig,400);
   }
 }
@@ -279,41 +285,16 @@ function initSig(){
   const c=document.getElementById('sigC');
   if(!w||!c)return;
   c.width=w.clientWidth||400;c.height=180;
-  c.style.touchAction='none';
-  c.style.userSelect='none';
   sCtx=c.getContext('2d');sCtx.clearRect(0,0,c.width,c.height);
-  sCtx.strokeStyle='#111';sCtx.lineWidth=3;sCtx.lineCap='round';sCtx.lineJoin='round';
+  sCtx.strokeStyle='#111';sCtx.lineWidth=2.5;sCtx.lineCap='round';sCtx.lineJoin='round';
   sDrw=false;
   function pos(e){const r=c.getBoundingClientRect();const sx=c.width/r.width,sy=c.height/r.height;const s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left)*sx,y:(s.clientY-r.top)*sy};}
-  function start(e){e.preventDefault();sDrw=true;const p=pos(e);sCtx.beginPath();sCtx.moveTo(p.x,p.y);document.getElementById('sigH').style.opacity='0';}
-  function move(e){e.preventDefault();if(!sDrw)return;const p=pos(e);sCtx.lineTo(p.x,p.y);sCtx.stroke();}
-  function end(){sDrw=false;}
-  c.addEventListener('mousedown',start,{passive:false});
-  c.addEventListener('touchstart',start,{passive:false});
-  c.addEventListener('mousemove',move,{passive:false});
-  c.addEventListener('touchmove',move,{passive:false});
-  c.addEventListener('mouseup',end);
-  c.addEventListener('mouseleave',end);
-  c.addEventListener('touchend',end);
+  c.onmousedown=c.ontouchstart=function(e){e.preventDefault();sDrw=true;const p=pos(e);sCtx.beginPath();sCtx.moveTo(p.x,p.y);document.getElementById('sigH').style.opacity='0';};
+  c.onmousemove=c.ontouchmove=function(e){e.preventDefault();if(!sDrw)return;const p=pos(e);sCtx.lineTo(p.x,p.y);sCtx.stroke();};
+  c.onmouseup=c.onmouseleave=c.ontouchend=function(){sDrw=false;};
 }
 window.clrSig=function(){const c=document.getElementById('sigC');if(sCtx)sCtx.clearRect(0,0,c.width,c.height);document.getElementById('sigH').style.opacity='1';};
 function isEmpty(){const c=document.getElementById('sigC');if(!c)return true;return!Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data).some(x=>x!==0);}
-
-window.submitDriverSig=async function(){
-  if(isEmpty()){toast('⚠️ กรุณาเซ็นชื่อก่อน','#f59e0b');return;}
-  const nm=document.getElementById('rnm')?.value.trim()||'';
-  const sig=document.getElementById('sigC').toDataURL('image/png');
-  const btn=document.querySelector('.btn.bp.blg');
-  if(btn){btn.textContent='⏳ กำลังบันทึก...';btn.disabled=true;}
-  try{
-    await updateDoc(doc(db,'deliveries',ID),{
-      driverSig:sig,driverSignName:nm,status:'transit',driverSignedAt:Date.now()
-    });
-    deliveryData.driverSig=sig;deliveryData.driverSignName=nm;deliveryData.status='transit';
-    toast('✅ เซ็นรับสำเร็จ — กำลังออกจากคลัง','#10b981');
-    setTimeout(()=>render(),800);
-  }catch(e){toast('❌ '+e.message,'#ef4444');if(btn){btn.textContent='✅ ยืนยันรับสินค้าออกจากคลัง';btn.disabled=false;}}
-};
 
 window.submitSig=async function(){
   if(isEmpty()){toast('⚠️ กรุณาเซ็นชื่อก่อน','#f59e0b');return;}
