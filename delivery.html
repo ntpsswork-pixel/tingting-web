@@ -99,8 +99,10 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
 ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px;}
 @media print {
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  body > *:not(#printArea) { display: none !important; }
+  body { background: white !important; min-height: unset !important; height: auto !important; overflow: visible !important; }
+  body > * { display: none !important; }
   #printArea { display: block !important; }
+  .sb, .mn, .ham, .bgov, .ov, #toasts { display: none !important; }
   @page { margin: 12mm 15mm; size: A4; }
 }
 #printArea {
