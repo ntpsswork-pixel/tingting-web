@@ -5237,7 +5237,7 @@ ${r.zone}`);
                 <!-- กราฟ Pass Rate trend -->
                 <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;">
                     <div style="font-weight:700;font-size:14px;margin-bottom:14px;color:#1e293b;">📈 Pass Rate ย้อนหลัง (10 sessions ล่าสุด)</div>
-                    ${trendData.length>=2 ? `<canvas id="qcTrendChart" height="140"></canvas>` :
+                    ${trendData.length>=2 ? `<div style="position:relative;height:220px;"><canvas id="qcTrendChart"></canvas></div>` :
                         `<div style="text-align:center;padding:40px;color:#94a3b8;">ต้องมีอย่างน้อย 2 sessions<br>ถึงจะแสดงกราฟได้</div>`}
                 </div>
 
