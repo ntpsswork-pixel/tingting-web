@@ -20,7 +20,7 @@
             --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
             --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.1), 0 12px 32px rgba(0,0,0,0.06);
         }
-        body { margin:0; display:flex; font-family:'IBM Plex Sans Thai','Prompt',sans-serif; background:var(--bg-light); min-height:100vh; overflow-x:hidden; color:#1e293b; }
+        body { margin:0; display:flex; font-family:'IBM Plex Sans Thai','Prompt',sans-serif; background:var(--bg-light); min-height:100vh; color:#1e293b; }
 
         /* ── SIDEBAR ── */
         .sidebar { width:var(--sidebar-width); height:100vh; background:var(--primary-dark); color:white; position:fixed; left:0; top:0; z-index:1000; display:flex; flex-direction:column; box-shadow:4px 0 24px rgba(0,0,0,0.15); }
@@ -5232,17 +5232,17 @@ ${r.zone}`);
             </div>
 
             <!-- GRAPH + BREAKDOWN ROW -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:20px;">
 
                 <!-- กราฟ Pass Rate trend -->
-                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;">
+                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;min-width:0;">
                     <div style="font-weight:700;font-size:14px;margin-bottom:14px;color:#1e293b;">📈 Pass Rate ย้อนหลัง (10 sessions ล่าสุด)</div>
                     ${trendData.length>=2 ? `<div style="position:relative;height:220px;"><canvas id="qcTrendChart"></canvas></div>` :
                         `<div style="text-align:center;padding:40px;color:#94a3b8;">ต้องมีอย่างน้อย 2 sessions<br>ถึงจะแสดงกราฟได้</div>`}
                 </div>
 
                 <!-- Product Breakdown -->
-                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;overflow-y:auto;max-height:320px;">
+                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;overflow-y:auto;max-height:320px;min-width:0;">
                     <div style="font-weight:700;font-size:14px;margin-bottom:14px;color:#1e293b;">🏷️ Breakdown สินค้า</div>
                     ${failBreakdown.length ? failBreakdown.map(([pid,v])=>{
                         const failPct = v.total>0?Math.round(v.fail/v.total*100):0;
