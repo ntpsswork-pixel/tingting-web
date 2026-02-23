@@ -245,7 +245,6 @@ function render(){
       <button class="btn bp blg" onclick="submitSig()">✅ ยืนยันรับสินค้า</button>
     </div>`;
   }else if(x.status==='waiting'){
-    // พนักงานขนส่งเซ็นรับในมือถือ (แบบร่าง)
     html+=`<div class="sig-section">
       <div class="sig-title">🚛 เซ็นรับสินค้า — พนักงานขนส่ง</div>
       <div class="sig-sub">กรุณาเซ็นชื่อยืนยันรับสินค้าออกจากคลัง</div>
@@ -270,7 +269,7 @@ function render(){
   },300);
 
   // Init sig if needed
-  if(x.status==='transit'&&!alreadySigned){
+  if((x.status==='transit'&&!alreadySigned)||x.status==='waiting'){
     setTimeout(initSig,400);
   }
 }
@@ -280,13 +279,22 @@ function initSig(){
   const c=document.getElementById('sigC');
   if(!w||!c)return;
   c.width=w.clientWidth||400;c.height=180;
+  c.style.touchAction='none';
+  c.style.userSelect='none';
   sCtx=c.getContext('2d');sCtx.clearRect(0,0,c.width,c.height);
-  sCtx.strokeStyle='#111';sCtx.lineWidth=2.5;sCtx.lineCap='round';sCtx.lineJoin='round';
+  sCtx.strokeStyle='#111';sCtx.lineWidth=3;sCtx.lineCap='round';sCtx.lineJoin='round';
   sDrw=false;
   function pos(e){const r=c.getBoundingClientRect();const sx=c.width/r.width,sy=c.height/r.height;const s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left)*sx,y:(s.clientY-r.top)*sy};}
-  c.onmousedown=c.ontouchstart=function(e){e.preventDefault();sDrw=true;const p=pos(e);sCtx.beginPath();sCtx.moveTo(p.x,p.y);document.getElementById('sigH').style.opacity='0';};
-  c.onmousemove=c.ontouchmove=function(e){e.preventDefault();if(!sDrw)return;const p=pos(e);sCtx.lineTo(p.x,p.y);sCtx.stroke();};
-  c.onmouseup=c.onmouseleave=c.ontouchend=function(){sDrw=false;};
+  function start(e){e.preventDefault();sDrw=true;const p=pos(e);sCtx.beginPath();sCtx.moveTo(p.x,p.y);document.getElementById('sigH').style.opacity='0';}
+  function move(e){e.preventDefault();if(!sDrw)return;const p=pos(e);sCtx.lineTo(p.x,p.y);sCtx.stroke();}
+  function end(){sDrw=false;}
+  c.addEventListener('mousedown',start,{passive:false});
+  c.addEventListener('touchstart',start,{passive:false});
+  c.addEventListener('mousemove',move,{passive:false});
+  c.addEventListener('touchmove',move,{passive:false});
+  c.addEventListener('mouseup',end);
+  c.addEventListener('mouseleave',end);
+  c.addEventListener('touchend',end);
 }
 window.clrSig=function(){const c=document.getElementById('sigC');if(sCtx)sCtx.clearRect(0,0,c.width,c.height);document.getElementById('sigH').style.opacity='1';};
 function isEmpty(){const c=document.getElementById('sigC');if(!c)return true;return!Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data).some(x=>x!==0);}
@@ -299,11 +307,10 @@ window.submitDriverSig=async function(){
   if(btn){btn.textContent='⏳ กำลังบันทึก...';btn.disabled=true;}
   try{
     await updateDoc(doc(db,'deliveries',ID),{
-      driverSig:sig,driverSignName:nm,status:'transit',
-      driverSignedAt:Date.now()
+      driverSig:sig,driverSignName:nm,status:'transit',driverSignedAt:Date.now()
     });
     deliveryData.driverSig=sig;deliveryData.driverSignName=nm;deliveryData.status='transit';
-    toast('✅ เซ็นรับสำเร็จ — สถานะเปลี่ยนเป็นกำลังขนส่ง','#10b981');
+    toast('✅ เซ็นรับสำเร็จ — กำลังออกจากคลัง','#10b981');
     setTimeout(()=>render(),800);
   }catch(e){toast('❌ '+e.message,'#ef4444');if(btn){btn.textContent='✅ ยืนยันรับสินค้าออกจากคลัง';btn.disabled=false;}}
 };
