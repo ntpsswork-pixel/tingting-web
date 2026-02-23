@@ -20,7 +20,7 @@
             --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
             --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.1), 0 12px 32px rgba(0,0,0,0.06);
         }
-        body { margin:0; display:flex; font-family:'IBM Plex Sans Thai','Prompt',sans-serif; background:var(--bg-light); min-height:100vh; color:#1e293b; }
+        body { margin:0; display:flex; font-family:'IBM Plex Sans Thai','Prompt',sans-serif; background:var(--bg-light); min-height:100vh; overflow-x:hidden; color:#1e293b; }
 
         /* ── SIDEBAR ── */
         .sidebar { width:var(--sidebar-width); height:100vh; background:var(--primary-dark); color:white; position:fixed; left:0; top:0; z-index:1000; display:flex; flex-direction:column; box-shadow:4px 0 24px rgba(0,0,0,0.15); }
@@ -1479,6 +1479,19 @@
                         <input type="text" id="newPdName" placeholder="ชื่อสินค้า" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
                         <input type="text" id="newPdSupplier" placeholder="🏢 Supplier / ผู้ส่ง (ถ้ามี)" style="padding:10px;border:1px solid #ddd;border-radius:8px;grid-column:span 2;">
                     </div>
+                    <div style="background:#f0fdf4;border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid #bbf7d0;">
+                        <div style="font-size:11px;color:#15803d;font-weight:bold;margin-bottom:8px;">📦 บาร์โค้ด (สำหรับสแกนในอนาคต)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                            <div>
+                                <label style="font-size:10px;color:#64748b;font-weight:bold;display:block;margin-bottom:3px;">บาร์โค้ด หน่วยลัง</label>
+                                <input type="text" id="newPdBarcode1" placeholder="เช่น 8850000000001" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                            </div>
+                            <div>
+                                <label style="font-size:10px;color:#64748b;font-weight:bold;display:block;margin-bottom:3px;">บาร์โค้ด หน่วยถุง</label>
+                                <input type="text" id="newPdBarcode2" placeholder="เช่น 8850000000002" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                            </div>
+                        </div>
+                    </div>
                     <div style="background:#f8fafc;border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid #e2e8f0;">
                         <div style="font-size:11px;color:#64748b;font-weight:bold;margin-bottom:8px;">หน่วยและอัตราแปลง (สูงสุด 3 หน่วย)</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
@@ -1573,7 +1586,7 @@
                         <button onclick="movePd(${i},1)" ${isLast?'disabled':''} style="background:${isLast?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:4px;width:22px;height:18px;cursor:${isLast?'default':'pointer'};font-size:10px;line-height:1;">▼</button>
                     </div>
                     <span style="font-size:10px;color:#cbd5e1;min-width:18px;text-align:center;">${i+1}</span>
-                    <div style="flex:1;font-size:12px;"><b>${p.id}</b> - ${p.name}${p.supplier?` <span style="background:#f0f9ff;color:#0891b2;font-size:10px;padding:1px 6px;border-radius:10px;border:1px solid #bae6fd;">🏢 ${p.supplier}</span>`:''}<br><span style="color:#94a3b8;font-size:11px;">${unitsStr}</span></div>
+                    <div style="flex:1;font-size:12px;"><b>${p.id}</b> - ${p.name}${p.supplier?` <span style="background:#f0f9ff;color:#0891b2;font-size:10px;padding:1px 6px;border-radius:10px;border:1px solid #bae6fd;">🏢 ${p.supplier}</span>`:''}<br><span style="color:#94a3b8;font-size:11px;">${unitsStr}</span>${p.barcode1||p.barcode2?`<br><span style="color:#15803d;font-size:10px;">📦 ${p.barcode1?'ลัง:'+p.barcode1:''}${p.barcode1&&p.barcode2?' | ':''}${p.barcode2?'ถุง:'+p.barcode2:''}</span>`:''}</div>
                     <button class="btn-sm" style="background:var(--info);color:white;" onclick="toggleEditPd(${i})">✏️</button>
                     <button class="btn-sm" style="background:var(--danger);color:white;" onclick="deletePd(${i})">✕</button>
                 </div>
@@ -1581,6 +1594,19 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
                         <input id="pdEditName_${i}" value="${p.name}" placeholder="ชื่อสินค้า" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;grid-column:span 2;">
                         <input id="pdEditSupplier_${i}" value="${p.supplier||''}" placeholder="🏢 Supplier (ถ้ามี)" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;grid-column:span 2;">
+                        <div style="grid-column:span 2;background:#f0fdf4;border-radius:6px;padding:8px;border:1px solid #bbf7d0;">
+                            <div style="font-size:10px;color:#15803d;font-weight:bold;margin-bottom:6px;">📦 บาร์โค้ด</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                                <div>
+                                    <label style="font-size:10px;color:#64748b;display:block;margin-bottom:2px;">หน่วยลัง</label>
+                                    <input id="pdEditBarcode1_${i}" value="${p.barcode1||''}" placeholder="บาร์โค้ดลัง" style="width:100%;padding:5px;border:1px solid #ddd;border-radius:5px;font-size:11px;box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label style="font-size:10px;color:#64748b;display:block;margin-bottom:2px;">หน่วยถุง</label>
+                                    <input id="pdEditBarcode2_${i}" value="${p.barcode2||''}" placeholder="บาร์โค้ดถุง" style="width:100%;padding:5px;border:1px solid #ddd;border-radius:5px;font-size:11px;box-sizing:border-box;">
+                                </div>
+                            </div>
+                        </div>
                         ${units.map((u,ui)=>`
                         <input id="pdEditUnit${ui}_${i}" value="${u.name}" placeholder="หน่วยที่ ${ui+1}" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
                         ${ui<units.length-1?`<input id="pdEditRate${ui}_${i}" value="${u.rate||''}" placeholder="อัตราแปลง ×" type="number" min="1" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">`:'<div></div>'}`).join('')}
@@ -1617,11 +1643,15 @@
             }
             if(!newUnits.length)return;
             const editedSupplier = document.getElementById(`pdEditSupplier_${i}`)?.value.trim()||'';
+            const editedBarcode1 = document.getElementById(`pdEditBarcode1_${i}`)?.value.trim()||'';
+            const editedBarcode2 = document.getElementById(`pdEditBarcode2_${i}`)?.value.trim()||'';
             allProducts[i].name=name;
             allProducts[i].units=newUnits;
             allProducts[i].unit=newUnits[0]?.name||'';
             allProducts[i].subUnit=newUnits[1]?.name||'';
             allProducts[i].supplier=editedSupplier;
+            allProducts[i].barcode1=editedBarcode1;
+            allProducts[i].barcode2=editedBarcode2;
             saveConfig(); renderPdList();
             toast('✅ แก้ไขสินค้าเรียบร้อย','#059669');
         };
@@ -1656,12 +1686,14 @@
             if(u2) units.push({name:u2,rate:r2||0});
             if(u3) units.push({name:u3,rate:0}); // หน่วยสุดท้ายไม่มี rate
             const supplier = document.getElementById('newPdSupplier')?.value.trim()||'';
-            allProducts.push({id,name,units,supplier,
+            const barcode1 = document.getElementById('newPdBarcode1')?.value.trim()||'';
+            const barcode2 = document.getElementById('newPdBarcode2')?.value.trim()||'';
+            allProducts.push({id,name,units,supplier,barcode1,barcode2,
                 // backward compat
                 unit:u1, subUnit:u2||''
             });
             saveConfig(); renderPdList(); renderMapping();
-            ['newPdId','newPdName','newPdSupplier','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
+            ['newPdId','newPdName','newPdSupplier','newPdBarcode1','newPdBarcode2','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
                 const el=document.getElementById(x); if(el) el.value='';
             });
             toast('✅ เพิ่มสินค้าเรียบร้อย','#059669');
@@ -5232,17 +5264,17 @@ ${r.zone}`);
             </div>
 
             <!-- GRAPH + BREAKDOWN ROW -->
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:20px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
 
                 <!-- กราฟ Pass Rate trend -->
-                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;min-width:0;">
+                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;">
                     <div style="font-weight:700;font-size:14px;margin-bottom:14px;color:#1e293b;">📈 Pass Rate ย้อนหลัง (10 sessions ล่าสุด)</div>
-                    ${trendData.length>=2 ? `<div style="position:relative;height:220px;"><canvas id="qcTrendChart"></canvas></div>` :
+                    ${trendData.length>=2 ? `<canvas id="qcTrendChart" height="140"></canvas>` :
                         `<div style="text-align:center;padding:40px;color:#94a3b8;">ต้องมีอย่างน้อย 2 sessions<br>ถึงจะแสดงกราฟได้</div>`}
                 </div>
 
                 <!-- Product Breakdown -->
-                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;overflow-y:auto;max-height:320px;min-width:0;">
+                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;overflow-y:auto;max-height:320px;">
                     <div style="font-weight:700;font-size:14px;margin-bottom:14px;color:#1e293b;">🏷️ Breakdown สินค้า</div>
                     ${failBreakdown.length ? failBreakdown.map(([pid,v])=>{
                         const failPct = v.total>0?Math.round(v.fail/v.total*100):0;
