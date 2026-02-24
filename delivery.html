@@ -415,7 +415,7 @@ const FB={apiKey:"AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",authDomain:"tingting-
 const db=getFirestore(initializeApp(FB));
 
 let CU=null;
-try{const r=sessionStorage.getItem('currentUser')||localStorage.getItem('currentUser');if(r)CU=JSON.parse(r);}catch(e){}
+try{const r=localStorage.getItem('currentUser');if(r)CU=JSON.parse(r);}catch(e){}
 if(!CU){location.href='login.html';}
 document.getElementById('unm').textContent=CU?.name||'—';
 document.getElementById('url2').textContent=(CU?.role||'STAFF').toUpperCase();
@@ -736,7 +736,6 @@ window.exportDOExcel=async function(){
 };
 
 window.doLogout=function(){
-  sessionStorage.removeItem('currentUser');
   localStorage.removeItem('currentUser');
   location.href='login.html';
 };
