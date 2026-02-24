@@ -393,6 +393,7 @@
         let monthlyCountOpen   = false; // admin toggle: เปิด/ปิดนับสต๊อกสิ้นเดือน
         let stockSheetTemplates = {}; // { templateId: { name, branchType, items:[{id,name,unit,group}], color } }
         let productCategories   = []; // ['เครื่องดื่ม','อาหารแห้ง',...]
+        let warehouseGroups     = {}; // { "WHRM01": { name:"คลังหลัก 1", zones:["WHRM01 Room A","WHRM01 Room B"] } }
 
         // ---- UTILS ----
         async function hashPassword(p) {
@@ -424,6 +425,7 @@
                     if (d.stockSheetTemplates)  stockSheetTemplates = d.stockSheetTemplates;
                     if (d.productCategories)    productCategories   = d.productCategories;
                     if (d.productCategories)    productCategories   = d.productCategories;
+                    if (d.warehouseGroups)      warehouseGroups     = d.warehouseGroups;
                     // --- migrate: เพิ่ม requisition ให้ทุก role ที่ยังไม่มี ---
                     let needSave = false;
                     const reqDefaults = {
@@ -450,7 +452,7 @@
         }
 
         async function saveConfig() {
-            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories }, { merge:true }); }
+            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories, warehouseGroups }, { merge:true }); }
             catch(e) { toast('❌ บันทึก config ไม่สำเร็จ','#c2410c'); }
         }
 
@@ -1325,20 +1327,30 @@
             document.getElementById('dashboardView').classList.add('hidden');
             const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
             const visibleZones=getVisibleWarehouses();
+
+            // สร้าง options คลังใหญ่
+            const groupEntries=Object.entries(warehouseGroups);
+            const groupOpts=groupEntries.map(([gid,g])=>`<option value="grp:${gid}">🏭 ${g.name||gid} (${(g.zones||[]).length} zone)</option>`).join('');
+
             c.innerHTML=`<div class="tool-header"><h2>📊 ประวัติ & Export รายงาน</h2><button onclick="closeTool()">✕ ปิด</button></div>
             <div class="filter-bar no-print" style="flex-wrap:wrap;gap:12px;">
                 <div>
                     <label>📋 ประเภทรายงาน</label>
                     <select id="reportMode" onchange="switchReportMode()" style="padding:10px 14px;border:2px solid var(--primary-dark);border-radius:10px;font-size:14px;font-weight:bold;min-width:220px;">
                         <option value="history">📜 ประวัติการนับ (ทุก session)</option>
-                        <option value="snapshot">📦 ยอดสต๊อกล่าสุด (พร้อม export)</option>
+                        <option value="snapshot">📦 ยอดสต๊อกล่าสุด (รายครั้ง)</option>
+                        <option value="monthly">📅 ยอดนับสิ้นเดือน (inventoryHistory)</option>
                     </select>
                 </div>
-                <div><label>📦 เลือกคลัง</label>
+                <div><label>📦 เลือกคลัง / Zone</label>
                     <select id="filterZone" onchange="loadCurrentReport()">
                         <option value="">— ทุกคลัง —</option>
+                        ${groupOpts ? `<optgroup label="── คลังใหญ่ (รวม Zone) ──">${groupOpts}</optgroup>` : ''}
+                        <optgroup label="── แต่ละ Zone ──">
                         ${visibleZones.map(w=>`<option value="${w}">${w}</option>`).join('')}
-                    </select></div>
+                        </optgroup>
+                    </select>
+                </div>
                 <div id="dateFromWrap"><label>📅 วันที่เริ่มต้น</label>
     <input type="text" id="filterDateFrom_txt" placeholder="dd/mm/yyyy" maxlength="10"
         oninput="formatDateInput(this,'filterDateFrom');loadCurrentReport()"
@@ -1351,6 +1363,10 @@
         style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;width:130px;outline:none;">
     <input type="hidden" id="filterDateTo">
 </div>
+                <div id="monthFilterWrap" style="display:none;"><label>📅 เดือน (yyyy-mm)</label>
+                    <input type="month" id="filterMonth" onchange="loadCurrentReport()"
+                        style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;">
+                </div>
                 <div style="display:flex;gap:8px;align-items:flex-end;">
                     <button onclick="exportCurrentReport()" style="background:var(--success);color:white;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
                     <button onclick="window.print()" style="background:var(--danger);color:white;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">🖨️ Print PDF</button>
@@ -1364,18 +1380,21 @@
             const mode=document.getElementById('reportMode').value;
             document.getElementById('dateFromWrap').style.display=mode==='history'?'':'none';
             document.getElementById('dateToWrap').style.display=mode==='history'?'':'none';
+            document.getElementById('monthFilterWrap').style.display=mode==='monthly'?'':'none';
             loadCurrentReport();
         };
 
         window.loadCurrentReport=async function(){
             const mode=document.getElementById('reportMode')?.value||'history';
             if(mode==='snapshot') await loadSnapshot();
+            else if(mode==='monthly') await loadMonthlyReport();
             else await loadHistory();
         };
 
         window.exportCurrentReport=function(){
             const mode=document.getElementById('reportMode')?.value||'history';
             if(mode==='snapshot') exportExcelSnapshot();
+            else if(mode==='monthly') exportExcelMonthly();
             else exportExcelHistory();
         };
 
@@ -1438,6 +1457,151 @@
             const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb,ws,'ยอดสต๊อก');
             XLSX.writeFile(wb,`Stock_Snapshot_${new Date().toLocaleDateString('th-TH')}.xlsx`);
+        };
+
+        // ---- MONTHLY REPORT: ยอดนับสิ้นเดือน จาก inventoryHistory ----
+        window.loadMonthlyReport=async function(){
+            const zoneFilter=document.getElementById('filterZone')?.value||'';
+            const monthFilter=document.getElementById('filterMonth')?.value||'';
+            const container=document.getElementById('historyContainer');
+            if(!container)return;
+            container.innerHTML='<p style="color:#94a3b8;text-align:center;padding:40px;">กำลังโหลด...</p>';
+
+            const snap=await getDocs(collection(db,'inventoryHistory'));
+            let sheets=[];
+            snap.forEach(d=>sheets.push({id:d.id,...d.data()}));
+
+            // กรองตาม zone/group
+            const isGroup=zoneFilter.startsWith('grp:');
+            if(isGroup){
+                const gid=zoneFilter.replace('grp:','');
+                const groupZones=(warehouseGroups[gid]?.zones||[]);
+                sheets=sheets.filter(s=>groupZones.includes(s.zone));
+            } else if(zoneFilter){
+                sheets=sheets.filter(s=>s.zone===zoneFilter);
+            }
+
+            // กรองตามเดือน
+            if(monthFilter) sheets=sheets.filter(s=>s.month===monthFilter);
+
+            if(!sheets.length){
+                container.innerHTML='<p style="color:#94a3b8;text-align:center;padding:40px;">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</p>';
+                window._monthlyExportData=[];
+                return;
+            }
+
+            sheets.sort((a,b)=>b.timestamp-a.timestamp);
+
+            // ถ้าเลือกคลังใหญ่ (group) → รวมยอดข้าม Zone
+            if(isGroup){
+                const gid=zoneFilter.replace('grp:','');
+                const gName=warehouseGroups[gid]?.name||gid;
+                // รวม items ทุก zone โดยบวกยอด balance สินค้าเดียวกัน
+                // ใช้ record ล่าสุดของแต่ละ zone
+                const latestPerZone={};
+                sheets.forEach(s=>{
+                    if(!latestPerZone[s.zone]||s.timestamp>latestPerZone[s.zone].timestamp)
+                        latestPerZone[s.zone]=s;
+                });
+                const combined={}; // { productId: {name,unit,balance,zones:[]} }
+                Object.values(latestPerZone).forEach(s=>{
+                    (s.items||[]).forEach(it=>{
+                        if(!combined[it.id]) combined[it.id]={name:it.name,unit:it.unit||'',balance:0,zones:[],note:it.note||''};
+                        combined[it.id].balance+=it.balance||0;
+                        combined[it.id].zones.push(s.zone);
+                    });
+                });
+
+                const monthLabel=monthFilter||Object.keys(latestPerZone).map(z=>latestPerZone[z].month).filter(Boolean).sort().reverse()[0]||'';
+                const rows=Object.entries(combined).map(([id,v])=>({
+                    คลังใหญ่:gName, เดือน:monthLabel, รหัส:id,
+                    ชื่อสินค้า:v.name, ยอดรวม:Math.round(v.balance*1000)/1000,
+                    หน่วย:v.unit, Zone:v.zones.join(', '), หมายเหตุ:v.note
+                }));
+                window._monthlyExportData=rows;
+
+                // สร้างตารางแสดงผล
+                const countedZones=Object.keys(latestPerZone);
+                container.innerHTML=`
+                <div style="background:#eff6ff;border:1px solid #bae6fd;border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#0369a1;">
+                    🏭 <b>${gName}</b> — รวมยอดจาก ${countedZones.length} Zone: ${countedZones.join(', ')} ${monthLabel?'• เดือน '+monthLabel:''}
+                </div>
+                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead><tr style="background:#1e293b;color:white;">
+                        <th style="padding:12px;text-align:left;font-size:12px;">รหัส</th>
+                        <th style="padding:12px;text-align:left;font-size:12px;">ชื่อสินค้า</th>
+                        <th style="padding:12px;text-align:center;font-size:12px;background:#1d4ed8;">ยอดรวม</th>
+                        <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
+                        <th style="padding:12px;text-align:left;font-size:12px;">Zone ที่นับ</th>
+                    </tr></thead>
+                    <tbody>${Object.entries(combined).map(([id,v])=>`
+                        <tr style="border-top:1px solid #f1f5f9;">
+                            <td style="padding:12px;font-weight:bold;font-size:13px;">${id}</td>
+                            <td style="padding:12px;color:#475569;font-size:13px;">${v.name}</td>
+                            <td style="padding:12px;text-align:center;font-weight:bold;font-size:18px;color:#1d4ed8;">${Math.round(v.balance*1000)/1000}</td>
+                            <td style="padding:12px;text-align:center;color:#64748b;font-size:12px;">${v.unit}</td>
+                            <td style="padding:12px;font-size:11px;color:#94a3b8;">${v.zones.join(' + ')}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table></div>`;
+            } else {
+                // แสดงแบบรายชีท
+                window._monthlyExportData=[];
+                let html='';
+                sheets.forEach(s=>{
+                    const typeLabel=s.type==='branch'?'🏪 สาขา':'🏭 คลังหลัก';
+                    const monthLabel=s.month||s.date?.slice(3)||'';
+                    html+=`<div class="history-card" style="margin-bottom:16px;">
+                        <div class="history-card-header">
+                            <div>
+                                <b>${typeLabel} ${s.zone}</b>
+                                <span style="margin-left:10px;font-size:12px;color:#64748b;">📅 ${s.date} ${s.month?'• เดือน '+s.month:''}</span>
+                                ${s.templateName?`<span style="margin-left:8px;font-size:11px;background:#eff6ff;color:#3b82f6;padding:2px 8px;border-radius:10px;">📄 ${s.templateName}</span>`:''}
+                            </div>
+                            <div style="font-size:11px;color:#94a3b8;">👤 ${s.countedBy||'-'}</div>
+                        </div>
+                        <table style="width:100%;border-collapse:collapse;">
+                            <thead><tr style="background:#f8fafc;">
+                                <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">รหัส</th>
+                                <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">ชื่อสินค้า</th>
+                                <th style="padding:10px;text-align:center;font-size:12px;color:#1d4ed8;">ยอดนับ</th>
+                                <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
+                                <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">หมายเหตุ</th>
+                            </tr></thead>
+                            <tbody>${(s.items||[]).map(it=>`
+                                <tr style="border-top:1px solid #f1f5f9;">
+                                    <td style="padding:10px;font-weight:bold;font-size:12px;">${it.id}</td>
+                                    <td style="padding:10px;color:#475569;font-size:12px;">${it.name}</td>
+                                    <td style="padding:10px;text-align:center;font-weight:bold;font-size:16px;color:#1d4ed8;">${it.balance??'-'}</td>
+                                    <td style="padding:10px;text-align:center;color:#64748b;font-size:12px;">${it.unit||''}</td>
+                                    <td style="padding:10px;font-size:11px;color:#94a3b8;">${it.note||'-'}</td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>`;
+                    // build export data
+                    (s.items||[]).forEach(it=>{
+                        window._monthlyExportData.push({
+                            ประเภท:s.type==='branch'?'สาขา':'คลังหลัก',
+                            คลัง:s.zone, เดือน:s.month||'', วันที่:s.date,
+                            รหัส:it.id, ชื่อสินค้า:it.name, ยอดนับ:it.balance??'',
+                            หน่วย:it.unit||'', หมายเหตุ:it.note||'', ผู้นับ:s.countedBy||''
+                        });
+                    });
+                });
+                container.innerHTML=html||'<p style="color:#94a3b8;text-align:center;padding:40px;">ไม่พบข้อมูล</p>';
+            }
+        };
+
+        window.exportExcelMonthly=function(){
+            const data=window._monthlyExportData||[];
+            if(!data.length){toast('❌ ไม่มีข้อมูล — กรุณาโหลดรายงานก่อน','#c2410c');return;}
+            const rows=[Object.keys(data[0]),...data.map(r=>Object.values(r))];
+            const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,'ยอดนับสิ้นเดือน');
+            XLSX.writeFile(wb,`Monthly_Inventory_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
+            toast('📥 Export เรียบร้อย','#10b981');
         };
 
         let currentHistoryData=[];
@@ -1749,11 +1913,35 @@
                 <div id="minMaxZoneTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f1f5f9;"></div>
                 <div id="minMaxZoneLabel" style="font-size:13px;color:#64748b;margin-bottom:10px;"></div>
                 <div id="minMaxContainer"></div>
+            </div>
+            <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <div>
+                        <h4 style="margin:0 0 4px;">🏭 จัดกลุ่ม Zone เข้าคลังใหญ่</h4>
+                        <small style="color:#94a3b8;">ใช้สำหรับ Export รวมยอดข้าม Zone — เช่น WHRM01 Room A + Room B = ยอดรวม WHRM01</small>
+                    </div>
+                    <button onclick="saveWarehouseGroups()" style="background:var(--success);color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:bold;">💾 บันทึกกลุ่มคลัง</button>
+                </div>
+                <div style="background:#eff6ff;border:1px solid #bae6fd;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#0369a1;">
+                    💡 <b>วิธีใช้:</b> สร้างกลุ่มคลังใหญ่ → ตั้งชื่อ (เช่น WHRM01) → เลือก Zone ที่อยู่ในกลุ่มนั้น → บันทึก<br>
+                    ตอน Export เลือก "คลังใหญ่" ระบบจะรวมยอดสินค้าเดียวกันจากทุก Zone ในกลุ่มให้อัตโนมัติ
+                </div>
+                <div id="whGroupContainer"></div>
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="newGroupId" placeholder="รหัสกลุ่ม เช่น WHRM01" maxlength="20"
+                        style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;width:160px;outline:none;font-family:inherit;"
+                        onfocus="this.style.borderColor='var(--primary-dark)'" onblur="this.style.borderColor='#e2e8f0'">
+                    <input type="text" id="newGroupName" placeholder="ชื่อแสดงผล เช่น คลังหลัก 1" maxlength="40"
+                        style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;flex:1;outline:none;font-family:inherit;"
+                        onfocus="this.style.borderColor='var(--primary-dark)'" onblur="this.style.borderColor='#e2e8f0'">
+                    <button onclick="addWarehouseGroup()" style="background:var(--info);color:white;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-weight:bold;white-space:nowrap;">+ เพิ่มกลุ่ม</button>
+                </div>
             </div>`;
             renderWhList(); renderPdList(); renderCategoryChips();
             document.getElementById('selectZoneMap').innerHTML=warehouseList.map(w=>`<option value="${w}">${w}</option>`).join('');
             renderMapping();
             renderMinMaxTable();
+            renderWhGroupContainer();
         };
 
         window.renderWhList=function(){
@@ -1766,6 +1954,77 @@
                 <button class="btn-sm" style="background:var(--success);color:white;display:none;" id="whSaveBtn_${i}" onclick="saveEditWh(${i})">💾</button>
                 <button class="btn-sm" style="background:var(--danger);color:white;" onclick="deleteWh(${i})">🗑️</button>
             </div>`).join('');
+        };
+
+        // ---- Warehouse Group functions ----
+        window.renderWhGroupContainer = function() {
+            const c = document.getElementById('whGroupContainer'); if(!c) return;
+            const entries = Object.entries(warehouseGroups);
+            if(!entries.length) {
+                c.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:16px;">ยังไม่มีกลุ่มคลัง — เพิ่มกลุ่มใหม่ด้านล่าง</p>';
+                return;
+            }
+            c.innerHTML = entries.map(([gid, g]) => {
+                const groupZones = g.zones || [];
+                return `<div style="border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+                        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+                            <span style="background:#1e3a5f;color:white;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:bold;white-space:nowrap;">${gid}</span>
+                            <input type="text" id="grpname_${gid}" value="${g.name||gid}" placeholder="ชื่อแสดงผล"
+                                style="flex:1;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:13px;outline:none;font-family:inherit;"
+                                onfocus="this.style.borderColor='var(--primary-dark)'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <button onclick="deleteWarehouseGroup('${gid}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:bold;">🗑️ ลบกลุ่ม</button>
+                    </div>
+                    <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;">📦 เลือก Zone ที่อยู่ในกลุ่มนี้:</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
+                        ${warehouseList.map(z => `
+                        <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid ${groupZones.includes(z)?'#3b82f6':'#e2e8f0'};border-radius:8px;cursor:pointer;background:${groupZones.includes(z)?'#eff6ff':'white'};transition:all .15s;">
+                            <input type="checkbox" id="grpzone_${gid}_${z.replace(/\s/g,'_')}" ${groupZones.includes(z)?'checked':''}
+                                style="width:15px;height:15px;accent-color:#3b82f6;cursor:pointer;"
+                                onchange="this.closest('label').style.borderColor=this.checked?'#3b82f6':'#e2e8f0';this.closest('label').style.background=this.checked?'#eff6ff':'white'">
+                            <span style="font-size:12px;font-weight:${groupZones.includes(z)?'700':'400'};">${z}</span>
+                        </label>`).join('')}
+                    </div>
+                </div>`;
+            }).join('');
+        };
+
+        window.addWarehouseGroup = function() {
+            const gid = document.getElementById('newGroupId')?.value.trim().toUpperCase();
+            const gname = document.getElementById('newGroupName')?.value.trim();
+            if(!gid) { toast('⚠️ กรุณาใส่รหัสกลุ่ม','#c2410c'); return; }
+            if(warehouseGroups[gid]) { toast('⚠️ รหัสกลุ่มนี้มีอยู่แล้ว','#c2410c'); return; }
+            warehouseGroups[gid] = { name: gname||gid, zones: [] };
+            document.getElementById('newGroupId').value = '';
+            document.getElementById('newGroupName').value = '';
+            renderWhGroupContainer();
+            toast(`✅ เพิ่มกลุ่ม ${gid} แล้ว (ยังไม่ได้บันทึก — กด 💾 บันทึกกลุ่มคลัง)`, '#0891b2');
+        };
+
+        window.deleteWarehouseGroup = function(gid) {
+            if(!confirm(`ลบกลุ่มคลัง "${gid}" ?`)) return;
+            delete warehouseGroups[gid];
+            saveConfig();
+            renderWhGroupContainer();
+            toast('🗑️ ลบกลุ่มคลังแล้ว','#64748b');
+        };
+
+        window.saveWarehouseGroups = function() {
+            const entries = Object.keys(warehouseGroups);
+            if(!entries.length) { toast('⚠️ ยังไม่มีกลุ่มคลัง','#f59e0b'); return; }
+            entries.forEach(gid => {
+                const nameEl = document.getElementById(`grpname_${gid}`);
+                if(nameEl) warehouseGroups[gid].name = nameEl.value.trim() || gid;
+                const selectedZones = warehouseList.filter(z => {
+                    const cb = document.getElementById(`grpzone_${gid}_${z.replace(/\s/g,'_')}`);
+                    return cb?.checked;
+                });
+                warehouseGroups[gid].zones = selectedZones;
+            });
+            saveConfig();
+            toast('✅ บันทึกกลุ่มคลังเรียบร้อย','#059669');
+            renderWhGroupContainer();
         };
 
         window.toggleEditWh=function(i){
@@ -2406,10 +2665,31 @@
             const hasAny=zoneProds.some(p=>document.getElementById(`inv_${p.id}`)?.value!=='');
             if(!hasAny){toast('⚠️ กรุณากรอกยอดคงเหลืออย่างน้อย 1 รายการ','#c2410c');return;}
 
-            if(!confirm(`ยืนยันบันทึกใบนับสต๊อก ${zone} วันที่ ${date}?`))return;
-
             const [yr,mo,dy]=date.split('-');
+            const monthKey=`${yr}-${mo}`; // e.g. "2025-02"
             const dateStr=`${dy}/${mo}/${parseInt(yr)+543}`;
+
+            // หา warehouseGroup ที่ zone นี้สังกัด
+            const groupId=Object.keys(warehouseGroups).find(gid=>(warehouseGroups[gid].zones||[]).includes(zone))||'';
+
+            // เช็คว่านับซ้ำในเดือนนี้ไหม
+            try {
+                const existSnap=await getDocs(collection(db,'inventoryHistory'));
+                let existDoc=null;
+                existSnap.forEach(d=>{
+                    const x=d.data();
+                    if(x.zone===zone && x.month===monthKey) existDoc={id:d.id,...x};
+                });
+                if(existDoc){
+                    const overwrite=confirm(`⚠️ มีข้อมูลนับสต๊อก ${zone} เดือน ${mo}/${parseInt(yr)+543} อยู่แล้ว (วันที่ ${existDoc.date})\n\nกด OK เพื่อบันทึกทับข้อมูลเดิม หรือ Cancel เพื่อยกเลิก`);
+                    if(!overwrite)return;
+                    // ลบของเดิมก่อน
+                    await deleteDoc(doc(db,'inventoryHistory',existDoc.id));
+                }
+            } catch(e){ console.error(e); }
+
+            if(!confirm(`ยืนยันบันทึกใบนับสต๊อก ${zone} วันที่ ${dateStr}?`))return;
+
             const items=zoneProds.map(p=>{
                 const units=p.units||[{name:p.unit||''}];
                 const val=document.getElementById(`inv_${p.id}`)?.value;
@@ -2419,8 +2699,10 @@
             }).filter(it=>it.balance!==null);
 
             await addDoc(collection(db,'inventoryHistory'),{
-                zone,date:dateStr,timestamp:Date.now(),
-                countedBy:staff,recordedBy:currentUser.name,items
+                type:'main',
+                zone, warehouseGroup:groupId, month:monthKey,
+                date:dateStr, timestamp:Date.now(),
+                countedBy:staff, recordedBy:currentUser.name, items
             });
 
             toast('✅ บันทึกใบนับสต๊อกคงเหลือสำเร็จ','#059669');
@@ -4750,6 +5032,8 @@ ${r.zone}`);
             const [cy,cm,cd]=dateVal.split('-');
             const dateTH=`${cd}/${cm}/${parseInt(cy)+543}`;
             const datetimeTH = dateTH + (timeVal ? ' ' + timeVal : '');
+            const monthKey=`${cy}-${cm}`;
+
             const items = tmpl.items.map(it=>({
                 id:it.id, name:it.name, unit:it.unit||'',
                 group:it.group||it.category||'',
@@ -4759,9 +5043,27 @@ ${r.zone}`);
             if(!items.some(it=>it.balance>0)){
                 if(!confirm('ยังไม่ได้กรอกยอดใดเลย ยืนยันบันทึกไหม?')) return;
             }
+
+            // เช็คนับซ้ำในเดือนเดียวกัน
+            try {
+                const existSnap=await getDocs(collection(db,'inventoryHistory'));
+                let existDoc=null;
+                existSnap.forEach(d=>{
+                    const x=d.data();
+                    if(x.zone===zone && x.month===monthKey && x.type==='branch') existDoc={id:d.id,...x};
+                });
+                if(existDoc){
+                    const overwrite=confirm(`⚠️ มีข้อมูลนับสต๊อก ${zone} เดือน ${cm}/${parseInt(cy)+543} อยู่แล้ว (วันที่ ${existDoc.date})\n\nกด OK เพื่อบันทึกทับข้อมูลเดิม หรือ Cancel เพื่อยกเลิก`);
+                    if(!overwrite)return;
+                    await deleteDoc(doc(db,'inventoryHistory',existDoc.id));
+                }
+            } catch(e){ console.error(e); }
+
             try {
                 await addDoc(collection(db,'inventoryHistory'),{
-                    zone, date:dateTH, datetime:datetimeTH, timestamp:Date.now(),
+                    type:'branch',
+                    zone, month:monthKey,
+                    date:dateTH, datetime:datetimeTH, timestamp:Date.now(),
                     countedBy:currentUser.name, recordedBy:currentUser.name,
                     templateId:tmplId, templateName:tmpl.name,
                     isBranchTemplate:true,
