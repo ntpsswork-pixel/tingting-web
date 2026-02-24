@@ -7645,6 +7645,95 @@ setTimeout(() => {
 
 // ===== END BULK CATEGORY EDITOR =====
 
+
+
+// ===== CENTRAL KITCHEN STOCK SYSTEM =====
+
+window.openCentralStock = function() {
+    document.getElementById('dashboardView').classList.add('hidden');
+    const container = document.getElementById('toolAppContainer');
+    container.classList.remove('hidden');
+
+    const zone = "ครัวกลาง";
+    const today = new Date().toISOString().split('T')[0];
+
+    const products = allProducts.filter(p =>
+        (zoneProductMap[zone] || []).includes(p.id)
+    );
+
+    container.innerHTML = `
+        <div class="tool-header">
+            <h2>📦 นับสต๊อกครัวกลาง</h2>
+            <button onclick="closeTool()">✕ ปิด</button>
+        </div>
+
+        <div class="user-card">
+            <div style="overflow:auto;max-height:70vh;">
+                <table class="stock-table">
+                    ${products.map(p => `
+                        <tr class="stock-row">
+                            <td style="width:40%">
+                                <b>${p.name}</b><br>
+                                <span style="font-size:12px;color:#94a3b8;">${p.unit}</span>
+                            </td>
+                            <td>
+                                <input type="number"
+                                    value="${countData[p.id]?.qty || 0}"
+                                    style="width:140px;padding:8px;border:1px solid #ddd;border-radius:8px;"
+                                    onchange="updateCentralTemp('${p.id}', this.value)">
+                            </td>
+                        </tr>
+                    `).join('')}
+                </table>
+            </div>
+
+            <div style="margin-top:20px;text-align:right;">
+                <button onclick="saveCentralStock()"
+                    style="background:#10b981;color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;">
+                    💾 บันทึกสต๊อก
+                </button>
+            </div>
+        </div>
+    `;
+};
+
+window.updateCentralTemp = function(id, value){
+    if(!window.tempCentralData) window.tempCentralData = {};
+    window.tempCentralData[id] = Number(value);
+};
+
+window.saveCentralStock = async function(){
+    if(!window.tempCentralData) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const zone = "ครัวกลาง";
+
+    Object.keys(window.tempCentralData).forEach(id=>{
+        countData[id] = {
+            qty: window.tempCentralData[id],
+            lastUpdate: today,
+            zone: zone
+        };
+    });
+
+    await saveCountData();
+
+    try {
+        await addDoc(collection(db,'stockHistory'),{
+            zone: zone,
+            date: today,
+            countedBy: currentUser.name,
+            items: Object.keys(window.tempCentralData),
+            timestamp: Date.now()
+        });
+    } catch(e){ console.error(e); }
+
+    window.tempCentralData = {};
+    toast('✅ บันทึกนับสต๊อกครัวกลางเรียบร้อย','#059669');
+};
+
+// ===== END CENTRAL KITCHEN SYSTEM =====
+
 </script>
 </body>
 </html>
