@@ -1561,7 +1561,7 @@
                         </div>
                     </div>
                     <button onclick="addPd()" style="width:100%;background:var(--info);color:white;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;">+ บันทึกสินค้า</button>
-                    <div id="pdMasterContainer" style="max-height:250px;overflow-y:auto;border-top:1px solid #eee;padding-top:10px;"></div>
+                    <div id="pdMasterContainer" style="max-height:500px;overflow-y:auto;border-top:1px solid #eee;padding-top:12px;"></div>
                 </div>
             </div>
             <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
@@ -1646,16 +1646,28 @@
                 const units=p.units||[{name:p.unit,rate:0},{name:p.subUnit||'',rate:0}].filter(u=>u.name);
                 const unitsStr=units.map((u,ui)=>u.name+(ui<units.length-1&&u.rate>0?' (×'+u.rate+')':'')).join(' → ');
                 const isFirst=i===0, isLast=i===allProducts.length-1;
-                return `<div style="padding:8px;background:#f8fafc;margin-bottom:6px;border-radius:8px;border:1px solid #edf2f7;">
-                <div style="display:flex;align-items:center;gap:6px;">
-                    <div style="display:flex;flex-direction:column;gap:2px;margin-right:2px;">
-                        <button onclick="movePd(${i},-1)" ${isFirst?'disabled':''} style="background:${isFirst?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:4px;width:22px;height:18px;cursor:${isFirst?'default':'pointer'};font-size:10px;line-height:1;">▲</button>
-                        <button onclick="movePd(${i},1)" ${isLast?'disabled':''} style="background:${isLast?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:4px;width:22px;height:18px;cursor:${isLast?'default':'pointer'};font-size:10px;line-height:1;">▼</button>
+                return `<div style="padding:14px 16px;background:#f8fafc;margin-bottom:8px;border-radius:12px;border:1px solid #e2e8f0;transition:box-shadow 0.15s;" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseleave="this.style.boxShadow=''">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0;">
+                        <button onclick="movePd(${i},-1)" ${isFirst?'disabled':''} style="background:${isFirst?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:5px;width:26px;height:22px;cursor:${isFirst?'default':'pointer'};font-size:11px;line-height:1;">▲</button>
+                        <button onclick="movePd(${i},1)" ${isLast?'disabled':''} style="background:${isLast?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:5px;width:26px;height:22px;cursor:${isLast?'default':'pointer'};font-size:11px;line-height:1;">▼</button>
                     </div>
-                    <span style="font-size:10px;color:#cbd5e1;min-width:18px;text-align:center;">${i+1}</span>
-                    <div style="flex:1;font-size:12px;"><b>${p.id}</b> - ${p.name}${p.supplier?` <span style="background:#f0f9ff;color:#0891b2;font-size:10px;padding:1px 6px;border-radius:10px;border:1px solid #bae6fd;">🏢 ${p.supplier}</span>`:''}<br><span style="color:#94a3b8;font-size:11px;">${unitsStr}</span>${p.barcode?`<br><span style="color:#94a3b8;font-size:10px;font-family:monospace;">📦 ${p.barcode}</span>`:''}</div>
-                    <button class="btn-sm" style="background:var(--info);color:white;" onclick="toggleEditPd(${i})">✏️</button>
-                    <button class="btn-sm" style="background:var(--danger);color:white;" onclick="deletePd(${i})">✕</button>
+                    <span style="font-size:12px;color:#cbd5e1;min-width:24px;text-align:center;font-weight:600;">${i+1}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">
+                            <b style="font-size:13px;color:#0f172a;">${p.id}</b>
+                            <span style="font-size:13px;color:#334155;">${p.name}</span>
+                            ${p.supplier?`<span style="background:#f0f9ff;color:#0891b2;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid #bae6fd;flex-shrink:0;">🏢 ${p.supplier}</span>`:''}
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <span style="color:#7c3aed;font-size:12px;font-weight:600;">📦 ${unitsStr}</span>
+                            ${p.barcode?`<span style="color:#94a3b8;font-size:11px;font-family:monospace;">🔖 ${p.barcode}</span>`:''}
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                        <button class="btn-sm" style="background:var(--info);color:white;padding:6px 12px;border-radius:8px;font-size:12px;" onclick="toggleEditPd(${i})">✏️ แก้ไข</button>
+                        <button class="btn-sm" style="background:var(--danger);color:white;padding:6px 12px;border-radius:8px;font-size:12px;" onclick="deletePd(${i})">✕ ลบ</button>
+                    </div>
                 </div>
                 <div id="pdEditArea_${i}" style="display:none;margin-top:8px;">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
@@ -2204,7 +2216,7 @@
             sheets.forEach(s=>{
                 (s.items||[]).forEach(it=>{
                     if(!prodId||it.id===prodId){
-                        filteredItems.push({date:s.date,zone:s.zone,countedBy:s.countedBy,...it,sheetId:s.id});
+                        filteredItems.push({date:s.date,zone:s.zone,countedBy:s.countedBy,recordedBy:s.recordedBy||'',...it,sheetId:s.id});
                     }
                 });
             });
@@ -2284,6 +2296,7 @@ ${it.zone}`);
                 คงเหลือ:it.balance??'',หน่วย:it.unit||'',
                 ใช้ไปจากรอบก่อน:i===0?'':usages[i],
                 หมายเหตุ:it.note||'',ผู้นับ:it.countedBy||'',
+                ผู้บันทึก:it.recordedBy||it.countedBy||'',
             }));
         };
 
