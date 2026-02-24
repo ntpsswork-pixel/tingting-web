@@ -198,19 +198,22 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
 #printArea .pa-table tr:nth-child(even) td { background: #f8fafc; }
 #printArea .pa-sig-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
   margin-top: 14px;
+  align-items: stretch;
 }
 #printArea .pa-sig-box {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 10px 12px;
   background: white;
+  display: flex;
+  flex-direction: column;
 }
 #printArea .pa-sig-box img {
   width: 100%;
-  max-height: 90px;
+  height: 90px;
   object-fit: contain;
   display: block;
   background: white;
@@ -219,11 +222,14 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
   margin: 6px 0;
 }
 #printArea .pa-sig-empty {
-  height: 80px;
+  height: 90px;
   background: #f9fafb;
   border: 1px dashed #cbd5e1;
   border-radius: 4px;
   margin: 6px 0;
+}
+#printArea .pa-sig-names {
+  margin-top: auto;
 }
 #printArea .pa-sig-name {
   font-size: 11px;
@@ -429,13 +435,64 @@ document.getElementById('fdt').value=`${String(nt.getDate()).padStart(2,'0')}/${
 window.fmD=function(el){let v=el.value.replace(/\D/g,'');if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);if(v.length>10)v=v.slice(0,10);el.value=v;};
 
 let idc=0;const rows=[];
+let _allProducts=[];
+
+// โหลดสินค้าจาก Firebase config
+async function loadProducts(){
+  try{
+    const snap=await getDoc(doc(db,'config','main'));
+    if(snap.exists()&&snap.data().allProducts){
+      _allProducts=snap.data().allProducts||[];
+    }
+  }catch(e){console.warn('loadProducts:',e);}
+}
+loadProducts();
+
+function setupProductAutocomplete(id){
+  const inp=document.getElementById(`rn${id}`);
+  if(!inp)return;
+  let dropdown=null;
+  function closeDD(){if(dropdown){dropdown.remove();dropdown=null;}}
+  inp.addEventListener('input',function(){
+    closeDD();
+    const q=this.value.trim().toLowerCase();
+    if(!q||_allProducts.length===0)return;
+    const matches=_allProducts.filter(p=>`${p.id} ${p.name}`.toLowerCase().includes(q)).slice(0,8);
+    if(!matches.length)return;
+    dropdown=document.createElement('div');
+    dropdown.style.cssText='position:absolute;z-index:9999;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;width:'+inp.offsetWidth+'px;box-shadow:0 8px 24px rgba(0,0,0,.4);overflow:hidden;';
+    const rect=inp.getBoundingClientRect();
+    dropdown.style.top=(rect.bottom+window.scrollY+2)+'px';
+    dropdown.style.left=(rect.left+window.scrollX)+'px';
+    matches.forEach(p=>{
+      const item=document.createElement('div');
+      item.style.cssText='padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;gap:8px;';
+      item.innerHTML=`<div><b style="color:var(--ac);font-size:11px;">${p.id}</b><br>${p.name}</div><span style="font-size:11px;color:var(--tx2);">${p.units?.[0]?.name||p.unit||''}</span>`;
+      item.addEventListener('mouseenter',()=>item.style.background='rgba(0,201,255,.08)');
+      item.addEventListener('mouseleave',()=>item.style.background='');
+      item.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        inp.value=p.name;
+        // ใส่หน่วยอัตโนมัติ
+        const unitInp=document.getElementById(`ru${id}`);
+        if(unitInp&&!unitInp.value) unitInp.value=p.units?.[0]?.name||p.unit||'';
+        closeDD();
+      });
+      dropdown.appendChild(item);
+    });
+    document.body.appendChild(dropdown);
+  });
+  inp.addEventListener('blur',()=>setTimeout(closeDD,150));
+}
+
 window.addR=function(){
   const id=++idc;rows.push(id);
   const tb=document.getElementById('itb');
   const er=document.getElementById('emptyR');if(er)er.remove();
   const tr=document.createElement('tr');tr.id=`r${id}`;
-  tr.innerHTML=`<td><input placeholder="ชื่อสินค้า" id="rn${id}"></td><td><input type="number" min="0" placeholder="0" id="rq${id}" style="text-align:center;"></td><td><input placeholder="หน่วย" id="ru${id}"></td><td><input placeholder="หมายเหตุ" id="rnt${id}"></td><td><button onclick="dlR(${id})" style="background:rgba(239,68,68,.12);color:var(--er);border:none;border-radius:6px;padding:5px 9px;cursor:pointer;">✕</button></td>`;
+  tr.innerHTML=`<td style="position:relative;"><input placeholder="🔍 ค้นหา/พิมพ์ชื่อสินค้า" id="rn${id}" autocomplete="off"></td><td><input type="number" min="0" placeholder="0" id="rq${id}" style="text-align:center;"></td><td><input placeholder="หน่วย" id="ru${id}"></td><td><input placeholder="หมายเหตุ" id="rnt${id}"></td><td><button onclick="dlR(${id})" style="background:rgba(239,68,68,.12);color:var(--er);border:none;border-radius:6px;padding:5px 9px;cursor:pointer;">✕</button></td>`;
   tb.appendChild(tr);
+  setupProductAutocomplete(id);
 };
 window.dlR=function(id){const i=rows.indexOf(id);if(i>-1)rows.splice(i,1);document.getElementById(`r${id}`)?.remove();if(!rows.length)document.getElementById('itb').innerHTML=`<tr id="emptyR"><td colspan="5" style="text-align:center;color:var(--tx2);padding:24px;">กด "+ เพิ่มรายการ" เพื่อเพิ่มสินค้า</td></tr>`;};
 window.addR();
@@ -664,24 +721,30 @@ window.opDet=async function(id){
           ${x.driverSig
             ? `<img src="${x.driverSig}" />`
             : `<div class="pa-sig-empty"></div>`}
-          <div class="pa-sig-name">ชื่อ: <b>${x.driverSignName||'—'}</b></div>
-          <div class="pa-sig-name">วันเวลา: ${drvTime}</div>
+          <div class="pa-sig-names">
+            <div class="pa-sig-name">ชื่อ: <b>${x.driverSignName||'—'}</b></div>
+            <div class="pa-sig-name">วันเวลา: ${drvTime}</div>
+          </div>
         </div>
         <div class="pa-sig-box">
           <div class="pa-label" style="color:#166534;">✅ ผู้รับปลายทาง</div>
           ${x.recipientSig
             ? `<img src="${x.recipientSig}" />`
             : `<div class="pa-sig-empty"></div>`}
-          <div class="pa-sig-name">ชื่อ: <b>${x.recipientSignName||'—'}</b></div>
-          <div class="pa-sig-name">วันเวลา: ${rcpTime}</div>
+          <div class="pa-sig-names">
+            <div class="pa-sig-name">ชื่อ: <b>${x.recipientSignName||'—'}</b></div>
+            <div class="pa-sig-name">วันเวลา: ${rcpTime}</div>
+          </div>
         </div>
         <div class="pa-sig-box">
           <div class="pa-label" style="color:#7c3aed;">📋 ผู้ออกเอกสาร</div>
           ${x.issuerSig
             ? `<img src="${x.issuerSig}" />`
             : `<div class="pa-sig-empty"></div>`}
-          <div class="pa-sig-name">ชื่อ: <b>${x.issuerSignName||'—'}</b></div>
-          <div class="pa-sig-name">วันเวลา: ${x.issuerSignedAt?new Date(x.issuerSignedAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}):'—'}</div>
+          <div class="pa-sig-names">
+            <div class="pa-sig-name">ชื่อ: <b>${x.issuerSignName||'—'}</b></div>
+            <div class="pa-sig-name">วันเวลา: ${x.issuerSignedAt?new Date(x.issuerSignedAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}):'—'}</div>
+          </div>
         </div>
       </div>
 
