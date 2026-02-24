@@ -3854,16 +3854,9 @@ ${it.zone}`);
             if(prevCard && !todayCard && !window._dscOpeningConfirmed) {
                 const itemsWithBalance = (prevCard.items||[]).filter(it=>it.closingBalance>0);
                 if(itemsWithBalance.length > 0) {
-                    const preview = itemsWithBalance.slice(0,3).map(it=>`• ${it.name||it.id}: ${it.closingBalance} ${it.unit||''}`).join('
-');
-                    const more = itemsWithBalance.length>3 ? `
-  ...และอีก ${itemsWithBalance.length-3} รายการ` : '';
-                    const msg = `📋 พบข้อมูลยอดปิดเมื่อวาน (${prevDateTH})
-ระบบจะดึงมาเป็นยอดยกมาวันนี้:
-
-${preview}${more}
-
-รับยอดยกมาจากเมื่อวานใช่ไหม?`;
+                    const preview = itemsWithBalance.slice(0,3).map(it=>`• ${it.name||it.id}: ${it.closingBalance} ${it.unit||''}`).join('\n');
+                    const more = itemsWithBalance.length>3 ? `  ...และอีก ${itemsWithBalance.length-3} รายการ` : '';
+                    const msg = `📋 พบข้อมูลยอดปิดเมื่อวาน (${prevDateTH})\nระบบจะดึงมาเป็นยอดยกมาวันนี้:\n\n${preview}${more}\n\nรับยอดยกมาจากเมื่อวานใช่ไหม?`;
                     if(!confirm(msg)) {
                         window._dscSkipOpening = true;
                     } else {
