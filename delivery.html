@@ -262,8 +262,10 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
       <div class="uav" id="uav">?</div>
       <div><div style="font-size:12px;font-weight:600;" id="unm">—</div><div style="font-size:10px;color:var(--tx2);" id="url2">—</div></div>
     </div>
-    <div style="margin-top:8px;">
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:2px;">
+      <div class="nb" onclick="exportDOExcel()"><span class="ni">📥</span>Export Excel</div>
       <div class="nb" onclick="location.href='home.html'"><span class="ni">🏠</span>กลับ Home</div>
+      <div class="nb" onclick="doLogout()" style="color:#ef4444;"><span class="ni">🚪</span>ออกจากระบบ</div>
     </div>
   </div>
 </div>
@@ -365,7 +367,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
         <div style="display:flex;gap:8px;margin-bottom:10px;">
           <button class="btn bg bsm" onclick="clrSig2()">🗑️ ล้าง</button>
         </div>
-        <div class="fg"><div class="fl">ชื่อผู้ออกเอกสาร</div><input class="fi" id="isnm" placeholder="ชื่อ-นามสกุลเจ้าหน้าที่" value="${CU?.name||''}"></div>
+        <div class="fg"><div class="fl">ชื่อผู้ออกเอกสาร</div><input class="fi" id="isnm" placeholder="ชื่อ-นามสกุลเจ้าหน้าที่"></div>
       </div>
     </div>
     <div class="mft">
@@ -403,7 +405,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);min-h
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import{getFirestore,collection,addDoc,getDocs,getDoc,doc}
+import{getFirestore,collection,addDoc,getDocs,getDoc,doc,updateDoc}
   from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const FB={apiKey:"AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",authDomain:"tingting-3d57f.firebaseapp.com",
@@ -414,7 +416,7 @@ const db=getFirestore(initializeApp(FB));
 
 let CU=null;
 try{const r=sessionStorage.getItem('currentUser')||localStorage.getItem('currentUser');if(r)CU=JSON.parse(r);}catch(e){}
-if(!CU){const n=prompt('ชื่อผู้ใช้งาน:');if(!n){location.href='home.html';}else CU={name:n,role:'staff'};}
+if(!CU){location.href='login.html';}
 document.getElementById('unm').textContent=CU?.name||'—';
 document.getElementById('url2').textContent=(CU?.role||'STAFF').toUpperCase();
 document.getElementById('uav').textContent=(CU?.name||'?')[0].toUpperCase();
@@ -443,7 +445,7 @@ window.gtSign=function(){
   if(!document.getElementById('frcp').value.trim()){toast('⚠️ กรุณาระบุผู้รับ','#f59e0b');return;}
   if(!document.getElementById('fdrv').value.trim()){toast('⚠️ กรุณาระบุพนักงานขนส่ง','#f59e0b');return;}
   if(!rows.some(id=>document.getElementById(`rn${id}`)?.value.trim())){toast('⚠️ กรุณาเพิ่มสินค้า','#f59e0b');return;}
-  opM('mSgn');initSig();
+  opM('mSgn');initSig();setTimeout(()=>{const isnm=document.getElementById('isnm');if(isnm&&CU?.name)isnm.value=CU.name;},100);
 };
 
 let sCtx,sDrw=false,sCtx2,sDrw2=false;
@@ -584,7 +586,8 @@ window.opDet=async function(id){
   `;
   document.getElementById('detF').innerHTML=`
     ${url?`<button class="btn bg bsm" onclick="shQR('${url}')">📱 QR Code</button>`:''}
-    ${x.status==='done'?`<button class="btn bg bsm" onclick="printDO()" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);">🖨️ Print / PDF</button>`:''}
+    <button class="btn bg bsm" onclick="printDO()" style="background:rgba(0,201,255,.12);color:var(--ac);border:1px solid rgba(0,201,255,.25);">🖨️ Print / PDF</button>
+    ${(x.status!=='done'&&x.status!=='cancel')?`<button class="btn bg bsm" onclick="cancelDO('${x.id}')" style="background:rgba(239,68,68,.1);color:var(--er);border:1px solid rgba(239,68,68,.2);">❌ ยกเลิก</button>`:''}
     <button class="btn bg" onclick="clM('mDet')">ปิด</button>
   `;
   if(x.status==='done'){
@@ -697,6 +700,46 @@ window.printDO=function(){
   });
 };
 window.shQR=function(url){clM('mDet');document.getElementById('lnktx').textContent=url;const qb=document.getElementById('qrb');qb.innerHTML='';const img=new Image();img.src=`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;img.style.cssText='width:180px;height:180px;border-radius:8px;';qb.appendChild(img);opM('mLnk');};
+
+window.cancelDO=async function(id){
+  if(!confirm('ยืนยันยกเลิกใบส่งสินค้านี้?'))return;
+  try{
+    await updateDoc(doc(db,'deliveries',id),{status:'cancel',cancelledBy:CU?.name||'',cancelledAt:Date.now()});
+    toast('🗑️ ยกเลิกใบส่งเรียบร้อย','#ef4444');
+    clM('mDet');ldDash();
+  }catch(e){toast('❌ '+e.message,'#ef4444');}
+};
+
+window.exportDOExcel=async function(){
+  toast('⏳ กำลัง export...','#00c9ff');
+  try{
+    const sn=await getDocs(collection(db,'deliveries'));
+    const stTH={waiting:'รอขนส่ง',transit:'กำลังส่ง',done:'ส่งสำเร็จ',cancel:'ยกเลิก'};
+    const BOM='﻿';
+    const hdrs=['เลขที่ DO','วันที่ส่ง','ผู้รับ','เบอร์','ที่อยู่','พนักงานขนส่ง','ทะเบียน','สถานะ','ชื่อขนส่ง(เซ็น)','ชื่อผู้รับ(เซ็น)','วันเวลาส่งสำเร็จ','สร้างโดย','หมายเหตุ'];
+    const rows=[hdrs];
+    const fmt=t=>t?new Date(t).toLocaleString('th-TH'):'';
+    sn.forEach(d=>{
+      const x=d.data();
+      rows.push([x.doNumber,x.doDate,x.recipient,x.phone,x.address,x.driver,x.plate,
+        stTH[x.status]||x.status,x.driverSignName||'',x.recipientSignName||'',
+        fmt(x.signedAt),x.createdBy||'',x.note||'']);
+    });
+    const csv=BOM+rows.map(r=>r.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('
+');
+    const a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+    a.download='Delivery_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();
+    toast('📥 Export เรียบร้อย','#10b981');
+  }catch(e){toast('❌ '+e.message,'#ef4444');}
+};
+
+window.doLogout=function(){
+  sessionStorage.removeItem('currentUser');
+  localStorage.removeItem('currentUser');
+  location.href='login.html';
+};
 
 window.gp=function(nm){document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(n=>n.classList.remove('on'));document.getElementById('p-'+nm).classList.add('on');document.getElementById('n-'+nm)?.classList.add('on');if(nm==='dash')ldDash();if(nm==='hist')ldHist();if(window.innerWidth<769)tgSB();};
 window.opM=function(id){document.getElementById(id).classList.add('sh');};

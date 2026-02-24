@@ -142,6 +142,12 @@
             .chart-wrap { height:200px !important; }
         }
     </style>
+    <style>
+        /* Date picker styling */
+        input[type="date"] { color-scheme: light; }
+        .date-picker-wrap { position:relative; display:inline-block; width:100%; }
+        .date-display { position:absolute; top:50%; left:10px; transform:translateY(-50%); pointer-events:none; font-weight:bold; font-size:14px; color:#1e293b; }
+    </style>
 </head>
 <body>
     <!-- Mobile hamburger -->
@@ -255,46 +261,90 @@
                 <!-- ALERT BANNERS -->
                 <div id="dashAlertBanner"></div>
 
-                <!-- STAT CARDS ROW 1: คลัง -->
-                <div id="dashSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-bottom:16px;">
-                    <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;text-align:center;color:#94a3b8;">กำลังโหลด...</div>
+                <!-- QUICK ACTIONS -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:20px;">
+                    <button onclick="openCentralStock()" style="background:linear-gradient(135deg,#1e3a5f,#1e40af);color:white;border:none;border-radius:12px;padding:14px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:transform .15s;box-shadow:0 2px 8px rgba(30,64,175,.25);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                        <div style="font-size:22px;margin-bottom:4px;">📦</div>
+                        <div style="font-size:12px;font-weight:700;">นับสต๊อก</div>
+                    </button>
+                    <button onclick="openDailyStockCard()" style="background:linear-gradient(135deg,#0c4a6e,#0891b2);color:white;border:none;border-radius:12px;padding:14px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:transform .15s;box-shadow:0 2px 8px rgba(8,145,178,.25);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                        <div style="font-size:22px;margin-bottom:4px;">📋</div>
+                        <div style="font-size:12px;font-weight:700;">Stock Card</div>
+                    </button>
+                    <button onclick="openGRHistory()" style="background:linear-gradient(135deg,#064e3b,#059669);color:white;border:none;border-radius:12px;padding:14px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:transform .15s;box-shadow:0 2px 8px rgba(5,150,105,.25);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                        <div style="font-size:22px;margin-bottom:4px;">🚚</div>
+                        <div style="font-size:12px;font-weight:700;">รับสินค้า GR</div>
+                    </button>
+                    <button onclick="openPendingRequisitions()" style="background:linear-gradient(135deg,#78350f,#d97706);color:white;border:none;border-radius:12px;padding:14px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:transform .15s;box-shadow:0 2px 8px rgba(217,119,6,.25);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                        <div style="font-size:22px;margin-bottom:4px;">📝</div>
+                        <div style="font-size:12px;font-weight:700;">ใบเบิกสินค้า</div>
+                    </button>
+                    <button onclick="openQCCheck()" style="background:linear-gradient(135deg,#3b0764,#7c3aed);color:white;border:none;border-radius:12px;padding:14px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:transform .15s;box-shadow:0 2px 8px rgba(124,58,237,.25);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                        <div style="font-size:22px;margin-bottom:4px;">🔍</div>
+                        <div style="font-size:12px;font-weight:700;">QC Check</div>
+                    </button>
+                    <button onclick="openLotRegister()" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);color:white;border:none;border-radius:12px;padding:14px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:transform .15s;box-shadow:0 2px 8px rgba(220,38,38,.25);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                        <div style="font-size:22px;margin-bottom:4px;">🏷️</div>
+                        <div style="font-size:12px;font-weight:700;">ทะเบียน Lot</div>
+                    </button>
+                    <button onclick="window.open('delivery.html','_blank')" style="background:linear-gradient(135deg,#0c4a6e,#00c9ff);color:white;border:none;border-radius:12px;padding:14px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:transform .15s;box-shadow:0 2px 8px rgba(0,201,255,.25);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                        <div style="font-size:22px;margin-bottom:4px;">🚛</div>
+                        <div style="font-size:12px;font-weight:700;">ขนส่ง</div>
+                    </button>
+                    <button onclick="openWarehouseManager()" style="background:linear-gradient(135deg,#1e293b,#475569);color:white;border:none;border-radius:12px;padding:14px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:transform .15s;box-shadow:0 2px 8px rgba(71,85,105,.25);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                        <div style="font-size:22px;margin-bottom:4px;">⚙️</div>
+                        <div style="font-size:12px;font-weight:700;">ตั้งค่า</div>
+                    </button>
                 </div>
 
-                <!-- STAT CARDS ROW 2: KPI วันนี้ -->
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-bottom:20px;">
-                    <div id="dashKpiGR" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;" onclick="openGRHistory()">
-                        <div style="font-size:10px;color:#06b6d4;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">GR วันนี้</div>
-                        <div style="font-size:26px;font-weight:800;color:#06b6d4;margin:4px 0;" id="dashKpiGRVal">—</div>
-                        <div style="font-size:11px;color:#94a3b8;" id="dashKpiGRSub">ใบรับสินค้า</div>
+                <!-- KPI CARDS (clickable → navigate) -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:12px;margin-bottom:20px;">
+                    <div id="dashKpiGR" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;border-top:4px solid #06b6d4;transition:box-shadow .2s;" onclick="openGRHistory()" onmouseover="this.style.boxShadow='0 6px 20px rgba(6,182,212,.15)'" onmouseout="this.style.boxShadow=''">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <div style="font-size:10px;color:#06b6d4;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">GR วันนี้</div>
+                            <span style="font-size:18px;">🚚</span>
+                        </div>
+                        <div style="font-size:28px;font-weight:800;color:#06b6d4;margin:4px 0;" id="dashKpiGRVal">—</div>
+                        <div style="font-size:11px;color:#94a3b8;" id="dashKpiGRSub">ใบรับสินค้า • กดเพื่อดู</div>
                     </div>
-                    <div id="dashKpiMR" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;" onclick="openPendingRequisitions()">
-                        <div style="font-size:10px;color:#f59e0b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">ใบเบิกรออนุมัติ</div>
-                        <div style="font-size:26px;font-weight:800;color:#f59e0b;margin:4px 0;" id="dashKpiMRVal">—</div>
-                        <div style="font-size:11px;color:#94a3b8;">รายการรอดำเนินการ</div>
+                    <div id="dashKpiMR" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;border-top:4px solid #f59e0b;transition:box-shadow .2s;" onclick="openPendingRequisitions()" onmouseover="this.style.boxShadow='0 6px 20px rgba(245,158,11,.15)'" onmouseout="this.style.boxShadow=''">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <div style="font-size:10px;color:#f59e0b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">ใบเบิกรออนุมัติ</div>
+                            <span style="font-size:18px;">📝</span>
+                        </div>
+                        <div style="font-size:28px;font-weight:800;color:#f59e0b;margin:4px 0;" id="dashKpiMRVal">—</div>
+                        <div style="font-size:11px;color:#94a3b8;">รายการรอ • กดเพื่อดู</div>
                     </div>
-                    <div id="dashKpiQC" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;" onclick="openQCHistory()">
-                        <div style="font-size:10px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">QC Pass Rate ล่าสุด</div>
-                        <div style="font-size:26px;font-weight:800;color:#7c3aed;margin:4px 0;" id="dashKpiQCVal">—</div>
-                        <div style="font-size:11px;color:#94a3b8;" id="dashKpiQCSub">session ล่าสุด</div>
+                    <div id="dashKpiQC" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;border-top:4px solid #7c3aed;transition:box-shadow .2s;" onclick="openQCHistory()" onmouseover="this.style.boxShadow='0 6px 20px rgba(124,58,237,.15)'" onmouseout="this.style.boxShadow=''">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <div style="font-size:10px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">QC Pass Rate</div>
+                            <span style="font-size:18px;">🔍</span>
+                        </div>
+                        <div style="font-size:28px;font-weight:800;color:#7c3aed;margin:4px 0;" id="dashKpiQCVal">—</div>
+                        <div style="font-size:11px;color:#94a3b8;" id="dashKpiQCSub">session ล่าสุด • กดเพื่อดู</div>
                     </div>
-                    <div id="dashKpiEXP" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;" onclick="openLotRegister()">
-                        <div style="font-size:10px;color:#ef4444;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">EXP ใกล้หมด (≤30 วัน)</div>
-                        <div style="font-size:26px;font-weight:800;color:#ef4444;margin:4px 0;" id="dashKpiEXPVal">—</div>
-                        <div style="font-size:11px;color:#94a3b8;">Lot ที่ต้องระวัง</div>
+                    <div id="dashKpiEXP" style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;cursor:pointer;border-top:4px solid #ef4444;transition:box-shadow .2s;" onclick="openLotRegister()" onmouseover="this.style.boxShadow='0 6px 20px rgba(239,68,68,.15)'" onmouseout="this.style.boxShadow=''">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <div style="font-size:10px;color:#ef4444;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">EXP ใกล้หมด</div>
+                            <span style="font-size:18px;">⚠️</span>
+                        </div>
+                        <div style="font-size:28px;font-weight:800;color:#ef4444;margin:4px 0;" id="dashKpiEXPVal">—</div>
+                        <div style="font-size:11px;color:#94a3b8;">≤30 วัน • กดเพื่อดู Lot</div>
                     </div>
+                </div>
+
+                <!-- ZONE STOCK SUMMARY + ACTIVITY -->
+                <div id="dashSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:12px;margin-bottom:20px;">
+                    <div style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:13px;">กำลังโหลด...</div>
                 </div>
 
                 <!-- CHART + ACTIVITY FEED -->
-                <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;">
-                    <!-- trend chart -->
+                <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;">
                     <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-                            <h4 style="margin:0;color:var(--primary-dark);font-size:14px;">📈 Trend การนับสต๊อก 7 วันล่าสุด</h4>
-                        </div>
+                        <h4 style="margin:0 0 14px;color:var(--primary-dark);font-size:14px;">📈 Trend การนับสต๊อก 7 วันล่าสุด</h4>
                         <div class="chart-wrap" style="height:180px;"><canvas id="trendChart" height="180"></canvas></div>
                     </div>
-                    <!-- activity feed -->
-                    <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;overflow-y:auto;max-height:360px;">
+                    <div style="background:white;border-radius:14px;padding:20px;border:1px solid #e2e8f0;overflow-y:auto;max-height:320px;">
                         <h4 style="margin:0 0 14px;color:var(--primary-dark);font-size:14px;">⚡ กิจกรรมล่าสุด</h4>
                         <div id="dashRecentList"><p style="color:#94a3b8;font-size:13px;">กำลังโหลด...</p></div>
                     </div>
@@ -660,6 +710,7 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
                         y: { beginAtZero:true, ticks:{ stepSize:1 }, grid:{ color:'#f1f5f9' } },
@@ -1117,11 +1168,9 @@
                         ${visibleZones.map(w=>`<option ${w===zone?'selected':''}>${w}</option>`).join('')}
                     </select></div>
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ (บังคับเลือก)</label>
-                    <input type="text" id="countDate_txt" placeholder="dd/mm/yyyy" maxlength="10"
-    value="${selectedDate.split('-').reverse().join('/')}"
-    oninput="formatDateInput(this,'countDate');selectedDate=document.getElementById('countDate').value||selectedDate"
-    style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
-<input type="hidden" id="countDate" value="${selectedDate}">
+                    <input type="date" id="countDate" value="${selectedDate}"
+                        onchange="selectedDate=this.value"
+                        style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;">
                 </div>
                 <div class="input-group" style="border:2px solid var(--info);"><label>👤 เลือกชื่อคนนับ</label>
                     <select id="staffSelect" onchange="selectedStaff=this.value" style="width:100%;border:none;font-weight:bold;outline:none;">
@@ -1486,6 +1535,7 @@
                         <input type="text" id="newPdId" placeholder="รหัส SKU" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
                         <input type="text" id="newPdName" placeholder="ชื่อสินค้า" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
                         <input type="text" id="newPdSupplier" placeholder="🏢 Supplier / ผู้ส่ง (ถ้ามี)" style="padding:10px;border:1px solid #ddd;border-radius:8px;grid-column:span 2;">
+                        <input type="text" id="newPdBarcode" placeholder="📦 Barcode (ไว้สำหรับอนาคต)" style="padding:10px;border:1px solid #ddd;border-radius:8px;grid-column:span 2;font-family:monospace;">
                     </div>
                     <div style="background:#f8fafc;border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid #e2e8f0;">
                         <div style="font-size:11px;color:#64748b;font-weight:bold;margin-bottom:8px;">หน่วยและอัตราแปลง (สูงสุด 3 หน่วย)</div>
@@ -1509,11 +1559,21 @@
                 </div>
             </div>
             <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                    <h4 style="margin:0;">🔗 จับคู่สินค้าเข้าสู่โซน</h4>
-                    <select id="selectZoneMap" onchange="renderMapping();renderMinMaxTable()" style="padding:12px;border-radius:8px;min-width:300px;border:2px solid var(--primary-dark);font-weight:bold;"></select>
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+                    <div>
+                        <h4 style="margin:0 0 4px;">🔗 จับคู่สินค้าเข้าสู่โซน</h4>
+                        <small style="color:#94a3b8;">เลือกโซน → ค้นหาสินค้า → เลือก checkbox → บันทึก</small>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <select id="selectZoneMap" onchange="renderMapping();renderMinMaxTable()" style="padding:10px;border-radius:8px;min-width:200px;border:2px solid var(--primary-dark);font-weight:bold;"></select>
+                        <button onclick="selectAllMapping(true)" style="background:#10b981;color:white;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;">✅ เลือกทั้งหมด</button>
+                        <button onclick="selectAllMapping(false)" style="background:#ef4444;color:white;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;">❌ ยกเลิกทั้งหมด</button>
+                    </div>
                 </div>
-                <div id="mappingContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;"></div>
+                <input type="text" id="mappingSearch" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ)..." oninput="filterMapping(this.value)"
+                    style="width:100%;padding:10px 16px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;margin-bottom:14px;transition:border .2s;"
+                    onfocus="this.style.borderColor='var(--primary-dark)'" onblur="this.style.borderColor='#e2e8f0'">
+                <div id="mappingContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;max-height:360px;overflow-y:auto;"></div>
             </div>
             <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -1581,7 +1641,7 @@
                         <button onclick="movePd(${i},1)" ${isLast?'disabled':''} style="background:${isLast?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:4px;width:22px;height:18px;cursor:${isLast?'default':'pointer'};font-size:10px;line-height:1;">▼</button>
                     </div>
                     <span style="font-size:10px;color:#cbd5e1;min-width:18px;text-align:center;">${i+1}</span>
-                    <div style="flex:1;font-size:12px;"><b>${p.id}</b> - ${p.name}${p.supplier?` <span style="background:#f0f9ff;color:#0891b2;font-size:10px;padding:1px 6px;border-radius:10px;border:1px solid #bae6fd;">🏢 ${p.supplier}</span>`:''}<br><span style="color:#94a3b8;font-size:11px;">${unitsStr}</span></div>
+                    <div style="flex:1;font-size:12px;"><b>${p.id}</b> - ${p.name}${p.supplier?` <span style="background:#f0f9ff;color:#0891b2;font-size:10px;padding:1px 6px;border-radius:10px;border:1px solid #bae6fd;">🏢 ${p.supplier}</span>`:''}<br><span style="color:#94a3b8;font-size:11px;">${unitsStr}</span>${p.barcode?`<br><span style="color:#94a3b8;font-size:10px;font-family:monospace;">📦 ${p.barcode}</span>`:''}</div>
                     <button class="btn-sm" style="background:var(--info);color:white;" onclick="toggleEditPd(${i})">✏️</button>
                     <button class="btn-sm" style="background:var(--danger);color:white;" onclick="deletePd(${i})">✕</button>
                 </div>
@@ -1638,14 +1698,59 @@
             const zone=document.getElementById('selectZoneMap').value,c=document.getElementById('mappingContainer');
             if(!zone||!c)return;
             const mapped=zoneProductMap[zone]||[];
-            c.innerHTML=allProducts.map(p=>`<label style="display:flex;align-items:center;gap:12px;padding:15px;border:1px solid #e2e8f0;border-radius:12px;cursor:pointer;background:white;">
-                <input type="checkbox" style="width:18px;height:18px;" ${mapped.includes(p.id)?'checked':''} onchange="togglePdMapping('${zone}','${p.id}')">
-                <div style="font-size:13px;"><b>${p.id}</b><br><span style="color:#64748b;">${p.name}</span>
-                <br><span style="color:#94a3b8;font-size:11px;">${p.unit}${p.subUnit?' / '+p.subUnit:''}</span></div>
-            </label>`).join('');
+            const q=(document.getElementById('mappingSearch')?.value||'').toLowerCase();
+            c.innerHTML=allProducts.map(p=>{
+                const search=`${p.id} ${p.name}`.toLowerCase();
+                const isMapped=mapped.includes(p.id);
+                return `<label data-search="${search}" style="display:${!q||search.includes(q)?'flex':'none'};align-items:center;gap:12px;padding:12px 14px;border:2px solid ${isMapped?'#10b981':'#e2e8f0'};border-radius:12px;cursor:pointer;background:${isMapped?'#f0fdf4':'white'};transition:all .15s;">
+                    <input type="checkbox" value="${p.id}" style="width:18px;height:18px;accent-color:#10b981;" ${isMapped?'checked':''} onchange="togglePdMapping('${zone}','${p.id}');this.closest('label').style.borderColor=this.checked?'#10b981':'#e2e8f0';this.closest('label').style.background=this.checked?'#f0fdf4':'white';">
+                    <div style="font-size:13px;min-width:0;">
+                        <b style="color:#0f172a;">${p.id}</b>${isMapped?' <span style="background:#dcfce7;color:#166534;font-size:10px;padding:1px 6px;border-radius:10px;">✓ ในโซน</span>':''}<br>
+                        <span style="color:#475569;">${p.name}</span><br>
+                        <span style="color:#94a3b8;font-size:11px;">${(p.units||[]).map(u=>u.name).join(' / ')}</span>
+                    </div>
+                </label>`;
+            }).join('');
         };
 
         window.togglePdMapping=function(z,id){if(!zoneProductMap[z])zoneProductMap[z]=[];const i=zoneProductMap[z].indexOf(id);if(i>-1)zoneProductMap[z].splice(i,1);else zoneProductMap[z].push(id);saveConfig();};
+        window.selectAllMapping=function(checked){
+            const zone=document.getElementById('selectZoneMap')?.value;if(!zone)return;
+            if(!zoneProductMap[zone])zoneProductMap[zone]=[];
+            const visible=document.querySelectorAll('#mappingContainer input[type=checkbox]');
+            visible.forEach(cb=>{
+                const id=cb.value; cb.checked=checked;
+                const idx=zoneProductMap[zone].indexOf(id);
+                if(checked&&idx===-1) zoneProductMap[zone].push(id);
+                else if(!checked&&idx>-1) zoneProductMap[zone].splice(idx,1);
+                const lbl=cb.closest('label');
+                if(lbl){lbl.style.borderColor=checked?'#10b981':'#e2e8f0';lbl.style.background=checked?'#f0fdf4':'white';}
+            });
+            saveConfig();
+            toast(checked?`✅ เลือก ${visible.length} สินค้าเข้าโซน`:'❌ ยกเลิกทั้งหมด','#059669');
+        };
+        window.filterMapping=function(q){
+            const rows=document.querySelectorAll('#mappingContainer label[data-search]');
+            rows.forEach(r=>{ r.style.display=(r.dataset.search||'').includes(q.toLowerCase())?'':'none'; });
+        };
+        window.selectAllMapping=function(checked){
+            const zone=document.getElementById('selectZoneMap')?.value;if(!zone)return;
+            if(!zoneProductMap[zone])zoneProductMap[zone]=[];
+            const visible=document.querySelectorAll('#mappingContainer input[type=checkbox]');
+            visible.forEach(cb=>{
+                const id=cb.value;
+                cb.checked=checked;
+                const idx=zoneProductMap[zone].indexOf(id);
+                if(checked&&idx===-1) zoneProductMap[zone].push(id);
+                else if(!checked&&idx>-1) zoneProductMap[zone].splice(idx,1);
+            });
+            saveConfig();
+            toast(checked?'✅ เลือกสินค้าทั้งหมดในโซน':'❌ ยกเลิกทั้งหมด','#059669');
+        };
+        window.filterMapping=function(q){
+            const rows=document.querySelectorAll('#mappingContainer label[data-search]');
+            rows.forEach(r=>{ r.style.display=(r.dataset.search||'').includes(q.toLowerCase())?'':'none'; });
+        };
         window.addWh=function(){const n=document.getElementById('newWhName').value.trim();if(n){warehouseList.push(n);saveConfig();openWarehouseManager();}};
         window.deleteWh=function(i){if(confirm('ยืนยันลบโซน?')){warehouseList.splice(i,1);saveConfig();openWarehouseManager();}};
 
@@ -1658,18 +1763,21 @@
             const r1=parseFloat(document.getElementById('newPdRate1').value)||0;
             const r2=parseFloat(document.getElementById('newPdRate2').value)||0;
             if(!id||!name||!u1){toast('⚠️ กรุณากรอก รหัส, ชื่อสินค้า และหน่วยที่ 1 อย่างน้อย','#c2410c');return;}
+            if(allProducts.some(p=>p.id===id)){toast('❌ รหัสสินค้า "'+id+'" ซ้ำกับที่มีอยู่แล้ว','#c2410c');return;}
+            if(allProducts.some(p=>p.name.trim().toLowerCase()===name.toLowerCase())){toast('❌ ชื่อสินค้า "'+name+'" ซ้ำกับที่มีอยู่แล้ว','#c2410c');return;}
             // สร้าง units array
             const units=[];
             if(u1) units.push({name:u1,rate:r1||0}); // rate = อัตราแปลงไปหน่วยถัดไป
             if(u2) units.push({name:u2,rate:r2||0});
             if(u3) units.push({name:u3,rate:0}); // หน่วยสุดท้ายไม่มี rate
             const supplier = document.getElementById('newPdSupplier')?.value.trim()||'';
-            allProducts.push({id,name,units,supplier,
+            const barcode = document.getElementById('newPdBarcode')?.value.trim()||'';
+            allProducts.push({id,name,units,supplier,barcode,
                 // backward compat
                 unit:u1, subUnit:u2||''
             });
             saveConfig(); renderPdList(); renderMapping();
-            ['newPdId','newPdName','newPdSupplier','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
+            ['newPdId','newPdName','newPdSupplier','newPdBarcode','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
                 const el=document.getElementById(x); if(el) el.value='';
             });
             toast('✅ เพิ่มสินค้าเรียบร้อย','#059669');
@@ -1729,11 +1837,8 @@
                     </select>
                 </div>
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ (บังคับ)</label>
-                    <input type="text" id="invDate_txt" placeholder="dd/mm/yyyy" maxlength="10"
-    value="${today.split('-').reverse().join('/')}"
-    oninput="formatDateInput(this,'invDate')"
-    style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
-<input type="hidden" id="invDate" value="${today}">
+                    <input type="date" id="invDate" value="${today}"
+                        style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;">
                 </div>
                 <div class="input-group" style="border:2px solid var(--info);"><label>👤 ผู้นับ</label>
                     <select id="invStaff" style="width:100%;border:none;font-weight:bold;outline:none;">
@@ -2001,7 +2106,7 @@ ${it.zone}`);
             const uc=document.getElementById('usageChart');
             if(bc&&labels.length){
                 bc.style.height='200px'; bc.style.maxHeight='200px';
-                _invBalChart=new Chart(bc,{type:'line',data:{labels,datasets:[{
+                _invBalChart=new Chart(bc,{type:'line',options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}},data:{labels,datasets:[{
                     label:'ยอดคงเหลือ',data:balances,
                     borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',
                     borderWidth:2,tension:0.3,fill:true,pointRadius:4,
@@ -2010,7 +2115,7 @@ ${it.zone}`);
 
             if(uc&&labels.length){
                 uc.style.height='200px'; uc.style.maxHeight='200px';
-                _invUseChart=new Chart(uc,{type:'bar',data:{labels,datasets:[{
+                _invUseChart=new Chart(uc,{type:'bar',options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}},data:{labels,datasets:[{
                     label:'ใช้ไป',data:usages,
                     backgroundColor:'rgba(239,68,68,0.15)',borderColor:'#ef4444',
                     borderWidth:2,borderRadius:6,
@@ -2062,7 +2167,8 @@ ${it.zone}`);
         };
 
         window.deleteInventoryItem = async function(sheetId, productId) {
-            if(!confirm('ยืนยันลบรายการนี้?')) return;
+            if(currentUser?.role==='admin' && !confirm('⚠️ แอดมิน — ยืนยันลบรายการนี้? การลบจะไม่สามารถกู้คืนได้')) return;
+            else if(currentUser?.role!=='admin' && !confirm('ยืนยันลบรายการนี้?')) return;
             try {
                 const snap = await getDoc(doc(db,'inventoryHistory',sheetId));
                 if(!snap.exists()) { toast('❌ ไม่พบข้อมูล','#c2410c'); return; }
@@ -2082,10 +2188,77 @@ ${it.zone}`);
 
         window.exportInventoryExcel=function(){
             if(!window._invExportData?.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
-            const rows=[Object.keys(window._invExportData[0]),...window._invExportData.map(r=>Object.values(r))];
+            // หาหน่วยที่ใช้ในข้อมูลนี้
+            const unitSet=new Set(window._invExportData.map(r=>r['หน่วย']||r['unit']||'').filter(Boolean));
+            const unitsArr=[...unitSet];
+            // ดูว่ามี product ที่มี multi-unit ไหม
+            const multiUnitProds=allProducts.filter(p=>p.units&&p.units.length>1&&p.units[0].rate>0);
+            if(multiUnitProds.length===0){
+                // ไม่มี conversion — export ตรงๆ
+                const rows=[Object.keys(window._invExportData[0]),...window._invExportData.map(r=>Object.values(r))];
+                const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb,ws,'InventoryHistory');
+                XLSX.writeFile(wb,`Inventory_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
+                return;
+            }
+            // สร้าง modal เลือกหน่วย
+            const existing=document.getElementById('exportUnitModal');if(existing)existing.remove();
+            const modal=document.createElement('div');
+            modal.id='exportUnitModal';
+            modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+            const unitOptions=[];
+            multiUnitProds.forEach(p=>{
+                (p.units||[]).forEach(u=>{ if(u.name&&!unitOptions.find(x=>x.name===u.name)) unitOptions.push({name:u.name,rate:u.rate,pid:p.id}); });
+            });
+            modal.innerHTML=`<div style="background:white;border-radius:20px;padding:28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+                <h3 style="margin:0 0 8px;font-family:inherit;">📥 Export สต๊อก — เลือกหน่วย</h3>
+                <p style="font-size:13px;color:#64748b;margin:0 0 18px;">ระบบจะแปลงยอดสต๊อกเป็นหน่วยที่เลือก (ใช้อัตราแปลงที่ตั้งไว้)</p>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+                    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;">
+                        <input type="radio" name="exportUnit" value="__original__" checked style="width:16px;height:16px;">
+                        <span style="font-weight:600;">📦 หน่วยเดิม (ไม่แปลง)</span>
+                    </label>
+                    ${unitOptions.map(u=>`<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;">
+                        <input type="radio" name="exportUnit" value="${u.name}" style="width:16px;height:16px;">
+                        <span style="font-weight:600;">${u.name} ${u.rate>0?'<span style=color:#94a3b8;font-size:11px;>(×'+u.rate+')</span>':''}</span>
+                    </label>`).join('')}
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="document.getElementById('exportUnitModal').remove()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:600;font-family:inherit;">ยกเลิก</button>
+                    <button onclick="doExportInventoryWithUnit()" style="flex:1;background:#10b981;color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:700;font-family:inherit;">📥 Export</button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+        };
+        window.doExportInventoryWithUnit=function(){
+            const sel=document.querySelector('input[name="exportUnit"]:checked')?.value||'__original__';
+            document.getElementById('exportUnitModal')?.remove();
+            let data=window._invExportData.map(r=>({...r}));
+            if(sel!=='__original__'){
+                data=data.map(r=>{
+                    const pid=r['รหัสสินค้า']||r['id']||'';
+                    const p=allProducts.find(x=>x.id===pid);
+                    const units=p?.units||[];
+                    const targetIdx=units.findIndex(u=>u.name===sel);
+                    const srcIdx=0; // ยอดเดิมเป็น unit[0]
+                    let converted=r['ยอดคงเหลือ']||r['balance']||0;
+                    if(targetIdx>0){
+                        // คูณ rate ทีละขั้น
+                        for(let i=srcIdx;i<targetIdx;i++) converted*=(units[i]?.rate||1);
+                        converted=Math.round(converted*100)/100;
+                    }
+                    const newR={...r};
+                    const balKey=Object.keys(r).find(k=>k.includes('ยอด')||k.includes('balance'));
+                    if(balKey) newR[balKey]=converted;
+                    newR['หน่วย']=sel;
+                    return newR;
+                });
+            }
+            const rows=[Object.keys(data[0]),...data.map(r=>Object.values(r))];
             const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb,ws,'InventoryHistory');
-            XLSX.writeFile(wb,`Inventory_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
+            XLSX.writeFile(wb,`Inventory_${sel==='__original__'?'':sel+'_'}${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
+            toast('📥 Export เรียบร้อย','#10b981');
         };
 
         // ======== MIN/MAX & PURCHASE ORDER ========
@@ -3042,7 +3215,8 @@ ${it.zone}`);
 
         // ---- Print PDF ----
         window.deleteMR = async function(docId, mrNumber) {
-            const confirmText = prompt(`พิมพ์เลขใบเบิก "${mrNumber}" เพื่อยืนยันการลบ:`);
+            if(currentUser?.role!=='admin'){toast('⚠️ เฉพาะแอดมินเท่านั้นที่ลบใบเบิกได้','#c2410c');return;}
+            const confirmText = prompt(`⚠️ แอดมิน — พิมพ์เลขใบเบิก "${mrNumber}" เพื่อยืนยันการลบ:`);
             if(confirmText?.trim() !== mrNumber) { toast('❌ ยกเลิก','#c2410c'); return; }
             try {
                 await deleteDoc(doc(db,'requisitions',docId));
@@ -3613,11 +3787,9 @@ ${it.zone}`);
 
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;">
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่บันทึก</label>
-                    <input type="text" id="dsc_date_txt" placeholder="dd/mm/yyyy" maxlength="10"
-                        value="${today.split('-').reverse().join('/')}"
-                        oninput="formatDateInput(this,'dsc_date');if(document.getElementById('dsc_date').value)loadDSCOpening()"
-                        style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;">
-                    <input type="hidden" id="dsc_date" value="${today}">
+                    <input type="date" id="dsc_date" value="${today}"
+                        onchange="window._dscOpeningConfirmed=false;window._dscSkipOpening=false;renderDSCItems()"
+                        style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;">
                 </div>
                 <div class="input-group"><label>📦 คลัง/โซน</label>
                     <select id="dsc_zone" onchange="renderDSCItems()" style="width:100%;border:none;font-weight:bold;outline:none;">
@@ -3678,6 +3850,30 @@ ${it.zone}`);
             });
             if(!todayCard) window._dscEditId = null;
 
+            // แจ้งยอดยกมาจากเมื่อวาน (เฉพาะสร้างใหม่ ไม่ใช่ edit วันเดิม)
+            if(prevCard && !todayCard && !window._dscOpeningConfirmed) {
+                const itemsWithBalance = (prevCard.items||[]).filter(it=>it.closingBalance>0);
+                if(itemsWithBalance.length > 0) {
+                    const preview = itemsWithBalance.slice(0,3).map(it=>`• ${it.name||it.id}: ${it.closingBalance} ${it.unit||''}`).join('
+');
+                    const more = itemsWithBalance.length>3 ? `
+  ...และอีก ${itemsWithBalance.length-3} รายการ` : '';
+                    const msg = `📋 พบข้อมูลยอดปิดเมื่อวาน (${prevDateTH})
+ระบบจะดึงมาเป็นยอดยกมาวันนี้:
+
+${preview}${more}
+
+รับยอดยกมาจากเมื่อวานใช่ไหม?`;
+                    if(!confirm(msg)) {
+                        window._dscSkipOpening = true;
+                    } else {
+                        window._dscSkipOpening = false;
+                    }
+                    window._dscOpeningConfirmed = true;
+                }
+            }
+            if(todayCard || !window._dscOpeningConfirmed) window._dscSkipOpening = false;
+
             const issued = window._dscTodayIssued||{};
             c.innerHTML = `
             <div style="overflow-x:auto;">
@@ -3705,7 +3901,7 @@ ${it.zone}`);
                     const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
                     const prevItem = prevCard?.items?.find(it=>it.id===p.id);
                     const todayItem = todayCard?.items?.find(it=>it.id===p.id);
-                    const opening = todayItem?.openingBalance ?? prevItem?.closingBalance ?? '';
+                    const opening = todayItem?.openingBalance ?? (window._dscSkipOpening ? '' : (prevItem?.closingBalance ?? ''));
                     const recv = todayItem?.received ?? '';
                     const iss = issued[p.id]||0;
                     const issManual = todayItem?.issuedManual ?? 0;
@@ -3898,8 +4094,8 @@ ${r.zone}`);
             if(_dscChart2)_dscChart2.destroy();
             const c1=document.getElementById('dscClosingChart');
             const c2=document.getElementById('dscIssuedChart');
-            if(c1&&rows.length){c1.style.height='180px';c1.style.maxHeight='180px';_dscChart1=new Chart(c1,{type:'line',data:{labels,datasets:[{label:'คงเหลือเย็น',data:closing,borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.08)',borderWidth:2,tension:0.3,fill:true,pointRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{maxRotation:45}}}}});}
-            if(c2&&rows.length){c2.style.height='180px';c2.style.maxHeight='180px';_dscChart2=new Chart(c2,{type:'bar',data:{labels,datasets:[{label:'จ่ายออก',data:issued,backgroundColor:'rgba(239,68,68,0.15)',borderColor:'#ef4444',borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{maxRotation:45}}}}});}
+            if(c1&&rows.length){c1.style.height='180px';c1.style.maxHeight='180px';_dscChart1=new Chart(c1,{type:'line',data:{labels,datasets:[{label:'คงเหลือเย็น',data:closing,borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.08)',borderWidth:2,tension:0.3,fill:true,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{maxRotation:45}}}}});}
+            if(c2&&rows.length){c2.style.height='180px';c2.style.maxHeight='180px';_dscChart2=new Chart(c2,{type:'bar',data:{labels,datasets:[{label:'จ่ายออก',data:issued,backgroundColor:'rgba(239,68,68,0.15)',borderColor:'#ef4444',borderWidth:2,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{maxRotation:45}}}}});}
 
             const tbl=document.getElementById('dscHistoryTable');
             if(!tbl)return;
@@ -5027,16 +5223,17 @@ ${r.zone}`);
         };
 
         window.deleteLot = async function(productId, lotNumber) {
-            if(!confirm(`ลบ Lot "${lotNumber}" ของ ${productId} ?\nหากลบแล้วจะไม่สามารถกู้คืนได้`)) return;
+            if(currentUser?.role!=='admin') { toast('⚠️ เฉพาะแอดมินเท่านั้น','#c2410c'); return; }
+            if(!confirm(`⚠️ แอดมิน — ยืนยันลบ Lot "${lotNumber}" ของ ${productId}?\nหากลบแล้วจะไม่สามารถกู้คืนได้`)) return;
             try {
                 const lotRef = doc(db,'config','lotRegister');
                 const snap = await getDoc(lotRef);
                 if(!snap.exists()) return;
-                const lots = snap.data().lots||{};
+                const lots = JSON.parse(JSON.stringify(snap.data().lots||{}));
                 if(!lots[productId]) return;
                 lots[productId] = lots[productId].filter(l=>l.lotNumber!==lotNumber);
                 if(!lots[productId].length) delete lots[productId];
-                await setDoc(lotRef,{lots},{merge:true});
+                await setDoc(lotRef,{lots});
                 toast(`🗑️ ลบ Lot ${lotNumber} แล้ว`,'#059669');
                 openLotRegister();
             } catch(e) { toast('❌ ลบไม่สำเร็จ: '+e.message,'#ef4444'); }
@@ -5084,6 +5281,7 @@ ${r.zone}`);
         };
 
         window.saveEditLot = async function(productId, lotNumber) {
+            if(currentUser?.role==='admin' && !confirm(`⚠️ แอดมิน — ยืนยันแก้ไข Lot "${lotNumber}"?`)) return;
             const qtyVal = parseFloat(document.getElementById('el_qty')?.value)||0;
             const expVal = document.getElementById('el_exp')?.value.trim()||'';
             const mfdVal = document.getElementById('el_mfd')?.value.trim()||'';
@@ -5091,7 +5289,7 @@ ${r.zone}`);
             try {
                 const lotRef = doc(db,'config','lotRegister');
                 const snap = await getDoc(lotRef);
-                const lots = snap.data().lots||{};
+                const lots = JSON.parse(JSON.stringify(snap.data().lots||{}));
                 lots[productId] = (lots[productId]||[]).map(l=>{
                     if(l.lotNumber!==lotNumber) return l;
                     const updated = {...l, qtyRemaining:qtyVal};
@@ -5099,7 +5297,7 @@ ${r.zone}`);
                     if(dmyToIso(mfdVal)) updated.mfd = dmyToIso(mfdVal);
                     return updated;
                 });
-                await setDoc(lotRef,{lots},{merge:true});
+                await setDoc(lotRef,{lots});
                 document.getElementById('editLotModal')?.remove();
                 toast('✅ แก้ไข Lot เรียบร้อย','#059669');
                 openLotRegister();
@@ -5407,7 +5605,8 @@ ${r.zone}`);
 
         // ── GR EDIT & DELETE (Admin) ──────────────────────
         window.deleteGR = async function(grId, grNumber) {
-            const confirmText = prompt(`พิมพ์เลข GR "${grNumber}" เพื่อยืนยันการลบ:`);
+            if(currentUser?.role!=='admin'){toast('⚠️ เฉพาะแอดมินเท่านั้นที่ลบ GR ได้','#c2410c');return;}
+            const confirmText = prompt(`⚠️ แอดมิน — พิมพ์เลข GR "${grNumber}" เพื่อยืนยันการลบ:`);
             if(confirmText?.trim() !== grNumber) { toast('❌ ยกเลิก — GR Number ไม่ตรง','#c2410c'); return; }
             try {
                 await deleteDoc(doc(db,'goodsReceipts',grId));
@@ -5417,6 +5616,8 @@ ${r.zone}`);
         };
 
         window.editGR = async function(grId) {
+            if(currentUser?.role!=='admin'){toast('⚠️ เฉพาะแอดมินเท่านั้นที่แก้ไข GR ได้','#c2410c');return;}
+            if(!confirm('⚠️ แอดมิน — ยืนยันแก้ไขข้อมูล GR นี้?')) return;
             const snap = await getDoc(doc(db,'goodsReceipts',grId));
             if(!snap.exists()) { toast('❌ ไม่พบ GR','#c2410c'); return; }
             const gr = { id:grId, ...snap.data() };
