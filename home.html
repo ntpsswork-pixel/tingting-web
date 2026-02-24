@@ -7431,6 +7431,11 @@ ${r.zone}`);
             _closeToDashboard(true);
             if(location.hash) history.pushState(null, '', location.pathname);
         };
+
+        // expose module-scoped vars สำหรับ script ภายนอก module
+        Object.defineProperty(window, '_allProducts',       { get: () => allProducts,       set: v => { allProducts = v; } });
+        Object.defineProperty(window, '_productCategories', { get: () => productCategories, set: v => { productCategories = v; } });
+        window._saveConfig = function() { return saveConfig(); };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
@@ -7442,6 +7447,14 @@ window.openBulkCategoryEditor = function() {
     document.getElementById('dashboardView').classList.add('hidden');
     const c = document.getElementById('toolAppContainer');
     c.classList.remove('hidden');
+
+    const allProducts       = window._allProducts       || [];
+    const productCategories = window._productCategories || [];
+
+    if (!allProducts.length) {
+        c.innerHTML = '<div class="tool-header"><h2>แก้ไขหมวดหมู่สินค้า</h2><button onclick="closeTool()">✕ ปิด</button></div><p style="padding:20px;color:#94a3b8;">ยังไม่มีข้อมูลสินค้า กรุณารอโหลดข้อมูลแล้วลองใหม่อีกครั้ง</p>';
+        return;
+    }
 
     let rows = allProducts.map(p => `
         <tr>
@@ -7499,6 +7512,7 @@ window.updateTempCategory = function(productId, category) {
 }
 
 window.saveBulkCategory = async function() {
+    const allProducts = window._allProducts || [];
     Object.keys(tempCategoryMap).forEach(id => {
         const product = allProducts.find(p => p.id === id);
         if(product){
@@ -7506,7 +7520,7 @@ window.saveBulkCategory = async function() {
         }
     });
 
-    await saveConfig();
+    await window._saveConfig();
     tempCategoryMap = {};
     toast('✅ บันทึกหมวดหมู่เรียบร้อยแล้ว', '#059669');
 }
