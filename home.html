@@ -4597,37 +4597,73 @@ ${r.zone}`);
                 document.body.appendChild(m);
                 return;
             }
-            // สาขา BT → เช็ค Template
-            const isBT = currentUser?.username?.toUpperCase().startsWith('BT') &&
-                         !currentUser?.username?.toUpperCase().startsWith('BT000');
-            if(isBT) {
-                const zone = (currentUser.assignedZones||[])[0]||'';
-                // หา template ที่ branchType ตรงกับ prefix ของ zone
-                const matchTmpl = Object.entries(stockSheetTemplates).find(([id,t])=>{
-                    const bt = (t.branchType||t.zone||'').toUpperCase();
-                    return bt && zone.toUpperCase().startsWith(bt);
-                });
-                if(matchTmpl) {
-                    openBranchMonthlyCount(matchTmpl[0], matchTmpl[1], zone);
-                    return;
-                }
-                // ถ้าไม่มี template → fallback openCentralStock
-            }
-            openCentralStock();
+            // แสดง modal เลือก Template
+            openMonthlyCountTemplatePicker();
+        };
+
+        window.openMonthlyCountTemplatePicker = function() {
+            const existing = document.getElementById('mcTemplateModal'); if(existing) existing.remove();
+            const entries = Object.entries(stockSheetTemplates);
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+            const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+
+            const templateCards = entries.length
+                ? entries.map(([id,t])=>`
+                    <div onclick="closeMCTemplatePicker();openBranchMonthlyCount('${id}',stockSheetTemplates['${id}'],'')"
+                        style="padding:16px 18px;border:2px solid ${t.color||'#e2e8f0'};border-radius:14px;cursor:pointer;transition:all .2s;background:white;text-align:left;"
+                        onmouseover="this.style.background='${t.color||'#f0f9ff'}22';this.style.transform='translateY(-2px)'"
+                        onmouseout="this.style.background='white';this.style.transform=''">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                            <span style="background:${t.color||'#06b6d4'};color:white;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${t.branchType||'ALL'}</span>
+                            <b style="font-size:14px;">${t.name}</b>
+                        </div>
+                        <div style="font-size:12px;color:#64748b;">${(t.items||[]).length} รายการ</div>
+                    </div>`).join('')
+                : `<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px;">ยังไม่มี Template<br>ไปสร้างได้ที่ Admin → จัดการ Stock Sheet Templates</div>`;
+
+            const m = document.createElement('div');
+            m.className='modal-overlay'; m.id='mcTemplateModal';
+            m.innerHTML=`<div class="modal-box" style="max-width:500px;width:95vw;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <h3 style="margin:0;">📋 เลือก Template การนับสต๊อก</h3>
+                    <button onclick="closeMCTemplatePicker()" style="background:#f1f5f9;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+                </div>
+                <div style="font-size:12px;color:#64748b;margin-bottom:18px;">
+                    👤 ${currentUser?.name||''} &nbsp;•&nbsp; 📅 ${dateStr} ${timeStr}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;padding-right:4px;">
+                    ${templateCards}
+                </div>
+                <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;">
+                    <button onclick="closeMCTemplatePicker();openCentralStock()"
+                        style="width:100%;padding:11px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:13px;color:#475569;font-weight:600;">
+                        📦 นับสต๊อกแบบเดิม (ไม่ใช้ Template)
+                    </button>
+                </div>
+            </div>`;
+            document.body.appendChild(m);
+        };
+
+        window.closeMCTemplatePicker = function() {
+            const el = document.getElementById('mcTemplateModal'); if(el) el.remove();
         };
 
         window.openBranchMonthlyCount = function(tmplId, tmpl, zone) {
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
-            const today = new Date().toISOString().slice(0,10);
+            const now = new Date();
+            const today = now.toISOString().slice(0,10);
+            const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+            const defaultZone = zone || (currentUser?.assignedZones||[])[0] || '';
             const groups = [...new Set(tmpl.items.map(i=>i.group||i.category||'ทั่วไป'))];
 
             c.innerHTML = `
             <div class="tool-header no-print">
-                <h2>📋 นับสต๊อกสิ้นเดือน — ${zone}</h2>
+                <h2>📋 นับสต๊อกสิ้นเดือน</h2>
                 <div style="display:flex;gap:8px;">
                     <span style="background:${tmpl.color||'#06b6d4'};color:white;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:bold;">📄 ${tmpl.name}</span>
-                    <button onclick="printBranchMonthlyCount('${tmplId}','${zone}')" style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ พิมพ์ / PDF</button>
+                    <button onclick="printBranchMonthlyCount('${tmplId}', document.getElementById('bmc_zone')?.value||'')" style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ พิมพ์ / PDF</button>
                     <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
                 </div>
@@ -4636,10 +4672,19 @@ ${r.zone}`);
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ</label>
                     <input type="date" id="bmc_date" value="${today}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;">
                 </div>
-                <div class="input-group" style="border:2px solid var(--info);"><label>📦 คลัง/สาขา</label>
-                    <b style="font-size:14px;">${zone}</b>
+                <div class="input-group" style="border:2px solid var(--accent-gold);"><label>🕐 เวลา</label>
+                    <input type="time" id="bmc_time" value="${timeStr.slice(0,5)}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;">
                 </div>
-                <div class="input-group" style="background:#f1f5f9;"><label>📝 บันทึกโดย</label><b>${currentUser.name}</b></div>
+                <div class="input-group" style="border:2px solid var(--info);"><label>📦 คลัง/สาขา</label>
+                    <input type="text" id="bmc_zone" value="${defaultZone}" placeholder="ระบุคลัง/สาขา..."
+                        style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;font-family:inherit;">
+                </div>
+                <div class="input-group" style="background:#f0fdf4;border:1.5px solid #bbf7d0;"><label>🙋 ผู้นับ</label>
+                    <b style="font-size:13px;color:#065f46;">${currentUser?.name||''}</b>
+                </div>
+                <div class="input-group" style="background:#f0fdf4;border:1.5px solid #bbf7d0;"><label>✅ ผู้ทำรายการหลัก</label>
+                    <b style="font-size:13px;color:#065f46;">${currentUser?.name||''}</b>
+                </div>
             </div>
             <div style="margin-bottom:12px;" class="no-print">
                 <input type="text" placeholder="🔍 ค้นหาสินค้า..." oninput="filterBMCRows(this.value)"
@@ -4695,12 +4740,16 @@ ${r.zone}`);
             });
         };
 
-        window.saveBranchMonthlyCount = async function(tmplId, zone) {
+        window.saveBranchMonthlyCount = async function(tmplId, _zoneDeprecated) {
             const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
             const dateVal = document.getElementById('bmc_date')?.value;
             if(!dateVal){toast('⚠️ กรุณาเลือกวันที่','#c2410c');return;}
+            const zone = document.getElementById('bmc_zone')?.value.trim() || _zoneDeprecated || '';
+            if(!zone){toast('⚠️ กรุณาระบุคลัง/สาขา','#c2410c');return;}
+            const timeVal = document.getElementById('bmc_time')?.value || '';
             const [cy,cm,cd]=dateVal.split('-');
             const dateTH=`${cd}/${cm}/${parseInt(cy)+543}`;
+            const datetimeTH = dateTH + (timeVal ? ' ' + timeVal : '');
             const items = tmpl.items.map(it=>({
                 id:it.id, name:it.name, unit:it.unit||'',
                 group:it.group||it.category||'',
@@ -4712,7 +4761,7 @@ ${r.zone}`);
             }
             try {
                 await addDoc(collection(db,'inventoryHistory'),{
-                    zone, date:dateTH, timestamp:Date.now(),
+                    zone, date:dateTH, datetime:datetimeTH, timestamp:Date.now(),
                     countedBy:currentUser.name, recordedBy:currentUser.name,
                     templateId:tmplId, templateName:tmpl.name,
                     isBranchTemplate:true,
