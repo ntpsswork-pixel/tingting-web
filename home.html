@@ -7436,6 +7436,7 @@ ${r.zone}`);
         Object.defineProperty(window, '_allProducts',       { get: () => allProducts,       set: v => { allProducts = v; } });
         Object.defineProperty(window, '_productCategories', { get: () => productCategories, set: v => { productCategories = v; } });
         window._saveConfig = function() { return saveConfig(); };
+        window.toast = toast;
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
