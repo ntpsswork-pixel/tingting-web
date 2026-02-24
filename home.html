@@ -1669,14 +1669,39 @@
                         <button class="btn-sm" style="background:var(--danger);color:white;padding:6px 12px;border-radius:8px;font-size:12px;" onclick="deletePd(${i})">✕ ลบ</button>
                     </div>
                 </div>
-                <div id="pdEditArea_${i}" style="display:none;margin-top:8px;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                        <input id="pdEditName_${i}" value="${p.name}" placeholder="ชื่อสินค้า" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;grid-column:span 2;">
-                        <input id="pdEditSupplier_${i}" value="${p.supplier||''}" placeholder="🏢 Supplier (ถ้ามี)" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;grid-column:span 2;">
-                        ${units.map((u,ui)=>`
-                        <input id="pdEditUnit${ui}_${i}" value="${u.name}" placeholder="หน่วยที่ ${ui+1}" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
-                        ${ui<units.length-1?`<input id="pdEditRate${ui}_${i}" value="${u.rate||''}" placeholder="อัตราแปลง ×" type="number" min="1" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">`:'<div></div>'}`).join('')}
-                        <button onclick="saveEditPd(${i})" style="grid-column:span 2;background:var(--success);color:white;border:none;padding:6px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">💾 บันทึก</button>
+                <div id="pdEditArea_${i}" style="display:none;margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        <div style="grid-column:span 2;">
+                            <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">ชื่อสินค้า</div>
+                            <input id="pdEditName_${i}" value="${p.name}" placeholder="ชื่อสินค้า" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <div style="grid-column:span 2;">
+                            <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">🏢 Supplier / ผู้ส่ง (ถ้ามี)</div>
+                            <input id="pdEditSupplier_${i}" value="${p.supplier||''}" placeholder="ชื่อ Supplier" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <div style="grid-column:span 2;">
+                            <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">🔖 Barcode (ไว้สำหรับอนาคต)</div>
+                            <input id="pdEditBarcode_${i}" value="${p.barcode||''}" placeholder="Barcode" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <div style="grid-column:span 2;border-top:1px solid #e2e8f0;padding-top:10px;margin-top:2px;">
+                            <div style="font-size:10px;color:#7c3aed;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">📦 หน่วยและอัตราแปลง (สูงสุด 3 หน่วย)</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px;">
+                                <input id="pdEditUnit0_${i}" value="${units[0]?.name||''}" placeholder="หน่วยที่ 1 (ใหญ่สุด) เช่น ลัง" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+                                <input id="pdEditRate0_${i}" value="${units[0]?.rate||''}" placeholder="1 ลัง = ? หน่วยที่ 2" type="number" min="1" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+                                <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">× หน่วยที่ 2</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px;">
+                                <input id="pdEditUnit1_${i}" value="${units[1]?.name||''}" placeholder="หน่วยที่ 2 (กลาง) เช่น ถุง" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+                                <input id="pdEditRate1_${i}" value="${units[1]?.rate||''}" placeholder="1 ถุง = ? หน่วยที่ 3" type="number" min="1" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+                                <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">× หน่วยที่ 3</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;">
+                                <input id="pdEditUnit2_${i}" value="${units[2]?.name||''}" placeholder="หน่วยที่ 3 (เล็กสุด) เช่น กรัม" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+                                <div></div>
+                                <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">หน่วยสุดท้าย</span>
+                            </div>
+                        </div>
+                        <button onclick="saveEditPd(${i})" style="grid-column:span 2;background:var(--success);color:white;border:none;padding:11px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:bold;margin-top:4px;">💾 บันทึก</button>
                     </div>
                 </div>
             </div>`;}).join('');
@@ -1699,21 +1724,22 @@
 
         window.saveEditPd=function(i){
             const name=document.getElementById(`pdEditName_${i}`)?.value.trim();
-            if(!name)return;
-            const existingUnits=allProducts[i].units||[{name:allProducts[i].unit,rate:0},{name:allProducts[i].subUnit||'',rate:0}].filter(u=>u.name);
+            if(!name){toast('⚠️ กรุณาระบุชื่อสินค้า','#f59e0b');return;}
             const newUnits=[];
-            for(let ui=0;ui<existingUnits.length;ui++){
+            for(let ui=0;ui<3;ui++){
                 const uName=document.getElementById(`pdEditUnit${ui}_${i}`)?.value.trim()||'';
                 const uRate=parseFloat(document.getElementById(`pdEditRate${ui}_${i}`)?.value)||0;
                 if(uName) newUnits.push({name:uName,rate:uRate});
             }
-            if(!newUnits.length)return;
-            const editedSupplier = document.getElementById(`pdEditSupplier_${i}`)?.value.trim()||'';
+            if(!newUnits.length){toast('⚠️ กรุณาระบุหน่วยอย่างน้อย 1 หน่วย','#f59e0b');return;}
+            const editedSupplier=document.getElementById(`pdEditSupplier_${i}`)?.value.trim()||'';
+            const editedBarcode=document.getElementById(`pdEditBarcode_${i}`)?.value.trim()||'';
             allProducts[i].name=name;
             allProducts[i].units=newUnits;
             allProducts[i].unit=newUnits[0]?.name||'';
             allProducts[i].subUnit=newUnits[1]?.name||'';
             allProducts[i].supplier=editedSupplier;
+            allProducts[i].barcode=editedBarcode;
             saveConfig(); renderPdList();
             toast('✅ แก้ไขสินค้าเรียบร้อย','#059669');
         };
