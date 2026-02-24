@@ -1458,11 +1458,23 @@
                 sessions.sort((a,b)=>b.timestamp-a.timestamp);
                 currentHistoryData=sessions;
                 if(sessions.length===0){container.innerHTML='<p style="color:#94a3b8;text-align:center;padding:40px;">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</p>';return;}
-                container.innerHTML=sessions.map(s=>`
-                <div class="history-card">
+                // Add select-all bar before cards
+                const selectBar=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                    <input type="checkbox" id="checkAllSessions" onchange="toggleAllSessions(this.checked)" style="width:17px;height:17px;accent-color:var(--info);cursor:pointer;">
+                    <label for="checkAllSessions" style="font-size:13px;font-weight:600;cursor:pointer;">เลือกทั้งหมด</label>
+                    <span id="selectedSessionCount" style="font-size:12px;color:#94a3b8;margin-left:4px;"></span>
+                    <button onclick="exportSelectedSessions()" style="margin-left:auto;background:var(--success);color:white;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;">📥 Export ที่เลือก</button>
+                </div>`;
+                container.innerHTML=selectBar+sessions.map(s=>`
+                <div class="history-card" style="transition:outline 0.15s;" id="card_${s.id}">
                     <div class="history-card-header">
-                        <div><b style="font-size:15px;">📦 ${s.zone}</b>
-                        <span style="margin-left:12px;color:#64748b;font-size:13px;">📅 ${s.date} ${s.countedBy?'• 👤 '+s.countedBy:''}</span></div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <input type="checkbox" class="session-check" value="${s.id}" onchange="updateSessionCount()" style="width:17px;height:17px;accent-color:var(--info);cursor:pointer;">
+                            <div>
+                                <b style="font-size:15px;">📦 ${s.zone}</b>
+                                <span style="margin-left:12px;color:#64748b;font-size:13px;">📅 ${s.date} ${s.countedBy?'• 👤 '+s.countedBy:''}</span>
+                            </div>
+                        </div>
                         <div style="display:flex;align-items:center;gap:10px;">
                             <span style="font-size:11px;color:#94a3b8;">บันทึกโดย: ${s.recordedBy||'-'}</span>
                             ${currentUser.role==='admin'?`<button onclick="deleteHistorySession('${s.id}')" style="background:#fee2e2;color:#ef4444;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;">🗑️ ลบ</button>`:''}
@@ -1492,18 +1504,51 @@
             } catch(e){console.error(e);container.innerHTML='<p style="color:var(--danger);text-align:center;padding:40px;">❌ โหลดข้อมูลไม่สำเร็จ</p>';}
         };
 
+        window.toggleAllSessions=function(checked){
+            document.querySelectorAll('.session-check').forEach(cb=>cb.checked=checked);
+            updateSessionCount();
+        };
+        window.updateSessionCount=function(){
+            const total=document.querySelectorAll('.session-check').length;
+            const selected=document.querySelectorAll('.session-check:checked').length;
+            const cnt=document.getElementById('selectedSessionCount');
+            if(cnt) cnt.textContent=selected>0?`เลือก ${selected}/${total} ใบ`:'';
+            const allCb=document.getElementById('checkAllSessions');
+            if(allCb) allCb.checked=selected===total&&total>0;
+        };
+        window.exportSelectedSessions=function(){
+            const checked=[...document.querySelectorAll('.session-check:checked')].map(cb=>cb.value);
+            if(!checked.length){toast('⚠️ กรุณาเลือกอย่างน้อย 1 ใบ','#f59e0b');return;}
+            const selected=currentHistoryData.filter(s=>checked.includes(s.id));
+            if(!selected.length){toast('❌ ไม่พบข้อมูล','#c2410c');return;}
+            doExportHistory(selected);
+        };
         window.exportExcelHistory=function(){
             if(!currentHistoryData||currentHistoryData.length===0){toast('❌ ไม่มีข้อมูลให้ export','#c2410c');return;}
-            const rows=[["วันที่","คลัง","รหัสสินค้า","ชื่อสินค้า","จำนวนหน่วย1","หน่วย1","จำนวนหน่วย2","หน่วย2","จำนวนหน่วย3","หน่วย3","คนนับ","บันทึกโดย"]];
-            currentHistoryData.forEach(s=>{
+            doExportHistory(currentHistoryData);
+        };
+        window.doExportHistory=function(sessions){
+            if(!sessions||sessions.length===0){toast('❌ ไม่มีข้อมูลให้ export','#c2410c');return;}
+            // หา unit names จาก allProducts เพื่อทำ header ที่ถูกต้อง
+            const getUnitNames=(productId)=>{
+                const p=allProducts.find(x=>x.id===productId);
+                const units=p?.units||[{name:p?.unit||''},{name:p?.subUnit||''}];
+                return [units[0]?.name||'หน่วย1', units[1]?.name||'หน่วย2', units[2]?.name||'หน่วย3'];
+            };
+            const rows=[["วันที่","คลัง","รหัสสินค้า","ชื่อสินค้า","จำนวนนับ","หน่วย","จำนวนนับ","หน่วย","จำนวนนับ","หน่วย","คนนับ","บันทึกโดย"]];
+            sessions.forEach(s=>{
                 (s.items||[]).forEach(it=>{
                     const amounts=it.amounts||[{amount:it.amountMain||it.amount||0,unit:it.unit||''},{amount:it.amountSub||0,unit:it.subUnit||''}].filter(a=>a.unit);
-                    // pad ให้ครบ 3 หน่วยเสมอ เพื่อให้คอลัมน์ตรง
-                    const padded=Array.from({length:3},(_,i)=>amounts[i]||{amount:0,unit:''});
+                    // ใช้ unit name จาก allProducts ถ้า amount มีค่าแต่ unit ว่าง
+                    const unitNames=getUnitNames(it.id);
+                    const padded=Array.from({length:3},(_,i)=>({
+                        amount:amounts[i]?.amount??0,
+                        unit:amounts[i]?.unit||unitNames[i]||''
+                    }));
                     const row=[s.date,s.zone,it.id,it.name,
-                        padded[0].amount||0, padded[0].unit||'',
-                        padded[1].amount||0, padded[1].unit||'',
-                        padded[2].amount||0, padded[2].unit||'',
+                        padded[0].amount||'', padded[0].unit,
+                        padded[1].amount||'', padded[1].unit,
+                        padded[2].amount||'', padded[2].unit,
                         s.countedBy||'',s.recordedBy||''];
                     rows.push(row);
                 });
@@ -1511,7 +1556,9 @@
             const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb,ws,"StockHistory");
             const zone=document.getElementById('filterZone')?.value||'all';
-            XLSX.writeFile(wb,`StockHistory_${zone}_${new Date().toLocaleDateString('th-TH')}.xlsx`);
+            const dateStr=new Date().toLocaleDateString('th-TH').replace(/\//g,'-');
+            XLSX.writeFile(wb,`StockHistory_${zone}_${dateStr}.xlsx`);
+            toast('📥 Export เรียบร้อย','#10b981');
         };
 
         // ---- WAREHOUSE MANAGER (เพิ่ม edit + subUnit) ----
@@ -2370,13 +2417,17 @@ ${it.zone}`);
 
         window.exportInventoryExcel=function(){
             if(!window._invExportData?.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
-            // หาหน่วยที่ใช้ในข้อมูลนี้
-            const unitSet=new Set(window._invExportData.map(r=>r['หน่วย']||r['unit']||'').filter(Boolean));
-            const unitsArr=[...unitSet];
-            // ดูว่ามี product ที่มี multi-unit ไหม
-            const multiUnitProds=allProducts.filter(p=>p.units&&p.units.length>1&&p.units[0].rate>0);
-            if(multiUnitProds.length===0){
-                // ไม่มี conversion — export ตรงๆ
+            // รวบรวมหน่วยทั้งหมดจากสินค้าที่มีใน export data
+            const exportIds=new Set(window._invExportData.map(r=>r['รหัส']||r['รหัสสินค้า']||r['id']||''));
+            const unitOptions=[];
+            allProducts.forEach(p=>{
+                if(!exportIds.has(p.id))return;
+                (p.units||[]).forEach(u=>{
+                    if(u.name&&!unitOptions.find(x=>x.name===u.name)) unitOptions.push({name:u.name,rate:u.rate,pid:p.id});
+                });
+            });
+            // ถ้าไม่มีหน่วยพิเศษเลย export ตรงๆ
+            if(unitOptions.length<=1){
                 const rows=[Object.keys(window._invExportData[0]),...window._invExportData.map(r=>Object.values(r))];
                 const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb,ws,'InventoryHistory');
@@ -2388,10 +2439,6 @@ ${it.zone}`);
             const modal=document.createElement('div');
             modal.id='exportUnitModal';
             modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
-            const unitOptions=[];
-            multiUnitProds.forEach(p=>{
-                (p.units||[]).forEach(u=>{ if(u.name&&!unitOptions.find(x=>x.name===u.name)) unitOptions.push({name:u.name,rate:u.rate,pid:p.id}); });
-            });
             modal.innerHTML=`<div style="background:white;border-radius:20px;padding:28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
                 <h3 style="margin:0 0 8px;font-family:inherit;">📥 Export สต๊อก — เลือกหน่วย</h3>
                 <p style="font-size:13px;color:#64748b;margin:0 0 18px;">ระบบจะแปลงยอดสต๊อกเป็นหน่วยที่เลือก (ใช้อัตราแปลงที่ตั้งไว้)</p>
