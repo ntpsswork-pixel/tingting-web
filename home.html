@@ -391,7 +391,8 @@
         let productMinMax = {}; // { "zone__productId": { min, max } }
         let reqTemplates       = {}; // { templateId: { name, dept, zone, items:[{id,name,unit}], color } }
         let monthlyCountOpen   = false; // admin toggle: เปิด/ปิดนับสต๊อกสิ้นเดือน
-        let stockSheetTemplates = {}; // { templateId: { name, zone, groupBy, items:[{id,name,unit,group}], color } }
+        let stockSheetTemplates = {}; // { templateId: { name, branchType, items:[{id,name,unit,group}], color } }
+        let productCategories   = []; // ['เครื่องดื่ม','อาหารแห้ง',...]
 
         // ---- UTILS ----
         async function hashPassword(p) {
@@ -421,6 +422,8 @@
                     if (d.reqTemplates)        reqTemplates        = d.reqTemplates;
                     if (d.monthlyCountOpen!=null) monthlyCountOpen = d.monthlyCountOpen;
                     if (d.stockSheetTemplates)  stockSheetTemplates = d.stockSheetTemplates;
+                    if (d.productCategories)    productCategories   = d.productCategories;
+                    if (d.productCategories)    productCategories   = d.productCategories;
                     // --- migrate: เพิ่ม requisition ให้ทุก role ที่ยังไม่มี ---
                     let needSave = false;
                     const reqDefaults = {
@@ -447,7 +450,7 @@
         }
 
         async function saveConfig() {
-            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates }, { merge:true }); }
+            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories }, { merge:true }); }
             catch(e) { toast('❌ บันทึก config ไม่สำเร็จ','#c2410c'); }
         }
 
@@ -1664,10 +1667,22 @@
                 </div>
                 <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
                     <h4>🍎 สินค้าหลัก</h4>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px 14px;margin-bottom:14px;border:1px solid #e2e8f0;">
+                        <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🏷️ จัดการหมวดหมู่สินค้า</div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;" id="categoryChipList"></div>
+                        <div style="display:flex;gap:6px;">
+                            <input type="text" id="newCategoryInput" placeholder="ชื่อหมวดหมู่ใหม่..." maxlength="30"
+                                style="flex:1;padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;font-size:13px;outline:none;"
+                                onkeydown="if(event.key==='Enter')addCategory()">
+                            <button onclick="addCategory()" style="background:#06b6d4;color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:bold;">+ เพิ่ม</button>
+                        </div>
+                    </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-                        <input type="text" id="newPdId" placeholder="รหัส SKU" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
+                        <input type="text" id="newPdId" placeholder="รหัส SKU (เว้นว่าง = Auto ITEM-001)" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
                         <input type="text" id="newPdName" placeholder="ชื่อสินค้า" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
-                        <input type="text" id="newPdSupplier" placeholder="🏢 Supplier / ผู้ส่ง (ถ้ามี)" style="padding:10px;border:1px solid #ddd;border-radius:8px;grid-column:span 2;">
+                        <input type="text" id="newPdSupplier" placeholder="🏢 Supplier / ผู้ส่ง (ถ้ามี)" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
+                        <input type="text" id="newPdCategory" placeholder="🏷️ หมวดหมู่" list="categoryDatalist" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
+                        <datalist id="categoryDatalist"></datalist>
                         <input type="text" id="newPdBarcode" placeholder="📦 Barcode (ไว้สำหรับอนาคต)" style="padding:10px;border:1px solid #ddd;border-radius:8px;grid-column:span 2;font-family:monospace;">
                     </div>
                     <div style="background:#f8fafc;border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid #e2e8f0;">
@@ -1735,7 +1750,7 @@
                 <div id="minMaxZoneLabel" style="font-size:13px;color:#64748b;margin-bottom:10px;"></div>
                 <div id="minMaxContainer"></div>
             </div>`;
-            renderWhList(); renderPdList();
+            renderWhList(); renderPdList(); renderCategoryChips();
             document.getElementById('selectZoneMap').innerHTML=warehouseList.map(w=>`<option value="${w}">${w}</option>`).join('');
             renderMapping();
             renderMinMaxTable();
@@ -1829,6 +1844,10 @@
                             <input id="pdEditSupplier_${i}" value="${p.supplier||''}" placeholder="ชื่อ Supplier" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
                         </div>
                         <div style="grid-column:span 2;">
+                            <div style="font-size:10px;color:#a16207;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">🏷️ หมวดหมู่</div>
+                            <input id="pdEditCategory_${i}" value="${p.category||''}" placeholder="เลือกหรือพิมพ์หมวดหมู่" list="categoryDatalist" style="width:100%;padding:9px 12px;border:1.5px solid #fde68a;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#fde68a'">
+                        </div>
+                        <div style="grid-column:span 2;">
                             <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">🔖 Barcode (ไว้สำหรับอนาคต)</div>
                             <input id="pdEditBarcode_${i}" value="${p.barcode||''}" placeholder="Barcode" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
                         </div>
@@ -1883,12 +1902,14 @@
             if(!newUnits.length){toast('⚠️ กรุณาระบุหน่วยอย่างน้อย 1 หน่วย','#f59e0b');return;}
             const editedSupplier=document.getElementById(`pdEditSupplier_${i}`)?.value.trim()||'';
             const editedBarcode=document.getElementById(`pdEditBarcode_${i}`)?.value.trim()||'';
+            const editedCategory=document.getElementById(`pdEditCategory_${i}`)?.value.trim()||'';
             allProducts[i].name=name;
             allProducts[i].units=newUnits;
             allProducts[i].unit=newUnits[0]?.name||'';
             allProducts[i].subUnit=newUnits[1]?.name||'';
             allProducts[i].supplier=editedSupplier;
             allProducts[i].barcode=editedBarcode;
+            allProducts[i].category=editedCategory;
             saveConfig(); renderPdList();
             toast('✅ แก้ไขสินค้าเรียบร้อย','#059669');
         };
@@ -2070,8 +2091,16 @@
             const u3=document.getElementById('newPdUnit3').value.trim();
             const r1=parseFloat(document.getElementById('newPdRate1').value)||0;
             const r2=parseFloat(document.getElementById('newPdRate2').value)||0;
-            if(!id||!name||!u1){toast('⚠️ กรุณากรอก รหัส, ชื่อสินค้า และหน่วยที่ 1 อย่างน้อย','#c2410c');return;}
-            if(allProducts.some(p=>p.id===id)){toast('❌ รหัสสินค้า "'+id+'" ซ้ำกับที่มีอยู่แล้ว','#c2410c');return;}
+            // Auto-generate ID ถ้าไม่กรอก
+            let finalId = id;
+            if(!finalId) {
+                const existing = allProducts.map(p=>p.id).filter(x=>x.startsWith('ITEM-'));
+                const nums = existing.map(x=>parseInt(x.replace('ITEM-',''))||0);
+                const nextNum = (nums.length ? Math.max(...nums) : 0) + 1;
+                finalId = 'ITEM-' + String(nextNum).padStart(3,'0');
+            }
+            if(!name||!u1){toast('⚠️ กรุณากรอก ชื่อสินค้า และหน่วยที่ 1 อย่างน้อย','#c2410c');return;}
+            if(allProducts.some(p=>p.id===finalId)){toast('❌ รหัสสินค้า "'+finalId+'" ซ้ำกับที่มีอยู่แล้ว','#c2410c');return;}
             if(allProducts.some(p=>p.name.trim().toLowerCase()===name.toLowerCase())){toast('❌ ชื่อสินค้า "'+name+'" ซ้ำกับที่มีอยู่แล้ว','#c2410c');return;}
             // สร้าง units array
             const units=[];
@@ -2080,18 +2109,83 @@
             if(u3) units.push({name:u3,rate:0}); // หน่วยสุดท้ายไม่มี rate
             const supplier = document.getElementById('newPdSupplier')?.value.trim()||'';
             const barcode = document.getElementById('newPdBarcode')?.value.trim()||'';
-            allProducts.push({id,name,units,supplier,barcode,
+            const category = document.getElementById('newPdCategory')?.value.trim()||'';
+            allProducts.push({id:finalId,name,units,supplier,barcode,category,
                 // backward compat
                 unit:u1, subUnit:u2||''
             });
             saveConfig(); renderPdList(); renderMapping();
-            ['newPdId','newPdName','newPdSupplier','newPdBarcode','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
+            ['newPdId','newPdName','newPdSupplier','newPdBarcode','newPdCategory','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
                 const el=document.getElementById(x); if(el) el.value='';
             });
-            toast('✅ เพิ่มสินค้าเรียบร้อย','#059669');
+            toast(`✅ เพิ่มสินค้า [${finalId}] เรียบร้อย`,'#059669');
         };
 
         window.deletePd=function(i){if(confirm('ยืนยันลบสินค้า?')){allProducts.splice(i,1);saveConfig();renderPdList();renderMapping();}};
+
+        // ══ Category Management ══
+        window.renderCategoryChips = function() {
+            const c = document.getElementById('categoryChipList'); if(!c) return;
+            c.innerHTML = productCategories.map((cat,i)=>`
+                <span style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#a16207;border:1px solid #fde68a;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;">
+                    🏷️ ${cat}
+                    <button onclick="deleteCategory(${i})" style="background:none;border:none;cursor:pointer;color:#d97706;font-size:12px;padding:0;line-height:1;" title="ลบหมวดนี้">✕</button>
+                </span>`).join('');
+            document.querySelectorAll('#categoryDatalist').forEach(dl => {
+                dl.innerHTML = productCategories.map(c=>`<option value="${c}">`).join('');
+            });
+        };
+        window.addCategory = function() {
+            const inp = document.getElementById('newCategoryInput');
+            const val = inp?.value.trim();
+            if(!val) return;
+            if(productCategories.includes(val)){toast('⚠️ หมวดหมู่นี้มีอยู่แล้ว','#c2410c');return;}
+            productCategories.push(val);
+            if(inp) inp.value='';
+            saveConfig(); renderCategoryChips();
+            toast('✅ เพิ่มหมวดหมู่ "'+val+'" แล้ว','#059669');
+        };
+        window.deleteCategory = function(i) {
+            const name = productCategories[i];
+            if(!confirm(`ลบหมวดหมู่ "${name}"?\n(สินค้าที่อยู่ในหมวดนี้จะไม่ถูกลบออก)`)) return;
+            productCategories.splice(i,1);
+            saveConfig(); renderCategoryChips();
+            toast('🗑️ ลบหมวดหมู่แล้ว','#64748b');
+        };
+
+        // ══ Category Management ══
+        window.renderCategoryChips = function() {
+            const c = document.getElementById('categoryChipList'); if(!c) return;
+            c.innerHTML = productCategories.map((cat,i)=>`
+                <span style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#a16207;border:1px solid #fde68a;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;">
+                    🏷️ ${cat}
+                    <button onclick="deleteCategory(${i})" style="background:none;border:none;cursor:pointer;color:#d97706;font-size:12px;padding:0;line-height:1;" title="ลบหมวดนี้">✕</button>
+                </span>`).join('');
+            // update all datalists
+            const lists = document.querySelectorAll('#categoryDatalist');
+            lists.forEach(dl => {
+                dl.innerHTML = productCategories.map(c=>`<option value="${c}">`).join('');
+            });
+        };
+        window.addCategory = function() {
+            const inp = document.getElementById('newCategoryInput');
+            const val = inp?.value.trim();
+            if(!val) return;
+            if(productCategories.includes(val)){toast('⚠️ หมวดหมู่นี้มีอยู่แล้ว','#c2410c');return;}
+            productCategories.push(val);
+            if(inp) inp.value='';
+            saveConfig();
+            renderCategoryChips();
+            toast('✅ เพิ่มหมวดหมู่ "'+val+'" แล้ว','#059669');
+        };
+        window.deleteCategory = function(i) {
+            const name = productCategories[i];
+            if(!confirm(`ลบหมวดหมู่ "${name}"?\n(สินค้าที่อยู่ในหมวดนี้จะไม่ถูกลบ)`)) return;
+            productCategories.splice(i,1);
+            saveConfig();
+            renderCategoryChips();
+            toast('🗑️ ลบหมวดหมู่แล้ว','#64748b');
+        };
 
         // ---- MISC ----
         // ======== INVENTORY CHECK SYSTEM ========
@@ -2109,15 +2203,31 @@
 
             // build stock sheet template buttons
             const sstEntries = Object.entries(stockSheetTemplates);
+            // ฟังก์ชันหา template ที่ตรงกับ zone (รองรับ branchType)
+            function getMatchingTemplates(z) {
+                return sstEntries.filter(([id,t])=>{
+                    const bt=(t.branchType||t.zone||'').toUpperCase();
+                    return bt && z.toUpperCase().startsWith(bt);
+                });
+            }
+            const firstZone = visibleZones[0]||'';
+            const matchedTmpls = getMatchingTemplates(firstZone);
             const sstBar = sstEntries.length ? `
-            <div style="margin-bottom:16px;" class="no-print">
-                <div style="font-size:12px;font-weight:bold;color:#64748b;margin-bottom:8px;">⚡ ใช้ Template สำเร็จรูป (จากที่ตั้งค่าไว้):</div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    ${sstEntries.map(([id,t])=>`
+            <div style="margin-bottom:16px;" class="no-print" id="sstBarContainer">
+                <div style="font-size:12px;font-weight:bold;color:#64748b;margin-bottom:8px;">⚡ Template สำเร็จรูป:</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;" id="sstBarBtns">
+                    ${matchedTmpls.map(([id,t])=>`
                     <button onclick="applyInvTemplate('${id}')"
                         style="background:white;border:2px solid ${t.color||'#06b6d4'};color:${t.color||'#06b6d4'};padding:7px 16px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:bold;"
                         onmouseover="this.style.background='${t.color||'#06b6d4'}';this.style.color='white'"
                         onmouseout="this.style.background='white';this.style.color='${t.color||'#06b6d4'}'">
+                        📄 ${t.name}
+                    </button>`).join('')}
+                    ${sstEntries.filter(([id,t])=>!matchedTmpls.find(([mid])=>mid===id)).map(([id,t])=>`
+                    <button onclick="applyInvTemplate('${id}')"
+                        style="background:white;border:2px dashed ${t.color||'#e2e8f0'};color:#94a3b8;padding:7px 16px;border-radius:20px;cursor:pointer;font-size:12px;"
+                        onmouseover="this.style.background='${t.color||'#f8fafc'}';this.style.color='white'"
+                        onmouseout="this.style.background='white';this.style.color='#94a3b8'">
                         📄 ${t.name}
                     </button>`).join('')}
                     <button onclick="printStockSheetTemplate(null,'pick')"
@@ -2186,8 +2296,11 @@
                 if(data.zone===zone && data.timestamp>prevTs){prevTs=data.timestamp;prevSheet=data;}
             });
 
-            // หา template ที่ตรงกับ zone นี้ (ถ้ามี)
-            const matchTmpl = Object.values(stockSheetTemplates).find(t=>t.zone===zone);
+            // หา template ที่ตรงกับ zone นี้ — รองรับทั้ง branchType (ใหม่) และ zone (เก่า)
+            const matchTmpl = Object.values(stockSheetTemplates).find(t=>{
+                const bt = (t.branchType||t.zone||'').toUpperCase();
+                return bt && zone.toUpperCase().startsWith(bt);
+            });
 
             // สร้าง render function สำหรับแต่ละ product row
             const renderRow = (p) => {
@@ -4473,7 +4586,6 @@ ${r.zone}`);
         // ======== MONTHLY COUNT LOCK ========
         window.tryOpenMonthlyCount = function() {
             if(!monthlyCountOpen) {
-                // show locked modal
                 const existing = document.getElementById('lockedModal'); if(existing) existing.remove();
                 const m = document.createElement('div'); m.className='modal-overlay'; m.id='lockedModal';
                 m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:center;">
@@ -4485,7 +4597,164 @@ ${r.zone}`);
                 document.body.appendChild(m);
                 return;
             }
+            // สาขา BT → เช็ค Template
+            const isBT = currentUser?.username?.toUpperCase().startsWith('BT') &&
+                         !currentUser?.username?.toUpperCase().startsWith('BT000');
+            if(isBT) {
+                const zone = (currentUser.assignedZones||[])[0]||'';
+                // หา template ที่ branchType ตรงกับ prefix ของ zone
+                const matchTmpl = Object.entries(stockSheetTemplates).find(([id,t])=>{
+                    const bt = (t.branchType||t.zone||'').toUpperCase();
+                    return bt && zone.toUpperCase().startsWith(bt);
+                });
+                if(matchTmpl) {
+                    openBranchMonthlyCount(matchTmpl[0], matchTmpl[1], zone);
+                    return;
+                }
+                // ถ้าไม่มี template → fallback openCentralStock
+            }
             openCentralStock();
+        };
+
+        window.openBranchMonthlyCount = function(tmplId, tmpl, zone) {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            const today = new Date().toISOString().slice(0,10);
+            const groups = [...new Set(tmpl.items.map(i=>i.group||i.category||'ทั่วไป'))];
+
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <h2>📋 นับสต๊อกสิ้นเดือน — ${zone}</h2>
+                <div style="display:flex;gap:8px;">
+                    <span style="background:${tmpl.color||'#06b6d4'};color:white;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:bold;">📄 ${tmpl.name}</span>
+                    <button onclick="printBranchMonthlyCount('${tmplId}','${zone}')" style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ พิมพ์ / PDF</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;" class="no-print">
+                <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ</label>
+                    <input type="date" id="bmc_date" value="${today}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;">
+                </div>
+                <div class="input-group" style="border:2px solid var(--info);"><label>📦 คลัง/สาขา</label>
+                    <b style="font-size:14px;">${zone}</b>
+                </div>
+                <div class="input-group" style="background:#f1f5f9;"><label>📝 บันทึกโดย</label><b>${currentUser.name}</b></div>
+            </div>
+            <div style="margin-bottom:12px;" class="no-print">
+                <input type="text" placeholder="🔍 ค้นหาสินค้า..." oninput="filterBMCRows(this.value)"
+                    style="width:100%;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
+            </div>
+            <div id="bmcTableWrap" style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;min-width:600px;" id="bmcTable">
+                <thead>
+                    <tr style="background:#1e293b;color:white;">
+                        <th style="padding:12px 16px;text-align:left;font-size:12px;">สินค้า</th>
+                        <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
+                        <th style="padding:12px;text-align:center;font-size:12px;background:#1d4ed8;">ยอดนับได้</th>
+                        <th style="padding:12px;text-align:center;font-size:12px;">หมายเหตุ</th>
+                    </tr>
+                </thead>
+                <tbody id="bmcTbody">
+                ${groups.map(grp=>{
+                    const grpItems = tmpl.items.filter(i=>(i.group||i.category||'ทั่วไป')===grp);
+                    const header = `<tr><td colspan="4" style="padding:10px 16px;background:linear-gradient(90deg,#f0f9ff,#f8fafc);font-weight:700;font-size:12px;color:#0369a1;border-top:2px solid #bae6fd;letter-spacing:.5px;">▌ ${grp.toUpperCase()}</td></tr>`;
+                    const rows = grpItems.map(it=>`
+                        <tr class="bmc-row" data-search="${it.id.toLowerCase()} ${it.name.toLowerCase()}" style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:12px 16px;">
+                                <div style="font-weight:700;font-size:13px;">${it.id}</div>
+                                <div style="color:#475569;font-size:12px;">${it.name}</div>
+                            </td>
+                            <td style="padding:12px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
+                            <td style="padding:12px;text-align:center;">
+                                <input type="number" id="bmc_${it.id}" min="0" placeholder="0"
+                                    style="width:90px;padding:9px;border-radius:10px;border:2px solid #3b82f6;text-align:center;font-weight:700;font-size:16px;outline:none;"
+                                    onfocus="this.style.borderColor='#1d4ed8'" onblur="this.style.borderColor='#3b82f6'">
+                            </td>
+                            <td style="padding:12px;">
+                                <input type="text" id="bmcNote_${it.id}" placeholder="หมายเหตุ"
+                                    style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;">
+                            </td>
+                        </tr>`).join('');
+                    return header+rows;
+                }).join('')}
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:24px;text-align:center;" class="no-print">
+                <button onclick="saveBranchMonthlyCount('${tmplId}','${zone}')"
+                    style="background:var(--success);color:white;padding:16px 60px;border:none;border-radius:14px;font-size:18px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,.3);">
+                    💾 บันทึกผลการนับสต๊อกสิ้นเดือน
+                </button>
+            </div>`;
+        };
+
+        window.filterBMCRows = function(q) {
+            document.querySelectorAll('.bmc-row').forEach(r=>{
+                r.style.display = (!q||r.dataset.search.includes(q.toLowerCase())) ? '' : 'none';
+            });
+        };
+
+        window.saveBranchMonthlyCount = async function(tmplId, zone) {
+            const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
+            const dateVal = document.getElementById('bmc_date')?.value;
+            if(!dateVal){toast('⚠️ กรุณาเลือกวันที่','#c2410c');return;}
+            const [cy,cm,cd]=dateVal.split('-');
+            const dateTH=`${cd}/${cm}/${parseInt(cy)+543}`;
+            const items = tmpl.items.map(it=>({
+                id:it.id, name:it.name, unit:it.unit||'',
+                group:it.group||it.category||'',
+                balance:parseFloat(document.getElementById(`bmc_${it.id}`)?.value)||0,
+                note:document.getElementById(`bmcNote_${it.id}`)?.value.trim()||''
+            }));
+            if(!items.some(it=>it.balance>0)){
+                if(!confirm('ยังไม่ได้กรอกยอดใดเลย ยืนยันบันทึกไหม?')) return;
+            }
+            try {
+                await addDoc(collection(db,'inventoryHistory'),{
+                    zone, date:dateTH, timestamp:Date.now(),
+                    countedBy:currentUser.name, recordedBy:currentUser.name,
+                    templateId:tmplId, templateName:tmpl.name,
+                    isBranchTemplate:true,
+                    items
+                });
+                toast('✅ บันทึกผลการนับเรียบร้อย','#059669');
+                goToDashboard();
+            } catch(e){toast('❌ '+e.message,'#ef4444');}
+        };
+
+        window.printBranchMonthlyCount = function(tmplId, zone) {
+            const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
+            const dateVal = document.getElementById('bmc_date')?.value||new Date().toISOString().slice(0,10);
+            const [cy,cm,cd]=dateVal.split('-');
+            const dateTH=`${cd}/${cm}/${parseInt(cy)+543}`;
+            const groups = [...new Set(tmpl.items.map(i=>i.group||i.category||'ทั่วไป'))];
+            const tableBody = groups.map(grp=>{
+                const grpItems=tmpl.items.filter(i=>(i.group||i.category||'ทั่วไป')===grp);
+                const header=`<tr><td colspan="4" style="padding:8px 12px;background:#f0f9ff;font-weight:700;font-size:11px;color:#0369a1;border-top:2px solid #bae6fd;">▌ ${grp.toUpperCase()}</td></tr>`;
+                const rows=grpItems.map((it,idx)=>`
+                    <tr style="${idx%2===0?'background:#f8fafc':''}">
+                        <td style="padding:9px 12px;">${it.id}</td>
+                        <td style="padding:9px 12px;">${it.name}</td>
+                        <td style="padding:9px;text-align:center;">${it.unit||''}</td>
+                        <td style="padding:9px;width:100px;border-bottom:1px solid #cbd5e1;">${parseFloat(document.getElementById(`bmc_${it.id}`)?.value)||''}</td>
+                        <td style="padding:9px;width:120px;"></td>
+                    </tr>`).join('');
+                return header+rows;
+            }).join('');
+            const w=window.open('','_blank');
+            w.document.write(`<html><head><title>ใบนับสต๊อก ${zone} ${dateTH}</title>
+            <style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th{background:#1e293b;color:white;padding:10px}td{border:1px solid #e2e8f0;font-size:12px}@media print{body{padding:0}}</style></head><body>
+            <h2 style="margin:0 0 4px;">ใบนับสต๊อกคงเหลือ</h2>
+            <div style="font-size:13px;color:#64748b;margin-bottom:16px;">สาขา: <b>${zone}</b> • Template: <b>${tmpl.name}</b> • วันที่: <b>${dateTH}</b> • บันทึกโดย: <b>${currentUser.name}</b></div>
+            <table><thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>ยอดนับ</th><th>หมายเหตุ</th></tr></thead>
+            <tbody>${tableBody}</tbody></table>
+            <div style="margin-top:40px;display:flex;gap:60px;">
+                <div style="text-align:center;border-top:1px solid #333;padding-top:8px;min-width:150px;">ผู้นับ</div>
+                <div style="text-align:center;border-top:1px solid #333;padding-top:8px;min-width:150px;">ผู้ตรวจสอบ</div>
+            </div>
+            </body></html>`);
+            w.document.close(); setTimeout(()=>w.print(),400);
         };
 
         window.toggleMonthlyCount = function() {
@@ -4564,10 +4833,10 @@ ${r.zone}`);
         // ---- Tab: ใบนับสต๊อกคงเหลือ ----
         function renderSheetTemplateTab(c) {
             const tmplList = Object.entries(stockSheetTemplates);
-            // กรองเฉพาะสาขา BT
-            const btZones = warehouseList.filter(z=>z.toUpperCase().includes('BT'));
             c.innerHTML = `
-            <p style="color:#64748b;font-size:13px;margin-bottom:20px;">สร้าง Template ใบนับสต๊อกคงเหลือประจำสาขา (BT000...) พนักงานเปิดแล้วพิมพ์หรือบันทึกได้เลย</p>
+            <div style="background:#eff6ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#0369a1;">
+                💡 <b>วิธีใช้:</b> สร้าง Template ที่นี่ → กำหนด branchType (เช่น BT) → สาขาทุกแห่งที่ขึ้นต้นด้วย BT จะใช้ Template นี้ในการนับสต๊อกสิ้นเดือนได้เลย
+            </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px;">
                 ${tmplList.map(([id,t])=>`
                 <div style="background:white;border-radius:14px;border:3px solid ${t.color||'#06b6d4'};padding:20px;position:relative;">
@@ -4577,8 +4846,9 @@ ${r.zone}`);
                         <button onclick="deleteSheetTemplate('${id}')" style="background:#fef2f2;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#ef4444;">🗑️</button>
                     </div>
                     <div style="font-size:16px;font-weight:bold;color:${t.color||'#06b6d4'};">${t.name}</div>
-                    <div style="font-size:12px;color:#64748b;margin:4px 0 8px;">📍 ${t.zone}</div>
-                    <div style="font-size:12px;color:#94a3b8;">${(t.items||[]).length} รายการ • ${[...new Set((t.items||[]).map(i=>i.group).filter(Boolean))].length} หมวด</div>
+                    <div style="font-size:12px;color:#64748b;margin:4px 0 4px;">🏢 branchType: <b style="color:#1e293b;">${t.branchType||t.zone||'—'}</b></div>
+                    <div style="font-size:12px;color:#94a3b8;">${(t.items||[]).length} รายการ • ${[...new Set((t.items||[]).map(i=>i.group||i.category).filter(Boolean))].length} หมวด</div>
+                    <div style="font-size:11px;color:#06b6d4;margin-top:6px;">ใช้กับสาขาที่ชื่อขึ้นต้นด้วย "${t.branchType||t.zone||''}"</div>
                 </div>`).join('')}
                 <div onclick="openNewSheetTemplateForm()" style="background:white;border-radius:14px;border:3px dashed #e2e8f0;padding:20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:120px;"
                     onmouseover="this.style.borderColor='#06b6d4'" onmouseout="this.style.borderColor='#e2e8f0'">
@@ -4593,21 +4863,20 @@ ${r.zone}`);
         window.openNewSheetTemplateForm = function(editId) {
             const existing = editId ? stockSheetTemplates[editId] : null;
             const tid = editId || `sst_${Date.now()}`;
-            const btZones = warehouseList.filter(z=>z.toUpperCase().includes('BT'));
-            const allZones = warehouseList;
-            const firstZone = existing?.zone || btZones[0] || allZones[0] || '';
+            const catOpts = productCategories.map(c=>`<option value="${c}">`).join('');
 
             document.getElementById('sheetTemplateFormArea').innerHTML = `
             <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:24px;margin-top:8px;">
                 <h4 style="margin-top:0;">${existing?'✏️ แก้ไข':'➕ สร้าง'} Template ใบนับสต๊อกคงเหลือ</h4>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
                     <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">ชื่อ Template <span style="color:red;">*</span></label>
-                        <input id="sst_name" value="${existing?.name||''}" placeholder="เช่น ใบนับสต๊อกสาขาอุดมสุข"
+                        <input id="sst_name" value="${existing?.name||''}" placeholder="เช่น Template สาขา BT"
                             style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;font-size:13px;font-weight:bold;"></div>
-                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">สาขา/คลัง <span style="color:red;">*</span></label>
-                        <select id="sst_zone" onchange="renderSSTItems()" style="width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:bold;">
-                            ${allZones.map(z=>`<option value="${z}" ${existing?.zone===z?'selected':''}>${z}</option>`).join('')}
-                        </select></div>
+                    <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">branchType <span style="color:red;">*</span></label>
+                        <input id="sst_branchType" value="${existing?.branchType||existing?.zone||'BT'}" placeholder="เช่น BT"
+                            style="width:100%;padding:9px;border:1px solid #06b6d4;border-radius:8px;font-size:13px;font-weight:bold;box-sizing:border-box;outline:none;"
+                            title="สาขาที่ชื่อขึ้นต้นด้วยค่านี้จะใช้ Template นี้ เช่น BT → BT001 BT002 ทุกสาขา">
+                        <small style="color:#64748b;font-size:10px;">สาขาที่ขึ้นต้นด้วยค่านี้จะใช้ Template นี้</small></div>
                     <div><label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">สีประจำ Template</label>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
                             ${TEMPLATE_COLORS.map(col=>`<div onclick="selectSSTColor('${col}')" id="sstcolor_${col.replace('#','')}"
@@ -4618,11 +4887,20 @@ ${r.zone}`);
                 </div>
                 <div style="margin-bottom:16px;">
                     <label style="font-size:11px;font-weight:bold;color:#475569;display:block;margin-bottom:6px;">
-                        เลือกสินค้าและกำหนดหมวดหมู่ <small style="color:#94a3b8;">(พิมพ์ชื่อหมวดในช่องขวาของแต่ละรายการ)</small>
+                        เลือกสินค้าและกำหนดหมวดหมู่ <small style="color:#94a3b8;">(เลือกจาก dropdown หรือพิมพ์เอง)</small>
                     </label>
-                    <input type="text" placeholder="🔍 ค้นหาสินค้า..." oninput="filterSSTItems(this.value)"
-                        style="width:100%;padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:10px;outline:none;">
-                    <div id="sstItemsList" style="max-height:300px;overflow-y:auto;border:1px solid #f1f5f9;border-radius:10px;"></div>
+                    <datalist id="sstCatDatalist">${catOpts}</datalist>
+                    <div style="display:flex;gap:8px;margin-bottom:10px;">
+                        <input type="text" id="sstSearch" placeholder="🔍 ค้นหาสินค้า..." oninput="filterSSTItems(this.value)"
+                            style="flex:1;padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
+                        <select onchange="filterSSTByCategory(this.value)" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
+                            <option value="">— ทุกหมวด —</option>
+                            ${productCategories.map(c=>`<option value="${c}">${c}</option>`).join('')}
+                        </select>
+                        <button onclick="selectAllSSTItems(true)" style="background:#10b981;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:bold;">✅ ทั้งหมด</button>
+                        <button onclick="selectAllSSTItems(false)" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;">❌ ล้าง</button>
+                    </div>
+                    <div id="sstItemsList" style="max-height:360px;overflow-y:auto;border:1px solid #f1f5f9;border-radius:10px;"></div>
                 </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;">
                     <button onclick="saveSheetTemplate('${tid}')" style="background:#06b6d4;color:white;border:none;padding:10px 28px;border-radius:10px;cursor:pointer;font-weight:bold;">💾 บันทึก Template</button>
@@ -4644,27 +4922,46 @@ ${r.zone}`);
         };
 
         window.renderSSTItems = function() {
-            const zone = document.getElementById('sst_zone')?.value||'';
             const existing = window._editingSSTExisting;
             const existingMap = {};
-            (existing?.items||[]).forEach(it=>{ existingMap[it.id]={checked:true,group:it.group||''}; });
-            const zoneProds = getZoneProducts(zone);
+            (existing?.items||[]).forEach(it=>{ existingMap[it.id]={checked:true,group:it.group||it.category||''}; });
+            // ใช้ allProducts ทั้งหมด (ไม่ผูก zone)
+            const prods = allProducts;
             const c = document.getElementById('sstItemsList'); if(!c) return;
-            c.innerHTML = zoneProds.length ? zoneProds.map(p=>{
+            c.innerHTML = prods.length ? prods.map(p=>{
                 const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
                 const ex = existingMap[p.id]||{};
-                return `<div class="sst-item-row" data-search="${p.id.toLowerCase()} ${p.name.toLowerCase()}"
-                    style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid #f8fafc;">
+                const pCat = p.category||'';
+                // default group = category ของสินค้า (ถ้ายังไม่ได้กำหนด)
+                const defaultGroup = ex.group || pCat || '';
+                return `<div class="sst-item-row" data-search="${p.id.toLowerCase()} ${p.name.toLowerCase()}" data-category="${pCat.toLowerCase()}"
+                    style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid #f8fafc;background:${ex.checked?'#f0fdf4':'white'};">
                     <input type="checkbox" id="sstitem_${p.id}" ${ex.checked?'checked':''}
-                        style="width:15px;height:15px;accent-color:#06b6d4;cursor:pointer;flex-shrink:0;">
-                    <span style="font-weight:bold;font-size:12px;min-width:85px;color:#1e293b;">${p.id}</span>
+                        style="width:16px;height:16px;accent-color:#06b6d4;cursor:pointer;flex-shrink:0;"
+                        onchange="this.closest('.sst-item-row').style.background=this.checked?'#f0fdf4':'white'">
+                    <span style="font-weight:bold;font-size:12px;min-width:80px;color:#1e293b;">${p.id}</span>
                     <span style="color:#475569;font-size:12px;flex:1;">${p.name}</span>
-                    <span style="color:#94a3b8;font-size:11px;min-width:40px;">${u}</span>
-                    <input type="text" id="sstgroup_${p.id}" value="${ex.group||''}" placeholder="หมวดหมู่"
-                        style="width:110px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;outline:none;"
-                        onfocus="document.getElementById('sstitem_${p.id}').checked=true">
+                    ${pCat?`<span style="background:#fef9c3;color:#a16207;font-size:10px;padding:1px 7px;border-radius:10px;white-space:nowrap;">🏷️ ${pCat}</span>`:''}
+                    <span style="color:#94a3b8;font-size:11px;min-width:35px;">${u}</span>
+                    <input type="text" id="sstgroup_${p.id}" value="${defaultGroup}" placeholder="หมวดในใบนับ" list="sstCatDatalist"
+                        style="width:120px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;outline:none;"
+                        onfocus="document.getElementById('sstitem_${p.id}').checked=true;this.closest('.sst-item-row').style.background='#f0fdf4'">
                 </div>`;
-            }).join('') : '<p style="color:#94a3b8;padding:16px;text-align:center;">ไม่มีสินค้าในคลังนี้</p>';
+            }).join('') : '<p style="color:#94a3b8;padding:16px;text-align:center;">ยังไม่มีสินค้าในระบบ</p>';
+        };
+
+        window.selectAllSSTItems = function(checked) {
+            document.querySelectorAll('#sstItemsList .sst-item-row').forEach(row=>{
+                if(row.style.display==='none') return;
+                const cb = row.querySelector('input[type=checkbox]');
+                if(cb){ cb.checked=checked; row.style.background=checked?'#f0fdf4':'white'; }
+            });
+        };
+        window.filterSSTByCategory = function(cat) {
+            document.querySelectorAll('#sstItemsList .sst-item-row').forEach(row=>{
+                const rowCat = row.dataset.category||'';
+                row.style.display = (!cat || rowCat===cat.toLowerCase()) ? '' : 'none';
+            });
         };
 
         window.filterSSTItems = function(q) {
@@ -4675,21 +4972,22 @@ ${r.zone}`);
         };
 
         window.saveSheetTemplate = function(tid) {
-            const name  = document.getElementById('sst_name')?.value.trim();
-            const zone  = document.getElementById('sst_zone')?.value;
-            const color = document.getElementById('sst_color')?.value||TEMPLATE_COLORS[2];
+            const name       = document.getElementById('sst_name')?.value.trim();
+            const branchType = document.getElementById('sst_branchType')?.value.trim().toUpperCase()||'BT';
+            const color      = document.getElementById('sst_color')?.value||TEMPLATE_COLORS[2];
             if(!name){toast('⚠️ กรุณาใส่ชื่อ Template','#c2410c');return;}
-            const zoneProds = getZoneProducts(zone);
-            const items = zoneProds.filter(p=>document.getElementById(`sstitem_${p.id}`)?.checked)
+            if(!branchType){toast('⚠️ กรุณาใส่ branchType','#c2410c');return;}
+            const items = allProducts.filter(p=>document.getElementById(`sstitem_${p.id}`)?.checked)
                 .map(p=>({
                     id:p.id, name:p.name,
                     unit:(p.units||[{name:p.unit||''}])[0]?.name||'',
-                    group:document.getElementById(`sstgroup_${p.id}`)?.value.trim()||''
+                    category:p.category||'',
+                    group:document.getElementById(`sstgroup_${p.id}`)?.value.trim()||p.category||''
                 }));
             if(!items.length){toast('⚠️ เลือกสินค้าอย่างน้อย 1 รายการ','#c2410c');return;}
-            stockSheetTemplates[tid] = {name,zone,color,items};
+            stockSheetTemplates[tid] = {name,branchType,zone:branchType,color,items};
             saveConfig();
-            toast(`✅ บันทึก "${name}" แล้ว`,'#059669');
+            toast(`✅ บันทึก Template "${name}" (${branchType}) แล้ว`,'#059669');
             const c = document.getElementById('toolAppContainer');
             renderTemplateSettingsPage(c);
             setTimeout(()=>switchTmplTab('sheet'),100);
