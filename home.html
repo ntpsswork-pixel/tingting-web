@@ -1561,7 +1561,15 @@
                         </div>
                     </div>
                     <button onclick="addPd()" style="width:100%;background:var(--info);color:white;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;">+ บันทึกสินค้า</button>
-                    <div id="pdMasterContainer" style="max-height:500px;overflow-y:auto;border-top:1px solid #eee;padding-top:12px;"></div>
+                    <div style="margin-top:12px;border-top:1px solid #eee;padding-top:12px;">
+                        <div style="position:relative;margin-bottom:10px;">
+                            <input type="text" id="pdSearchInput" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ / Supplier)..." oninput="filterPdList(this.value)"
+                                style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;box-sizing:border-box;outline:none;transition:border .2s;font-family:inherit;"
+                                onfocus="this.style.borderColor='var(--primary-dark)'" onblur="this.style.borderColor='#e2e8f0'">
+                            <span id="pdSearchCount" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11px;color:#94a3b8;"></span>
+                        </div>
+                        <div id="pdMasterContainer" style="max-height:500px;overflow-y:auto;"></div>
+                    </div>
                 </div>
             </div>
             <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
@@ -1640,13 +1648,27 @@
             toast('✅ แก้ไขชื่อคลังเรียบร้อย','#059669');
         };
 
+        window.filterPdList=function(q){
+            q=(q||'').toLowerCase().trim();
+            const c=document.getElementById('pdMasterContainer');
+            const cnt=document.getElementById('pdSearchCount');
+            if(!c)return;
+            const items=c.querySelectorAll('[data-pd-search]');
+            let visible=0;
+            items.forEach(el=>{
+                const match=!q||el.dataset.pdSearch.includes(q);
+                el.style.display=match?'':'none';
+                if(match)visible++;
+            });
+            if(cnt) cnt.textContent=q?`พบ ${visible}/${allProducts.length} รายการ`:'';
+        };
         window.renderPdList=function(){
             const c=document.getElementById('pdMasterContainer');if(!c)return;
             c.innerHTML=allProducts.map((p,i)=>{
                 const units=p.units||[{name:p.unit,rate:0},{name:p.subUnit||'',rate:0}].filter(u=>u.name);
                 const unitsStr=units.map((u,ui)=>u.name+(ui<units.length-1&&u.rate>0?' (×'+u.rate+')':'')).join(' → ');
                 const isFirst=i===0, isLast=i===allProducts.length-1;
-                return `<div style="padding:14px 16px;background:#f8fafc;margin-bottom:8px;border-radius:12px;border:1px solid #e2e8f0;transition:box-shadow 0.15s;" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseleave="this.style.boxShadow=''">
+                return `<div data-pd-search="${(p.id+' '+p.name+' '+(p.supplier||'')).toLowerCase()}" style="padding:14px 16px;background:#f8fafc;margin-bottom:8px;border-radius:12px;border:1px solid #e2e8f0;transition:box-shadow 0.15s;" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseleave="this.style.boxShadow=''">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0;">
                         <button onclick="movePd(${i},-1)" ${isFirst?'disabled':''} style="background:${isFirst?'#e2e8f0':'#64748b'};color:white;border:none;border-radius:5px;width:26px;height:22px;cursor:${isFirst?'default':'pointer'};font-size:11px;line-height:1;">▲</button>
@@ -2396,7 +2418,7 @@ ${it.zone}`);
             let data=window._invExportData.map(r=>({...r}));
             if(sel!=='__original__'){
                 data=data.map(r=>{
-                    const pid=r['รหัสสินค้า']||r['id']||'';
+                    const pid=r['รหัส']||r['รหัสสินค้า']||r['id']||'';
                     const p=allProducts.find(x=>x.id===pid);
                     const units=p?.units||[];
                     const targetIdx=units.findIndex(u=>u.name===sel);
