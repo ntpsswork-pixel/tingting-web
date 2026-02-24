@@ -393,7 +393,6 @@
         let monthlyCountOpen   = false; // admin toggle: เปิด/ปิดนับสต๊อกสิ้นเดือน
         let stockSheetTemplates = {}; // { templateId: { name, branchType, items:[{id,name,unit,group}], color } }
         let productCategories   = []; // ['เครื่องดื่ม','อาหารแห้ง',...]
-        let warehouseGroups     = {}; // { "WHRM01": { name:"คลังหลัก 1", zones:["WHRM01 Room A","WHRM01 Room B"] } }
 
         // ---- UTILS ----
         async function hashPassword(p) {
@@ -425,7 +424,6 @@
                     if (d.stockSheetTemplates)  stockSheetTemplates = d.stockSheetTemplates;
                     if (d.productCategories)    productCategories   = d.productCategories;
                     if (d.productCategories)    productCategories   = d.productCategories;
-                    if (d.warehouseGroups)      warehouseGroups     = d.warehouseGroups;
                     // --- migrate: เพิ่ม requisition ให้ทุก role ที่ยังไม่มี ---
                     let needSave = false;
                     const reqDefaults = {
@@ -452,7 +450,7 @@
         }
 
         async function saveConfig() {
-            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories, warehouseGroups }, { merge:true }); }
+            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories }, { merge:true }); }
             catch(e) { toast('❌ บันทึก config ไม่สำเร็จ','#c2410c'); }
         }
 
@@ -1327,30 +1325,20 @@
             document.getElementById('dashboardView').classList.add('hidden');
             const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
             const visibleZones=getVisibleWarehouses();
-
-            // สร้าง options คลังใหญ่
-            const groupEntries=Object.entries(warehouseGroups);
-            const groupOpts=groupEntries.map(([gid,g])=>`<option value="grp:${gid}">🏭 ${g.name||gid} (${(g.zones||[]).length} zone)</option>`).join('');
-
             c.innerHTML=`<div class="tool-header"><h2>📊 ประวัติ & Export รายงาน</h2><button onclick="closeTool()">✕ ปิด</button></div>
             <div class="filter-bar no-print" style="flex-wrap:wrap;gap:12px;">
                 <div>
                     <label>📋 ประเภทรายงาน</label>
                     <select id="reportMode" onchange="switchReportMode()" style="padding:10px 14px;border:2px solid var(--primary-dark);border-radius:10px;font-size:14px;font-weight:bold;min-width:220px;">
                         <option value="history">📜 ประวัติการนับ (ทุก session)</option>
-                        <option value="snapshot">📦 ยอดสต๊อกล่าสุด (รายครั้ง)</option>
-                        <option value="monthly">📅 ยอดนับสิ้นเดือน (inventoryHistory)</option>
+                        <option value="snapshot">📦 ยอดสต๊อกล่าสุด (พร้อม export)</option>
                     </select>
                 </div>
-                <div><label>📦 เลือกคลัง / Zone</label>
+                <div><label>📦 เลือกคลัง</label>
                     <select id="filterZone" onchange="loadCurrentReport()">
                         <option value="">— ทุกคลัง —</option>
-                        ${groupOpts ? `<optgroup label="── คลังใหญ่ (รวม Zone) ──">${groupOpts}</optgroup>` : ''}
-                        <optgroup label="── แต่ละ Zone ──">
                         ${visibleZones.map(w=>`<option value="${w}">${w}</option>`).join('')}
-                        </optgroup>
-                    </select>
-                </div>
+                    </select></div>
                 <div id="dateFromWrap"><label>📅 วันที่เริ่มต้น</label>
     <input type="text" id="filterDateFrom_txt" placeholder="dd/mm/yyyy" maxlength="10"
         oninput="formatDateInput(this,'filterDateFrom');loadCurrentReport()"
@@ -1363,10 +1351,6 @@
         style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;width:130px;outline:none;">
     <input type="hidden" id="filterDateTo">
 </div>
-                <div id="monthFilterWrap" style="display:none;"><label>📅 เดือน (yyyy-mm)</label>
-                    <input type="month" id="filterMonth" onchange="loadCurrentReport()"
-                        style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;">
-                </div>
                 <div style="display:flex;gap:8px;align-items:flex-end;">
                     <button onclick="exportCurrentReport()" style="background:var(--success);color:white;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
                     <button onclick="window.print()" style="background:var(--danger);color:white;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">🖨️ Print PDF</button>
@@ -1380,21 +1364,18 @@
             const mode=document.getElementById('reportMode').value;
             document.getElementById('dateFromWrap').style.display=mode==='history'?'':'none';
             document.getElementById('dateToWrap').style.display=mode==='history'?'':'none';
-            document.getElementById('monthFilterWrap').style.display=mode==='monthly'?'':'none';
             loadCurrentReport();
         };
 
         window.loadCurrentReport=async function(){
             const mode=document.getElementById('reportMode')?.value||'history';
             if(mode==='snapshot') await loadSnapshot();
-            else if(mode==='monthly') await loadMonthlyReport();
             else await loadHistory();
         };
 
         window.exportCurrentReport=function(){
             const mode=document.getElementById('reportMode')?.value||'history';
             if(mode==='snapshot') exportExcelSnapshot();
-            else if(mode==='monthly') exportExcelMonthly();
             else exportExcelHistory();
         };
 
@@ -1457,151 +1438,6 @@
             const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb,ws,'ยอดสต๊อก');
             XLSX.writeFile(wb,`Stock_Snapshot_${new Date().toLocaleDateString('th-TH')}.xlsx`);
-        };
-
-        // ---- MONTHLY REPORT: ยอดนับสิ้นเดือน จาก inventoryHistory ----
-        window.loadMonthlyReport=async function(){
-            const zoneFilter=document.getElementById('filterZone')?.value||'';
-            const monthFilter=document.getElementById('filterMonth')?.value||'';
-            const container=document.getElementById('historyContainer');
-            if(!container)return;
-            container.innerHTML='<p style="color:#94a3b8;text-align:center;padding:40px;">กำลังโหลด...</p>';
-
-            const snap=await getDocs(collection(db,'inventoryHistory'));
-            let sheets=[];
-            snap.forEach(d=>sheets.push({id:d.id,...d.data()}));
-
-            // กรองตาม zone/group
-            const isGroup=zoneFilter.startsWith('grp:');
-            if(isGroup){
-                const gid=zoneFilter.replace('grp:','');
-                const groupZones=(warehouseGroups[gid]?.zones||[]);
-                sheets=sheets.filter(s=>groupZones.includes(s.zone));
-            } else if(zoneFilter){
-                sheets=sheets.filter(s=>s.zone===zoneFilter);
-            }
-
-            // กรองตามเดือน
-            if(monthFilter) sheets=sheets.filter(s=>s.month===monthFilter);
-
-            if(!sheets.length){
-                container.innerHTML='<p style="color:#94a3b8;text-align:center;padding:40px;">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</p>';
-                window._monthlyExportData=[];
-                return;
-            }
-
-            sheets.sort((a,b)=>b.timestamp-a.timestamp);
-
-            // ถ้าเลือกคลังใหญ่ (group) → รวมยอดข้าม Zone
-            if(isGroup){
-                const gid=zoneFilter.replace('grp:','');
-                const gName=warehouseGroups[gid]?.name||gid;
-                // รวม items ทุก zone โดยบวกยอด balance สินค้าเดียวกัน
-                // ใช้ record ล่าสุดของแต่ละ zone
-                const latestPerZone={};
-                sheets.forEach(s=>{
-                    if(!latestPerZone[s.zone]||s.timestamp>latestPerZone[s.zone].timestamp)
-                        latestPerZone[s.zone]=s;
-                });
-                const combined={}; // { productId: {name,unit,balance,zones:[]} }
-                Object.values(latestPerZone).forEach(s=>{
-                    (s.items||[]).forEach(it=>{
-                        if(!combined[it.id]) combined[it.id]={name:it.name,unit:it.unit||'',balance:0,zones:[],note:it.note||''};
-                        combined[it.id].balance+=it.balance||0;
-                        combined[it.id].zones.push(s.zone);
-                    });
-                });
-
-                const monthLabel=monthFilter||Object.keys(latestPerZone).map(z=>latestPerZone[z].month).filter(Boolean).sort().reverse()[0]||'';
-                const rows=Object.entries(combined).map(([id,v])=>({
-                    คลังใหญ่:gName, เดือน:monthLabel, รหัส:id,
-                    ชื่อสินค้า:v.name, ยอดรวม:Math.round(v.balance*1000)/1000,
-                    หน่วย:v.unit, Zone:v.zones.join(', '), หมายเหตุ:v.note
-                }));
-                window._monthlyExportData=rows;
-
-                // สร้างตารางแสดงผล
-                const countedZones=Object.keys(latestPerZone);
-                container.innerHTML=`
-                <div style="background:#eff6ff;border:1px solid #bae6fd;border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#0369a1;">
-                    🏭 <b>${gName}</b> — รวมยอดจาก ${countedZones.length} Zone: ${countedZones.join(', ')} ${monthLabel?'• เดือน '+monthLabel:''}
-                </div>
-                <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
-                <table style="width:100%;border-collapse:collapse;">
-                    <thead><tr style="background:#1e293b;color:white;">
-                        <th style="padding:12px;text-align:left;font-size:12px;">รหัส</th>
-                        <th style="padding:12px;text-align:left;font-size:12px;">ชื่อสินค้า</th>
-                        <th style="padding:12px;text-align:center;font-size:12px;background:#1d4ed8;">ยอดรวม</th>
-                        <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
-                        <th style="padding:12px;text-align:left;font-size:12px;">Zone ที่นับ</th>
-                    </tr></thead>
-                    <tbody>${Object.entries(combined).map(([id,v])=>`
-                        <tr style="border-top:1px solid #f1f5f9;">
-                            <td style="padding:12px;font-weight:bold;font-size:13px;">${id}</td>
-                            <td style="padding:12px;color:#475569;font-size:13px;">${v.name}</td>
-                            <td style="padding:12px;text-align:center;font-weight:bold;font-size:18px;color:#1d4ed8;">${Math.round(v.balance*1000)/1000}</td>
-                            <td style="padding:12px;text-align:center;color:#64748b;font-size:12px;">${v.unit}</td>
-                            <td style="padding:12px;font-size:11px;color:#94a3b8;">${v.zones.join(' + ')}</td>
-                        </tr>`).join('')}
-                    </tbody>
-                </table></div>`;
-            } else {
-                // แสดงแบบรายชีท
-                window._monthlyExportData=[];
-                let html='';
-                sheets.forEach(s=>{
-                    const typeLabel=s.type==='branch'?'🏪 สาขา':'🏭 คลังหลัก';
-                    const monthLabel=s.month||s.date?.slice(3)||'';
-                    html+=`<div class="history-card" style="margin-bottom:16px;">
-                        <div class="history-card-header">
-                            <div>
-                                <b>${typeLabel} ${s.zone}</b>
-                                <span style="margin-left:10px;font-size:12px;color:#64748b;">📅 ${s.date} ${s.month?'• เดือน '+s.month:''}</span>
-                                ${s.templateName?`<span style="margin-left:8px;font-size:11px;background:#eff6ff;color:#3b82f6;padding:2px 8px;border-radius:10px;">📄 ${s.templateName}</span>`:''}
-                            </div>
-                            <div style="font-size:11px;color:#94a3b8;">👤 ${s.countedBy||'-'}</div>
-                        </div>
-                        <table style="width:100%;border-collapse:collapse;">
-                            <thead><tr style="background:#f8fafc;">
-                                <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">รหัส</th>
-                                <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">ชื่อสินค้า</th>
-                                <th style="padding:10px;text-align:center;font-size:12px;color:#1d4ed8;">ยอดนับ</th>
-                                <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
-                                <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">หมายเหตุ</th>
-                            </tr></thead>
-                            <tbody>${(s.items||[]).map(it=>`
-                                <tr style="border-top:1px solid #f1f5f9;">
-                                    <td style="padding:10px;font-weight:bold;font-size:12px;">${it.id}</td>
-                                    <td style="padding:10px;color:#475569;font-size:12px;">${it.name}</td>
-                                    <td style="padding:10px;text-align:center;font-weight:bold;font-size:16px;color:#1d4ed8;">${it.balance??'-'}</td>
-                                    <td style="padding:10px;text-align:center;color:#64748b;font-size:12px;">${it.unit||''}</td>
-                                    <td style="padding:10px;font-size:11px;color:#94a3b8;">${it.note||'-'}</td>
-                                </tr>`).join('')}
-                            </tbody>
-                        </table>
-                    </div>`;
-                    // build export data
-                    (s.items||[]).forEach(it=>{
-                        window._monthlyExportData.push({
-                            ประเภท:s.type==='branch'?'สาขา':'คลังหลัก',
-                            คลัง:s.zone, เดือน:s.month||'', วันที่:s.date,
-                            รหัส:it.id, ชื่อสินค้า:it.name, ยอดนับ:it.balance??'',
-                            หน่วย:it.unit||'', หมายเหตุ:it.note||'', ผู้นับ:s.countedBy||''
-                        });
-                    });
-                });
-                container.innerHTML=html||'<p style="color:#94a3b8;text-align:center;padding:40px;">ไม่พบข้อมูล</p>';
-            }
-        };
-
-        window.exportExcelMonthly=function(){
-            const data=window._monthlyExportData||[];
-            if(!data.length){toast('❌ ไม่มีข้อมูล — กรุณาโหลดรายงานก่อน','#c2410c');return;}
-            const rows=[Object.keys(data[0]),...data.map(r=>Object.values(r))];
-            const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb,ws,'ยอดนับสิ้นเดือน');
-            XLSX.writeFile(wb,`Monthly_Inventory_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
-            toast('📥 Export เรียบร้อย','#10b981');
         };
 
         let currentHistoryData=[];
@@ -1913,35 +1749,11 @@
                 <div id="minMaxZoneTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f1f5f9;"></div>
                 <div id="minMaxZoneLabel" style="font-size:13px;color:#64748b;margin-bottom:10px;"></div>
                 <div id="minMaxContainer"></div>
-            </div>
-            <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <div>
-                        <h4 style="margin:0 0 4px;">🏭 จัดกลุ่ม Zone เข้าคลังใหญ่</h4>
-                        <small style="color:#94a3b8;">ใช้สำหรับ Export รวมยอดข้าม Zone — เช่น WHRM01 Room A + Room B = ยอดรวม WHRM01</small>
-                    </div>
-                    <button onclick="saveWarehouseGroups()" style="background:var(--success);color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:bold;">💾 บันทึกกลุ่มคลัง</button>
-                </div>
-                <div style="background:#eff6ff;border:1px solid #bae6fd;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#0369a1;">
-                    💡 <b>วิธีใช้:</b> สร้างกลุ่มคลังใหญ่ → ตั้งชื่อ (เช่น WHRM01) → เลือก Zone ที่อยู่ในกลุ่มนั้น → บันทึก<br>
-                    ตอน Export เลือก "คลังใหญ่" ระบบจะรวมยอดสินค้าเดียวกันจากทุก Zone ในกลุ่มให้อัตโนมัติ
-                </div>
-                <div id="whGroupContainer"></div>
-                <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;">
-                    <input type="text" id="newGroupId" placeholder="รหัสกลุ่ม เช่น WHRM01" maxlength="20"
-                        style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;width:160px;outline:none;font-family:inherit;"
-                        onfocus="this.style.borderColor='var(--primary-dark)'" onblur="this.style.borderColor='#e2e8f0'">
-                    <input type="text" id="newGroupName" placeholder="ชื่อแสดงผล เช่น คลังหลัก 1" maxlength="40"
-                        style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;flex:1;outline:none;font-family:inherit;"
-                        onfocus="this.style.borderColor='var(--primary-dark)'" onblur="this.style.borderColor='#e2e8f0'">
-                    <button onclick="addWarehouseGroup()" style="background:var(--info);color:white;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-weight:bold;white-space:nowrap;">+ เพิ่มกลุ่ม</button>
-                </div>
             </div>`;
             renderWhList(); renderPdList(); renderCategoryChips();
             document.getElementById('selectZoneMap').innerHTML=warehouseList.map(w=>`<option value="${w}">${w}</option>`).join('');
             renderMapping();
             renderMinMaxTable();
-            renderWhGroupContainer();
         };
 
         window.renderWhList=function(){
@@ -1954,77 +1766,6 @@
                 <button class="btn-sm" style="background:var(--success);color:white;display:none;" id="whSaveBtn_${i}" onclick="saveEditWh(${i})">💾</button>
                 <button class="btn-sm" style="background:var(--danger);color:white;" onclick="deleteWh(${i})">🗑️</button>
             </div>`).join('');
-        };
-
-        // ---- Warehouse Group functions ----
-        window.renderWhGroupContainer = function() {
-            const c = document.getElementById('whGroupContainer'); if(!c) return;
-            const entries = Object.entries(warehouseGroups);
-            if(!entries.length) {
-                c.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:16px;">ยังไม่มีกลุ่มคลัง — เพิ่มกลุ่มใหม่ด้านล่าง</p>';
-                return;
-            }
-            c.innerHTML = entries.map(([gid, g]) => {
-                const groupZones = g.zones || [];
-                return `<div style="border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-                        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
-                            <span style="background:#1e3a5f;color:white;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:bold;white-space:nowrap;">${gid}</span>
-                            <input type="text" id="grpname_${gid}" value="${g.name||gid}" placeholder="ชื่อแสดงผล"
-                                style="flex:1;padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:13px;outline:none;font-family:inherit;"
-                                onfocus="this.style.borderColor='var(--primary-dark)'" onblur="this.style.borderColor='#e2e8f0'">
-                        </div>
-                        <button onclick="deleteWarehouseGroup('${gid}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:bold;">🗑️ ลบกลุ่ม</button>
-                    </div>
-                    <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;">📦 เลือก Zone ที่อยู่ในกลุ่มนี้:</div>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
-                        ${warehouseList.map(z => `
-                        <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid ${groupZones.includes(z)?'#3b82f6':'#e2e8f0'};border-radius:8px;cursor:pointer;background:${groupZones.includes(z)?'#eff6ff':'white'};transition:all .15s;">
-                            <input type="checkbox" id="grpzone_${gid}_${z.replace(/\s/g,'_')}" ${groupZones.includes(z)?'checked':''}
-                                style="width:15px;height:15px;accent-color:#3b82f6;cursor:pointer;"
-                                onchange="this.closest('label').style.borderColor=this.checked?'#3b82f6':'#e2e8f0';this.closest('label').style.background=this.checked?'#eff6ff':'white'">
-                            <span style="font-size:12px;font-weight:${groupZones.includes(z)?'700':'400'};">${z}</span>
-                        </label>`).join('')}
-                    </div>
-                </div>`;
-            }).join('');
-        };
-
-        window.addWarehouseGroup = function() {
-            const gid = document.getElementById('newGroupId')?.value.trim().toUpperCase();
-            const gname = document.getElementById('newGroupName')?.value.trim();
-            if(!gid) { toast('⚠️ กรุณาใส่รหัสกลุ่ม','#c2410c'); return; }
-            if(warehouseGroups[gid]) { toast('⚠️ รหัสกลุ่มนี้มีอยู่แล้ว','#c2410c'); return; }
-            warehouseGroups[gid] = { name: gname||gid, zones: [] };
-            document.getElementById('newGroupId').value = '';
-            document.getElementById('newGroupName').value = '';
-            renderWhGroupContainer();
-            toast(`✅ เพิ่มกลุ่ม ${gid} แล้ว (ยังไม่ได้บันทึก — กด 💾 บันทึกกลุ่มคลัง)`, '#0891b2');
-        };
-
-        window.deleteWarehouseGroup = function(gid) {
-            if(!confirm(`ลบกลุ่มคลัง "${gid}" ?`)) return;
-            delete warehouseGroups[gid];
-            saveConfig();
-            renderWhGroupContainer();
-            toast('🗑️ ลบกลุ่มคลังแล้ว','#64748b');
-        };
-
-        window.saveWarehouseGroups = function() {
-            const entries = Object.keys(warehouseGroups);
-            if(!entries.length) { toast('⚠️ ยังไม่มีกลุ่มคลัง','#f59e0b'); return; }
-            entries.forEach(gid => {
-                const nameEl = document.getElementById(`grpname_${gid}`);
-                if(nameEl) warehouseGroups[gid].name = nameEl.value.trim() || gid;
-                const selectedZones = warehouseList.filter(z => {
-                    const cb = document.getElementById(`grpzone_${gid}_${z.replace(/\s/g,'_')}`);
-                    return cb?.checked;
-                });
-                warehouseGroups[gid].zones = selectedZones;
-            });
-            saveConfig();
-            toast('✅ บันทึกกลุ่มคลังเรียบร้อย','#059669');
-            renderWhGroupContainer();
         };
 
         window.toggleEditWh=function(i){
@@ -2665,31 +2406,10 @@
             const hasAny=zoneProds.some(p=>document.getElementById(`inv_${p.id}`)?.value!=='');
             if(!hasAny){toast('⚠️ กรุณากรอกยอดคงเหลืออย่างน้อย 1 รายการ','#c2410c');return;}
 
+            if(!confirm(`ยืนยันบันทึกใบนับสต๊อก ${zone} วันที่ ${date}?`))return;
+
             const [yr,mo,dy]=date.split('-');
-            const monthKey=`${yr}-${mo}`; // e.g. "2025-02"
             const dateStr=`${dy}/${mo}/${parseInt(yr)+543}`;
-
-            // หา warehouseGroup ที่ zone นี้สังกัด
-            const groupId=Object.keys(warehouseGroups).find(gid=>(warehouseGroups[gid].zones||[]).includes(zone))||'';
-
-            // เช็คว่านับซ้ำในเดือนนี้ไหม
-            try {
-                const existSnap=await getDocs(collection(db,'inventoryHistory'));
-                let existDoc=null;
-                existSnap.forEach(d=>{
-                    const x=d.data();
-                    if(x.zone===zone && x.month===monthKey) existDoc={id:d.id,...x};
-                });
-                if(existDoc){
-                    const overwrite=confirm(`⚠️ มีข้อมูลนับสต๊อก ${zone} เดือน ${mo}/${parseInt(yr)+543} อยู่แล้ว (วันที่ ${existDoc.date})\n\nกด OK เพื่อบันทึกทับข้อมูลเดิม หรือ Cancel เพื่อยกเลิก`);
-                    if(!overwrite)return;
-                    // ลบของเดิมก่อน
-                    await deleteDoc(doc(db,'inventoryHistory',existDoc.id));
-                }
-            } catch(e){ console.error(e); }
-
-            if(!confirm(`ยืนยันบันทึกใบนับสต๊อก ${zone} วันที่ ${dateStr}?`))return;
-
             const items=zoneProds.map(p=>{
                 const units=p.units||[{name:p.unit||''}];
                 const val=document.getElementById(`inv_${p.id}`)?.value;
@@ -2699,10 +2419,8 @@
             }).filter(it=>it.balance!==null);
 
             await addDoc(collection(db,'inventoryHistory'),{
-                type:'main',
-                zone, warehouseGroup:groupId, month:monthKey,
-                date:dateStr, timestamp:Date.now(),
-                countedBy:staff, recordedBy:currentUser.name, items
+                zone,date:dateStr,timestamp:Date.now(),
+                countedBy:staff,recordedBy:currentUser.name,items
             });
 
             toast('✅ บันทึกใบนับสต๊อกคงเหลือสำเร็จ','#059669');
@@ -4866,7 +4584,7 @@ ${r.zone}`);
         };
 
         // ======== MONTHLY COUNT LOCK ========
-        window.tryOpenMonthlyCount = function() {
+        window.tryOpenMonthlyCount = async function() {
             if(!monthlyCountOpen) {
                 const existing = document.getElementById('lockedModal'); if(existing) existing.remove();
                 const m = document.createElement('div'); m.className='modal-overlay'; m.id='lockedModal';
@@ -4879,59 +4597,214 @@ ${r.zone}`);
                 document.body.appendChild(m);
                 return;
             }
-            // แสดง modal เลือก Template
-            openMonthlyCountTemplatePicker();
+
+            const isBT = currentUser?.username?.toUpperCase().startsWith('BT');
+
+            if(isBT) {
+                // === BT Flow: ระบบรู้จักสาขาอัตโนมัติ ===
+                const zone = (currentUser.assignedZones||[])[0] || '';
+                if(!zone) { toast('⚠️ ไม่พบข้อมูลสาขาของคุณ กรุณาติดต่อ Admin','#c2410c'); return; }
+
+                // หา Template ที่ตรงกับ BT
+                const sstEntries = Object.entries(stockSheetTemplates);
+                const matchedTmpl = sstEntries.find(([id,t]) => {
+                    const bt = (t.branchType||t.zone||'').toUpperCase();
+                    return bt && zone.toUpperCase().startsWith(bt);
+                }) || sstEntries[0]; // fallback ตัวแรก
+
+                if(!matchedTmpl) { toast('⚠️ ยังไม่มี Template ใบนับสต๊อก กรุณาติดต่อ Admin','#c2410c'); return; }
+                const [tmplId, tmpl] = matchedTmpl;
+
+                // เช็คว่าเดือนนี้นับไปแล้วหรือยัง
+                const now = new Date();
+                const monthKey = now.toISOString().slice(0,7); // "yyyy-mm"
+                let existingDoc = null;
+                try {
+                    const snap = await getDocs(collection(db,'inventoryHistory'));
+                    snap.forEach(d => {
+                        const x = d.data();
+                        if(x.zone === zone && x.month === monthKey && x.type === 'branch') {
+                            existingDoc = {id: d.id, ...x};
+                        }
+                    });
+                } catch(e) { console.error(e); }
+
+                if(existingDoc) {
+                    // นับแล้ว → แสดงสรุปพร้อมปุ่มแก้ไข
+                    openBranchMonthlyDoneSummary(tmplId, tmpl, zone, existingDoc);
+                } else {
+                    // ยังไม่นับ → เปิดใบเลย
+                    openBranchMonthlyCount(tmplId, tmpl, zone);
+                }
+            } else {
+                // === Admin/Warehouse Flow: เลือกสาขา ===
+                openMonthlyCountAdminPicker();
+            }
         };
 
-        window.openMonthlyCountTemplatePicker = function() {
-            const existing = document.getElementById('mcTemplateModal'); if(existing) existing.remove();
-            const entries = Object.entries(stockSheetTemplates);
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-            const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+        // สรุปยอดที่นับแล้ว + ปุ่มแก้ไข
+        window.openBranchMonthlyDoneSummary = function(tmplId, tmpl, zone, existingDoc) {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            const groups = [...new Set((existingDoc.items||[]).map(i=>i.group||'ทั่วไป'))];
 
-            const templateCards = entries.length
-                ? entries.map(([id,t])=>`
-                    <div onclick="closeMCTemplatePicker();openBranchMonthlyCount('${id}',stockSheetTemplates['${id}'],'')"
-                        style="padding:16px 18px;border:2px solid ${t.color||'#e2e8f0'};border-radius:14px;cursor:pointer;transition:all .2s;background:white;text-align:left;"
-                        onmouseover="this.style.background='${t.color||'#f0f9ff'}22';this.style.transform='translateY(-2px)'"
-                        onmouseout="this.style.background='white';this.style.transform=''">
-                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-                            <span style="background:${t.color||'#06b6d4'};color:white;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${t.branchType||'ALL'}</span>
-                            <b style="font-size:14px;">${t.name}</b>
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <h2>✅ ผลการนับสต๊อกสิ้นเดือน</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openBranchMonthlyCount('${tmplId}',stockSheetTemplates['${tmplId}'],'${zone}')"
+                        style="background:#f59e0b;color:white;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:bold;">✏️ แก้ไข / นับใหม่</button>
+                    <button onclick="printBranchMonthlyCountSummary('${tmplId}','${zone}','${existingDoc.id}')" style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ พิมพ์</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
+                </div>
+            </div>
+            <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;">
+                <div style="font-size:36px;">🏪</div>
+                <div>
+                    <div style="font-size:16px;font-weight:700;color:#065f46;">${zone}</div>
+                    <div style="font-size:13px;color:#059669;">นับสต๊อกเดือนนี้เรียบร้อยแล้ว ✓</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">วันที่บันทึก: ${existingDoc.date||''} • โดย: ${existingDoc.countedBy||'-'}</div>
+                </div>
+            </div>
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#1e293b;color:white;">
+                    <th style="padding:12px 16px;text-align:left;font-size:12px;">สินค้า</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;background:#1d4ed8;">ยอดนับ</th>
+                    <th style="padding:12px;text-align:left;font-size:12px;">หมายเหตุ</th>
+                </tr></thead>
+                <tbody>
+                ${groups.map(grp => {
+                    const grpItems = (existingDoc.items||[]).filter(i=>(i.group||'ทั่วไป')===grp);
+                    const header = `<tr><td colspan="4" style="padding:9px 16px;background:linear-gradient(90deg,#f0f9ff,#f8fafc);font-weight:700;font-size:11px;color:#0369a1;border-top:2px solid #bae6fd;letter-spacing:.5px;">▌ ${grp.toUpperCase()}</td></tr>`;
+                    const rows = grpItems.map((it,idx) => `
+                        <tr style="border-bottom:1px solid #f1f5f9;${idx%2===1?'background:#fafafa':''}">
+                            <td style="padding:11px 16px;">
+                                <div style="font-weight:700;font-size:13px;">${it.id}</div>
+                                <div style="color:#475569;font-size:12px;">${it.name}</div>
+                            </td>
+                            <td style="padding:11px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
+                            <td style="padding:11px;text-align:center;">
+                                <span style="font-size:20px;font-weight:800;color:${(it.balance||0)>0?'#1d4ed8':'#94a3b8'};">${it.balance??'-'}</span>
+                            </td>
+                            <td style="padding:11px;color:#64748b;font-size:12px;">${it.note||'—'}</td>
+                        </tr>`).join('');
+                    return header+rows;
+                }).join('')}
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:16px;text-align:center;padding-bottom:20px;" class="no-print">
+                <button onclick="openBranchMonthlyCount('${tmplId}',stockSheetTemplates['${tmplId}'],'${zone}')"
+                    style="background:#f59e0b;color:white;padding:14px 50px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;">
+                    ✏️ แก้ไขยอดนับ
+                </button>
+            </div>`;
+        };
+
+        // Admin picker: เลือกสาขา
+        window.openMonthlyCountAdminPicker = async function() {
+            const existing = document.getElementById('mcAdminModal'); if(existing) existing.remove();
+
+            // โหลดข้อมูลว่าสาขาไหนนับแล้วเดือนนี้
+            const now = new Date();
+            const monthKey = now.toISOString().slice(0,7);
+            const doneZones = new Set();
+            try {
+                const snap = await getDocs(collection(db,'inventoryHistory'));
+                snap.forEach(d => {
+                    const x = d.data();
+                    if(x.month === monthKey && x.type === 'branch') doneZones.add(x.zone);
+                });
+            } catch(e) { console.error(e); }
+
+            // หาสาขา BT ทั้งหมดจาก warehouseList
+            const btZones = warehouseList.filter(z => z.toUpperCase().startsWith('BT'));
+            const sstEntries = Object.entries(stockSheetTemplates);
+
+            // หา template เดียวสำหรับ BT (หรือ fallback ตัวแรก)
+            const defaultTmpl = sstEntries.find(([id,t]) => (t.branchType||'').toUpperCase() === 'BT') || sstEntries[0];
+
+            const monthTH = now.toLocaleDateString('th-TH',{year:'numeric',month:'long'});
+
+            const zoneCards = btZones.length
+                ? btZones.map(zone => {
+                    const isDone = doneZones.has(zone);
+                    const tmplId = defaultTmpl?.[0] || '';
+                    return `
+                    <div onclick="${isDone
+                        ? `closeMCAdminPicker();openBranchMonthlyCountForAdmin('${tmplId}','${zone}')`
+                        : `closeMCAdminPicker();openBranchMonthlyCount('${tmplId}',stockSheetTemplates['${tmplId}'],'${zone}')`}"
+                        style="padding:14px 16px;border:2px solid ${isDone?'#10b981':'#e2e8f0'};border-radius:12px;cursor:pointer;background:${isDone?'#f0fdf4':'white'};display:flex;align-items:center;justify-content:space-between;transition:all .2s;"
+                        onmouseover="this.style.borderColor='${isDone?'#059669':'#3b82f6'}';this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.borderColor='${isDone?'#10b981':'#e2e8f0'}';this.style.transform=''">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="font-size:24px;">${isDone?'✅':'🏪'}</div>
+                            <div>
+                                <div style="font-weight:700;font-size:14px;color:${isDone?'#065f46':'#1e293b'};">${zone}</div>
+                                <div style="font-size:11px;color:${isDone?'#059669':'#94a3b8'};">${isDone?'นับแล้วเดือนนี้ — กดเพื่อดู/แก้ไข':'ยังไม่ได้นับ'}</div>
+                            </div>
                         </div>
-                        <div style="font-size:12px;color:#64748b;">${(t.items||[]).length} รายการ</div>
-                    </div>`).join('')
-                : `<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px;">ยังไม่มี Template<br>ไปสร้างได้ที่ Admin → จัดการ Stock Sheet Templates</div>`;
+                        <div style="font-size:18px;color:#cbd5e1;">›</div>
+                    </div>`;
+                }).join('')
+                : `<div style="text-align:center;padding:24px;color:#94a3b8;font-size:13px;">ยังไม่มีสาขา BT ใน warehouseList<br>ไปเพิ่มได้ที่ Admin → ตั้งค่าคลัง</div>`;
 
             const m = document.createElement('div');
-            m.className='modal-overlay'; m.id='mcTemplateModal';
-            m.innerHTML=`<div class="modal-box" style="max-width:500px;width:95vw;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <h3 style="margin:0;">📋 เลือก Template การนับสต๊อก</h3>
-                    <button onclick="closeMCTemplatePicker()" style="background:#f1f5f9;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+            m.className='modal-overlay'; m.id='mcAdminModal';
+            m.innerHTML=`<div class="modal-box" style="max-width:480px;width:95vw;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <h3 style="margin:0;">🏪 เลือกสาขาที่จะนับสต๊อก</h3>
+                    <button onclick="closeMCAdminPicker()" style="background:#f1f5f9;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
                 </div>
-                <div style="font-size:12px;color:#64748b;margin-bottom:18px;">
-                    👤 ${currentUser?.name||''} &nbsp;•&nbsp; 📅 ${dateStr} ${timeStr}
+                <div style="font-size:12px;color:#64748b;margin-bottom:16px;">📅 ${monthTH} • 👤 ${currentUser?.name||''}</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                    <span style="background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">✅ นับแล้ว ${doneZones.size}</span>
+                    <span style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">⏳ รอ ${btZones.length - doneZones.size}</span>
                 </div>
-                <div style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;padding-right:4px;">
-                    ${templateCards}
+                <div style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto;padding-right:4px;">
+                    ${zoneCards}
                 </div>
-                <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;">
-                    <button onclick="closeMCTemplatePicker();openCentralStock()"
+                ${sstEntries.length === 0 ? `<div style="margin-top:14px;padding:12px;background:#fef2f2;border-radius:8px;font-size:12px;color:#c2410c;">⚠️ ยังไม่มี Template ใบนับสต๊อกสาขา — ไปสร้างที่ Admin → ตั้งค่า Template</div>` : ''}
+                <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
+                    <button onclick="closeMCAdminPicker();openCentralStock()"
                         style="width:100%;padding:11px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:13px;color:#475569;font-weight:600;">
-                        📦 นับสต๊อกแบบเดิม (ไม่ใช้ Template)
+                        📦 นับสต๊อกคลังหลัก (ไม่ใช้ Template)
                     </button>
                 </div>
             </div>`;
             document.body.appendChild(m);
         };
 
-        window.closeMCTemplatePicker = function() {
-            const el = document.getElementById('mcTemplateModal'); if(el) el.remove();
+        window.closeMCAdminPicker = function() {
+            const el = document.getElementById('mcAdminModal'); if(el) el.remove();
         };
 
-        window.openBranchMonthlyCount = function(tmplId, tmpl, zone) {
+        // Admin เปิดดูสาขาที่นับแล้ว (แสดง summary แล้วแก้ได้)
+        window.openBranchMonthlyCountForAdmin = async function(tmplId, zone) {
+            const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
+            const now = new Date();
+            const monthKey = now.toISOString().slice(0,7);
+            let existingDoc = null;
+            try {
+                const snap = await getDocs(collection(db,'inventoryHistory'));
+                snap.forEach(d => {
+                    const x = d.data();
+                    if(x.zone === zone && x.month === monthKey && x.type === 'branch') existingDoc = {id: d.id, ...x};
+                });
+            } catch(e) { console.error(e); }
+            if(existingDoc) openBranchMonthlyDoneSummary(tmplId, tmpl, zone, existingDoc);
+            else openBranchMonthlyCount(tmplId, tmpl, zone);
+        };
+
+        // เก็บ backward compat สำหรับ closeMCTemplatePicker ที่อาจถูกเรียกจากที่อื่น
+        window.closeMCTemplatePicker = function() {
+            closeMCAdminPicker();
+        };
+
+        window.openBranchMonthlyCount = function(tmplId, tmpl, zone, prefillDoc) {
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
             const now = new Date();
@@ -4939,6 +4812,19 @@ ${r.zone}`);
             const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
             const defaultZone = zone || (currentUser?.assignedZones||[])[0] || '';
             const groups = [...new Set(tmpl.items.map(i=>i.group||i.category||'ทั่วไป'))];
+
+            // prefill จากข้อมูลเดิม ถ้ามี
+            const prefillMap = {};
+            if(prefillDoc) {
+                (prefillDoc.items||[]).forEach(it => { prefillMap[it.id] = it; });
+            }
+
+            // ถ้าเป็น BT และมีข้อมูลเดิม ให้แสดง badge แจ้ง
+            const isBT = currentUser?.username?.toUpperCase().startsWith('BT');
+            const editBadge = prefillDoc
+                ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#b45309;" class="no-print">
+                    ✏️ <b>โหมดแก้ไข</b> — กำลังแก้ไขยอดนับที่บันทึกไว้วันที่ ${prefillDoc.date||''} เมื่อบันทึกใหม่จะทับข้อมูลเดิม
+                   </div>` : '';
 
             c.innerHTML = `
             <div class="tool-header no-print">
@@ -4950,6 +4836,7 @@ ${r.zone}`);
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
                 </div>
             </div>
+            ${editBadge}
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;" class="no-print">
                 <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ</label>
                     <input type="date" id="bmc_date" value="${today}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;">
@@ -4957,14 +4844,14 @@ ${r.zone}`);
                 <div class="input-group" style="border:2px solid var(--accent-gold);"><label>🕐 เวลา</label>
                     <input type="time" id="bmc_time" value="${timeStr.slice(0,5)}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;">
                 </div>
-                <div class="input-group" style="border:2px solid var(--info);"><label>📦 คลัง/สาขา</label>
-                    <input type="text" id="bmc_zone" value="${defaultZone}" placeholder="ระบุคลัง/สาขา..."
-                        style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;font-family:inherit;">
+                <div class="input-group" style="border:2px solid var(--info);${isBT?'background:#f0fdf4;':''}"><label>📦 คลัง/สาขา</label>
+                    ${isBT
+                        ? `<b style="font-size:14px;color:#065f46;">${defaultZone}</b><input type="hidden" id="bmc_zone" value="${defaultZone}">`
+                        : `<input type="text" id="bmc_zone" value="${defaultZone}" placeholder="ระบุคลัง/สาขา..."
+                            style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;font-family:inherit;">`
+                    }
                 </div>
                 <div class="input-group" style="background:#f0fdf4;border:1.5px solid #bbf7d0;"><label>🙋 ผู้นับ</label>
-                    <b style="font-size:13px;color:#065f46;">${currentUser?.name||''}</b>
-                </div>
-                <div class="input-group" style="background:#f0fdf4;border:1.5px solid #bbf7d0;"><label>✅ ผู้ทำรายการหลัก</label>
                     <b style="font-size:13px;color:#065f46;">${currentUser?.name||''}</b>
                 </div>
             </div>
@@ -4986,30 +4873,36 @@ ${r.zone}`);
                 ${groups.map(grp=>{
                     const grpItems = tmpl.items.filter(i=>(i.group||i.category||'ทั่วไป')===grp);
                     const header = `<tr><td colspan="4" style="padding:10px 16px;background:linear-gradient(90deg,#f0f9ff,#f8fafc);font-weight:700;font-size:12px;color:#0369a1;border-top:2px solid #bae6fd;letter-spacing:.5px;">▌ ${grp.toUpperCase()}</td></tr>`;
-                    const rows = grpItems.map(it=>`
-                        <tr class="bmc-row" data-search="${it.id.toLowerCase()} ${it.name.toLowerCase()}" style="border-bottom:1px solid #f1f5f9;">
+                    const rows = grpItems.map(it=>{
+                        const prev = prefillMap[it.id];
+                        const prevVal = prev?.balance != null ? prev.balance : '';
+                        const prevNote = prev?.note || '';
+                        const hasPrev = prevVal !== '';
+                        return `
+                        <tr class="bmc-row" data-search="${it.id.toLowerCase()} ${it.name.toLowerCase()}" style="border-bottom:1px solid #f1f5f9;${hasPrev?'background:#fffbeb;':''}">
                             <td style="padding:12px 16px;">
                                 <div style="font-weight:700;font-size:13px;">${it.id}</div>
                                 <div style="color:#475569;font-size:12px;">${it.name}</div>
                             </td>
                             <td style="padding:12px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
                             <td style="padding:12px;text-align:center;">
-                                <input type="number" id="bmc_${it.id}" min="0" placeholder="0"
-                                    style="width:90px;padding:9px;border-radius:10px;border:2px solid #3b82f6;text-align:center;font-weight:700;font-size:16px;outline:none;"
-                                    onfocus="this.style.borderColor='#1d4ed8'" onblur="this.style.borderColor='#3b82f6'">
+                                <input type="number" id="bmc_${it.id}" min="0" placeholder="0" value="${prevVal}"
+                                    style="width:90px;padding:9px;border-radius:10px;border:2px solid ${hasPrev?'#f59e0b':'#3b82f6'};text-align:center;font-weight:700;font-size:16px;outline:none;"
+                                    onfocus="this.style.borderColor='#1d4ed8'" onblur="this.style.borderColor='${hasPrev?'#f59e0b':'#3b82f6'}'">
                             </td>
                             <td style="padding:12px;">
-                                <input type="text" id="bmcNote_${it.id}" placeholder="หมายเหตุ"
+                                <input type="text" id="bmcNote_${it.id}" placeholder="หมายเหตุ" value="${prevNote}"
                                     style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;">
                             </td>
-                        </tr>`).join('');
+                        </tr>`;
+                    }).join('');
                     return header+rows;
                 }).join('')}
                 </tbody>
             </table>
             </div>
             <div style="margin-top:24px;text-align:center;" class="no-print">
-                <button onclick="saveBranchMonthlyCount('${tmplId}','${zone}')"
+                <button onclick="saveBranchMonthlyCount('${tmplId}','${defaultZone}')"
                     style="background:var(--success);color:white;padding:16px 60px;border:none;border-radius:14px;font-size:18px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,.3);">
                     💾 บันทึกผลการนับสต๊อกสิ้นเดือน
                 </button>
@@ -5022,17 +4915,17 @@ ${r.zone}`);
             });
         };
 
-        window.saveBranchMonthlyCount = async function(tmplId, _zoneDeprecated) {
+        window.saveBranchMonthlyCount = async function(tmplId, _zoneFromBtn) {
             const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
             const dateVal = document.getElementById('bmc_date')?.value;
             if(!dateVal){toast('⚠️ กรุณาเลือกวันที่','#c2410c');return;}
-            const zone = document.getElementById('bmc_zone')?.value.trim() || _zoneDeprecated || '';
+            const zone = document.getElementById('bmc_zone')?.value.trim() || _zoneFromBtn || '';
             if(!zone){toast('⚠️ กรุณาระบุคลัง/สาขา','#c2410c');return;}
             const timeVal = document.getElementById('bmc_time')?.value || '';
             const [cy,cm,cd]=dateVal.split('-');
             const dateTH=`${cd}/${cm}/${parseInt(cy)+543}`;
             const datetimeTH = dateTH + (timeVal ? ' ' + timeVal : '');
-            const monthKey=`${cy}-${cm}`;
+            const monthKey = `${cy}-${cm}`;
 
             const items = tmpl.items.map(it=>({
                 id:it.id, name:it.name, unit:it.unit||'',
@@ -5044,18 +4937,15 @@ ${r.zone}`);
                 if(!confirm('ยังไม่ได้กรอกยอดใดเลย ยืนยันบันทึกไหม?')) return;
             }
 
-            // เช็คนับซ้ำในเดือนเดียวกัน
+            // เช็คและลบของเดิมถ้ามี (auto-overwrite)
             try {
-                const existSnap=await getDocs(collection(db,'inventoryHistory'));
-                let existDoc=null;
-                existSnap.forEach(d=>{
-                    const x=d.data();
-                    if(x.zone===zone && x.month===monthKey && x.type==='branch') existDoc={id:d.id,...x};
-                });
-                if(existDoc){
-                    const overwrite=confirm(`⚠️ มีข้อมูลนับสต๊อก ${zone} เดือน ${cm}/${parseInt(cy)+543} อยู่แล้ว (วันที่ ${existDoc.date})\n\nกด OK เพื่อบันทึกทับข้อมูลเดิม หรือ Cancel เพื่อยกเลิก`);
-                    if(!overwrite)return;
-                    await deleteDoc(doc(db,'inventoryHistory',existDoc.id));
+                const existSnap = await getDocs(collection(db,'inventoryHistory'));
+                for(const d of existSnap.docs) {
+                    const x = d.data();
+                    if(x.zone === zone && x.month === monthKey && (x.type === 'branch' || x.isBranchTemplate)) {
+                        await deleteDoc(doc(db,'inventoryHistory',d.id));
+                        break;
+                    }
                 }
             } catch(e){ console.error(e); }
 
@@ -5098,6 +4988,59 @@ ${r.zone}`);
             <style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th{background:#1e293b;color:white;padding:10px}td{border:1px solid #e2e8f0;font-size:12px}@media print{body{padding:0}}</style></head><body>
             <h2 style="margin:0 0 4px;">ใบนับสต๊อกคงเหลือ</h2>
             <div style="font-size:13px;color:#64748b;margin-bottom:16px;">สาขา: <b>${zone}</b> • Template: <b>${tmpl.name}</b> • วันที่: <b>${dateTH}</b> • บันทึกโดย: <b>${currentUser.name}</b></div>
+            <table><thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>ยอดนับ</th><th>หมายเหตุ</th></tr></thead>
+            <tbody>${tableBody}</tbody></table>
+            <div style="margin-top:40px;display:flex;gap:60px;">
+                <div style="text-align:center;border-top:1px solid #333;padding-top:8px;min-width:150px;">ผู้นับ</div>
+                <div style="text-align:center;border-top:1px solid #333;padding-top:8px;min-width:150px;">ผู้ตรวจสอบ</div>
+            </div>
+            </body></html>`);
+            w.document.close(); setTimeout(()=>w.print(),400);
+        };
+
+        // พิมพ์จากหน้า summary (ข้อมูลที่บันทึกแล้ว)
+        window.printBranchMonthlyCountSummary = function(tmplId, zone, docId) {
+            const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
+            // ดึงจาก DOM ที่ render ไว้ใน summary page
+            const rows = [...document.querySelectorAll('#toolAppContainer table tbody tr')];
+            const dateTH = document.querySelector('#toolAppContainer .history-card-header b')?.textContent || '';
+            const groups = [...new Set(tmpl.items.map(i=>i.group||i.category||'ทั่วไป'))];
+
+            // หาข้อมูลจาก DOM table
+            const itemData = {};
+            rows.forEach(tr => {
+                const cells = tr.querySelectorAll('td');
+                if(cells.length >= 3) {
+                    const id = cells[0]?.querySelector('div')?.textContent?.trim();
+                    const bal = cells[2]?.querySelector('span')?.textContent?.trim();
+                    const note = cells[3]?.textContent?.trim()||'';
+                    if(id && bal && bal !== '-') itemData[id] = {balance: bal, note};
+                }
+            });
+
+            const tableBody = groups.map(grp => {
+                const grpItems = tmpl.items.filter(i=>(i.group||i.category||'ทั่วไป')===grp);
+                const header = `<tr><td colspan="5" style="padding:8px 12px;background:#f0f9ff;font-weight:700;font-size:11px;color:#0369a1;border-top:2px solid #bae6fd;">▌ ${grp.toUpperCase()}</td></tr>`;
+                const itemRows = grpItems.map((it,idx) => {
+                    const d = itemData[it.id];
+                    return `<tr style="${idx%2===0?'background:#f8fafc':''}">
+                        <td style="padding:9px 12px;">${it.id}</td>
+                        <td style="padding:9px 12px;">${it.name}</td>
+                        <td style="padding:9px;text-align:center;">${it.unit||''}</td>
+                        <td style="padding:9px;text-align:center;font-weight:bold;">${d?.balance||''}</td>
+                        <td style="padding:9px;">${d?.note||''}</td>
+                    </tr>`;
+                }).join('');
+                return header + itemRows;
+            }).join('');
+
+            const now = new Date();
+            const printDate = now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+            const w = window.open('','_blank');
+            w.document.write(`<html><head><title>ใบนับสต๊อก ${zone}</title>
+            <style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th{background:#1e293b;color:white;padding:10px}td{border:1px solid #e2e8f0;font-size:12px}@media print{body{padding:0}}</style></head><body>
+            <h2 style="margin:0 0 4px;">ใบนับสต๊อกคงเหลือ</h2>
+            <div style="font-size:13px;color:#64748b;margin-bottom:16px;">สาขา: <b>${zone}</b> • Template: <b>${tmpl.name}</b> • พิมพ์วันที่: <b>${printDate}</b> • โดย: <b>${currentUser.name}</b></div>
             <table><thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>ยอดนับ</th><th>หมายเหตุ</th></tr></thead>
             <tbody>${tableBody}</tbody></table>
             <div style="margin-top:40px;display:flex;gap:60px;">
