@@ -7432,6 +7432,99 @@ ${r.zone}`);
             if(location.hash) history.pushState(null, '', location.pathname);
         };
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+
+// ===== BULK CATEGORY EDITOR =====
+let tempCategoryMap = {};
+
+window.openBulkCategoryEditor = function() {
+    document.getElementById('dashboardView').classList.add('hidden');
+    const c = document.getElementById('toolAppContainer');
+    c.classList.remove('hidden');
+
+    let rows = allProducts.map(p => `
+        <tr>
+            <td style="padding:8px;">${p.id}</td>
+            <td>${p.name}</td>
+            <td>
+                <select onchange="updateTempCategory('${p.id}', this.value)">
+                    ${productCategories.map(cat => `
+                        <option value="${cat}" ${p.category===cat?'selected':''}>
+                            ${cat}
+                        </option>
+                    `).join('')}
+                </select>
+            </td>
+        </tr>
+    `).join('');
+
+    c.innerHTML = `
+        <div class="tool-header">
+            <h2>🗂️ แก้ไขหมวดหมู่สินค้า (Bulk Edit)</h2>
+            <button onclick="closeTool()">✕ ปิด</button>
+        </div>
+
+        <div style="background:white;padding:20px;border-radius:15px;">
+            <div style="margin-bottom:15px;">
+                <button onclick="closeTool()" style="background:#64748b;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">
+                ⬅ กลับ
+                </button>
+                <button onclick="saveBulkCategory()" 
+                style="background:#10b981;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;margin-left:10px;">
+                💾 บันทึกทั้งหมด
+                </button>
+            </div>
+
+            <div style="overflow:auto;max-height:70vh;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead style="position:sticky;top:0;background:#f1f5f9;">
+                        <tr>
+                            <th style="padding:8px;text-align:left;">รหัส</th>
+                            <th style="text-align:left;">ชื่อสินค้า</th>
+                            <th style="text-align:left;">หมวดหมู่</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+window.updateTempCategory = function(productId, category) {
+    tempCategoryMap[productId] = category;
+}
+
+window.saveBulkCategory = async function() {
+    Object.keys(tempCategoryMap).forEach(id => {
+        const product = allProducts.find(p => p.id === id);
+        if(product){
+            product.category = tempCategoryMap[id];
+        }
+    });
+
+    await saveConfig();
+    tempCategoryMap = {};
+    toast('✅ บันทึกหมวดหมู่เรียบร้อยแล้ว', '#059669');
+}
+
+// เพิ่มปุ่มเข้าเมนูใน Admin (ถ้ามี)
+setTimeout(() => {
+    const adminMenu = document.querySelector('#subAdmin');
+    if(adminMenu && !document.getElementById('bulkCatBtn')){
+        const div = document.createElement('div');
+        div.id = 'bulkCatBtn';
+        div.innerHTML = '🗂️ แก้หมวดหมู่สินค้า (Bulk)';
+        div.style.color = '#8b5cf6';
+        div.onclick = openBulkCategoryEditor;
+        adminMenu.appendChild(div);
+    }
+}, 1500);
+
+// ===== END BULK CATEGORY EDITOR =====
+
+</script>
 </body>
 </html>
