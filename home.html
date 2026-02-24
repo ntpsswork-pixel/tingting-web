@@ -461,6 +461,12 @@
             catch(e) { toast('❌ บันทึกสต๊อกไม่สำเร็จ','#c2410c'); }
         }
 
+        // คืน products ของ zone เรียงตามลำดับใน zoneProductMap
+        function getZoneProducts(zone) {
+            const ids = zoneProductMap[zone] || [];
+            return ids.map(id => allProducts.find(p => p.id === id)).filter(Boolean);
+        }
+
         function getVisibleWarehouses() {
             const u = currentUser;
             if (u.username && u.username.toUpperCase().startsWith('BT000')) {
@@ -1157,7 +1163,7 @@
         window.renderStockTool=async function(zone){
             const c=document.getElementById('toolAppContainer');
             const visibleZones=getVisibleWarehouses();
-            const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds=getZoneProducts(zone);
             const usSnap=await getDocs(collection(db,'users')); let staffOpts='';
             usSnap.forEach(d=>{const u=d.data();if(u.status!=='suspended')staffOpts+=`<option value="${u.name}" ${selectedStaff===u.name?'selected':''}>${u.name}</option>`;});
 
@@ -1381,7 +1387,7 @@
                 const zones=zone?[zone]:getVisibleWarehouses();
                 let html='';
                 zones.forEach(z=>{
-                    const prods=allProducts.filter(p=>(zoneProductMap[z]||[]).includes(p.id));
+                    const prods=getZoneProducts(z);
                     if(!prods.length)return;
                     html+=`<div class="history-card" style="margin-bottom:20px;">
                         <div class="history-card-header"><b>📦 ${z}</b></div>
@@ -1419,7 +1425,7 @@
             const zones=zone?[zone]:getVisibleWarehouses();
             const rows=[['คลัง','รหัสสินค้า','ชื่อสินค้า','ยอดสต๊อก','หน่วย','นับล่าสุด','โดย']];
             zones.forEach(z=>{
-                const prods=allProducts.filter(p=>(zoneProductMap[z]||[]).includes(p.id));
+                const prods=getZoneProducts(z);
                 prods.forEach(p=>{
                     const cd=countData[p.id]||{total:0};
                     const units=p.units||[{name:p.unit||''}];
@@ -1567,6 +1573,7 @@
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="selectZoneMap" onchange="renderMapping();renderMinMaxTable()" style="padding:10px;border-radius:8px;min-width:200px;border:2px solid var(--primary-dark);font-weight:bold;"></select>
                         <button onclick="selectAllMapping(true)" style="background:#10b981;color:white;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;">✅ เลือกทั้งหมด</button>
+                        <button onclick="toggleSortMode()" id="btnSortMode" style="background:#7c3aed;color:white;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;">↕️ จัดลำดับ</button>
                         <button onclick="selectAllMapping(false)" style="background:#ef4444;color:white;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;">❌ ยกเลิกทั้งหมด</button>
                     </div>
                 </div>
@@ -1574,6 +1581,11 @@
                     style="width:100%;padding:10px 16px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;margin-bottom:14px;transition:border .2s;"
                     onfocus="this.style.borderColor='var(--primary-dark)'" onblur="this.style.borderColor='#e2e8f0'">
                 <div id="mappingContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;max-height:360px;overflow-y:auto;"></div>
+                <div id="sortContainer" style="display:none;margin-top:14px;">
+                    <div style="font-size:12px;color:#7c3aed;font-weight:bold;margin-bottom:8px;">↕️ ลากแถบซ้ายเพื่อเรียงลำดับ — ลำดับนี้จะใช้ในใบนับสต๊อกและรายงานทั้งหมด</div>
+                    <div id="sortList" style="display:flex;flex-direction:column;gap:6px;"></div>
+                    <button onclick="saveSortOrder()" style="margin-top:12px;background:#7c3aed;color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-weight:bold;">💾 บันทึกลำดับ</button>
+                </div>
             </div>
             <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -1692,6 +1704,115 @@
             allProducts[i].supplier=editedSupplier;
             saveConfig(); renderPdList();
             toast('✅ แก้ไขสินค้าเรียบร้อย','#059669');
+        };
+
+        // ---- PRODUCT SORT ORDER ----
+        window.toggleSortMode = function() {
+            const mc = document.getElementById('mappingContainer');
+            const sc = document.getElementById('sortContainer');
+            const btn = document.getElementById('btnSortMode');
+            const ms = document.getElementById('mappingSearch');
+            const isSortMode = sc.style.display !== 'none';
+            if (isSortMode) {
+                // กลับโหมดปกติ
+                sc.style.display = 'none';
+                mc.style.display = 'grid';
+                if (ms) ms.style.display = '';
+                btn.style.background = '#7c3aed';
+                btn.textContent = '↕️ จัดลำดับ';
+            } else {
+                // เข้าโหมดจัดลำดับ
+                sc.style.display = 'block';
+                mc.style.display = 'none';
+                if (ms) ms.style.display = 'none';
+                btn.style.background = '#1e293b';
+                btn.textContent = '✕ ปิดจัดลำดับ';
+                renderSortList();
+            }
+        };
+
+        window.renderSortList = function() {
+            const zone = document.getElementById('selectZoneMap')?.value;
+            const list = document.getElementById('sortList');
+            if (!zone || !list) return;
+            const ids = zoneProductMap[zone] || [];
+            const prods = ids.map(id => allProducts.find(p => p.id === id)).filter(Boolean);
+            if (!prods.length) {
+                list.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">ยังไม่มีสินค้าในโซนนี้</p>';
+                return;
+            }
+            list.innerHTML = prods.map((p, idx) => {
+                const units = p.units || [{name: p.unit || ''}];
+                const u = units[0]?.name || '';
+                return `<div class="sort-item" draggable="true" data-id="${p.id}"
+                    style="display:flex;align-items:center;gap:12px;background:white;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;cursor:grab;transition:0.15s;"
+                    ondragstart="onSortDragStart(event)" ondragover="onSortDragOver(event)" ondrop="onSortDrop(event)" ondragend="onSortDragEnd(event)"
+                    onmouseenter="this.style.borderColor='#7c3aed';this.style.background='#faf5ff'"
+                    onmouseleave="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                    <span style="color:#94a3b8;font-size:18px;user-select:none;flex-shrink:0;">⠿</span>
+                    <span style="background:#f1f5f9;color:#64748b;font-size:11px;font-weight:bold;padding:3px 7px;border-radius:5px;flex-shrink:0;min-width:22px;text-align:center;">${idx+1}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:13px;color:#1e293b;">${p.id}</div>
+                        <div style="color:#475569;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+                    </div>
+                    <span style="color:#94a3b8;font-size:11px;flex-shrink:0;">${u}</span>
+                </div>`;
+            }).join('');
+        };
+
+        // Drag-and-drop state
+        let _sortDragSrc = null;
+        window.onSortDragStart = function(e) {
+            _sortDragSrc = e.currentTarget;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => { if(_sortDragSrc) _sortDragSrc.style.opacity = '0.4'; }, 0);
+        };
+        window.onSortDragOver = function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const target = e.currentTarget;
+            if (target !== _sortDragSrc) {
+                target.style.borderColor = '#7c3aed';
+                target.style.borderStyle = 'dashed';
+            }
+        };
+        window.onSortDrop = function(e) {
+            e.preventDefault();
+            const target = e.currentTarget;
+            if (!_sortDragSrc || target === _sortDragSrc) return;
+            const list = document.getElementById('sortList');
+            const items = [...list.querySelectorAll('.sort-item')];
+            const srcIdx = items.indexOf(_sortDragSrc);
+            const tgtIdx = items.indexOf(target);
+            if (srcIdx < tgtIdx) list.insertBefore(_sortDragSrc, target.nextSibling);
+            else list.insertBefore(_sortDragSrc, target);
+            // อัปเดตหมายเลขลำดับ
+            [...list.querySelectorAll('.sort-item')].forEach((el, i) => {
+                const numEl = el.querySelectorAll('span')[1];
+                if (numEl) numEl.textContent = i + 1;
+            });
+        };
+        window.onSortDragEnd = function(e) {
+            const list = document.getElementById('sortList');
+            if (list) list.querySelectorAll('.sort-item').forEach(el => {
+                el.style.opacity = '1';
+                el.style.borderColor = '#e2e8f0';
+                el.style.borderStyle = 'solid';
+                el.style.background = 'white';
+            });
+            _sortDragSrc = null;
+        };
+
+        window.saveSortOrder = function() {
+            const zone = document.getElementById('selectZoneMap')?.value;
+            const list = document.getElementById('sortList');
+            if (!zone || !list) return;
+            const newOrder = [...list.querySelectorAll('.sort-item')].map(el => el.dataset.id);
+            zoneProductMap[zone] = newOrder;
+            saveConfig();
+            toast('✅ บันทึกลำดับสินค้าเรียบร้อย', '#7c3aed');
+            // อัปเดตหมายเลขทันที
+            renderSortList();
         };
 
         window.renderMapping=function(){
@@ -1866,7 +1987,7 @@
 
         window.renderInventoryRows=async function(){
             const zone=document.getElementById('invZone')?.value||'';
-            const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds=getZoneProducts(zone);
             const c=document.getElementById('invTableContainer');
             if(!c)return;
 
@@ -1981,7 +2102,7 @@
             if(!zone||!date){toast('⚠️ กรุณาเลือกคลังและวันที่','#c2410c');return;}
             if(!staff){toast('⚠️ กรุณาเลือกผู้นับ','#c2410c');return;}
 
-            const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds=getZoneProducts(zone);
             const hasAny=zoneProds.some(p=>document.getElementById(`inv_${p.id}`)?.value!=='');
             if(!hasAny){toast('⚠️ กรุณากรอกยอดคงเหลืออย่างน้อย 1 รายการ','#c2410c');return;}
 
@@ -2290,7 +2411,7 @@ ${it.zone}`);
 
             if(label) label.innerHTML=`<b style="color:var(--primary-dark);">📦 ${zone}</b> — กรอกค่าแล้วกด "บันทึก Min/Max คลังนี้" ก่อนเปลี่ยนคลัง`;
 
-            const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds=getZoneProducts(zone);
             if(!zoneProds.length){c.innerHTML='<p style="color:#94a3b8;font-size:13px;">ยังไม่มีสินค้าในคลังนี้ — จับคู่สินค้าเข้าสู่โซนก่อนนะครับ</p>';return;}
             c.innerHTML=`<table style="width:100%;border-collapse:collapse;">
                 <thead><tr style="background:#f8fafc;">
@@ -2326,7 +2447,7 @@ ${it.zone}`);
         window.saveAllMinMax=function(){
             const zone=window._currentMinMaxZone||document.getElementById('selectZoneMap')?.value||'';
             if(!zone){toast('⚠️ กรุณาเลือกคลังก่อน','#c2410c');return;}
-            const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds=getZoneProducts(zone);
             let count=0;
             zoneProds.forEach(p=>{
                 const minEl=document.getElementById(`mm_min_${p.id}`);
@@ -2362,7 +2483,7 @@ ${it.zone}`);
             // สร้างรายการสินค้าที่ต้องสั่ง
             const orderItems=[];
             visibleZones.forEach(zone=>{
-                const zoneProds=allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+                const zoneProds=getZoneProducts(zone);
                 zoneProds.forEach(p=>{
                     const key=`${zone}__${p.id}`;
                     const mm=productMinMax[key];
@@ -2485,7 +2606,7 @@ ${it.zone}`);
             invSnap.forEach(d=>{const data=d.data();if(!latestInv[data.zone]||data.timestamp>latestInv[data.zone].timestamp)latestInv[data.zone]=data;});
             let urgentCount=0;
             getVisibleWarehouses().forEach(zone=>{
-                allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id)).forEach(p=>{
+                getZoneProducts(zone).forEach(p=>{
                     const key=`${zone}__${p.id}`;
                     const mm=productMinMax[key];
                     if(!mm||!mm.min)return;
@@ -2951,7 +3072,7 @@ ${it.zone}`);
 
         window.renderMRItems = function() {
             const zone = document.getElementById('mr_zone')?.value || '';
-            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds = getZoneProducts(zone);
             const c = document.getElementById('mrItemsContainer'); if(!c) return;
             c.innerHTML = `
             <table class="stock-table" id="mrTable">
@@ -3020,7 +3141,7 @@ ${it.zone}`);
             const purp  = document.getElementById('mr_purpose')?.value||'';
             if(!date||!zone){toast('⚠️ กรุณากรอกข้อมูลให้ครบ','#c2410c');return;}
 
-            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds = getZoneProducts(zone);
             const items = zoneProds.map(p=>{
                 const qty = parseFloat(document.getElementById(`mr_qty_${p.id}`)?.value)||0;
                 const note = document.getElementById(`mr_note_${p.id}`)?.value||'';
@@ -3433,7 +3554,7 @@ ${it.zone}`);
             const zone = document.getElementById('tf_zone')?.value||'';
             const existing = window._editingTemplateExisting;
             const checkedIds = new Set((existing?.items||[]).map(i=>i.id));
-            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds = getZoneProducts(zone);
             const c = document.getElementById('templateItemsList'); if(!c) return;
             c.innerHTML = zoneProds.map(p=>{
                 const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
@@ -3823,7 +3944,7 @@ ${it.zone}`);
         window.renderDSCItems = async function() {
             const zone = document.getElementById('dsc_zone')?.value||'';
             const date = document.getElementById('dsc_date')?.value||'';
-            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds = getZoneProducts(zone);
             const c = document.getElementById('dscTableContainer'); if(!c) return;
 
             // โหลดยอดปิดเมื่อวานมาเป็น opening
@@ -3982,7 +4103,7 @@ ${it.zone}`);
 
             const [y,m,d] = date.split('-');
             const dateTH = `${d}/${m}/${parseInt(y)+543}`;
-            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds = getZoneProducts(zone);
 
             const items = zoneProds.map(p=>{
                 const opening  = parseFloat(document.getElementById(`dsc_opening_${p.id}`)?.value)||0;
@@ -4339,7 +4460,7 @@ ${r.zone}`);
             const existing = window._editingSSTExisting;
             const existingMap = {};
             (existing?.items||[]).forEach(it=>{ existingMap[it.id]={checked:true,group:it.group||''}; });
-            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds = getZoneProducts(zone);
             const c = document.getElementById('sstItemsList'); if(!c) return;
             c.innerHTML = zoneProds.length ? zoneProds.map(p=>{
                 const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
@@ -4370,7 +4491,7 @@ ${r.zone}`);
             const zone  = document.getElementById('sst_zone')?.value;
             const color = document.getElementById('sst_color')?.value||TEMPLATE_COLORS[2];
             if(!name){toast('⚠️ กรุณาใส่ชื่อ Template','#c2410c');return;}
-            const zoneProds = allProducts.filter(p=>(zoneProductMap[zone]||[]).includes(p.id));
+            const zoneProds = getZoneProducts(zone);
             const items = zoneProds.filter(p=>document.getElementById(`sstitem_${p.id}`)?.checked)
                 .map(p=>({
                     id:p.id, name:p.name,
