@@ -148,6 +148,66 @@
         .date-picker-wrap { position:relative; display:inline-block; width:100%; }
         .date-display { position:absolute; top:50%; left:10px; transform:translateY(-50%); pointer-events:none; font-weight:bold; font-size:14px; color:#1e293b; }
     </style>
+    <style>
+        /* ── DASHBOARD REDESIGN ── */
+        .dash-wrap { padding: 24px 28px; max-width: 1100px; }
+        @media (max-width: 768px) { .dash-wrap { padding: 56px 14px 20px; } }
+
+        /* Greeting */
+        .dash-greeting { margin-bottom: 22px; }
+        .dash-greeting h2 { margin: 0 0 2px; font-size: 22px; font-weight: 800; color: #0f172a; font-family: 'Prompt', sans-serif; }
+        .dash-greeting p  { margin: 0; font-size: 12px; color: #94a3b8; }
+
+        /* KPI + Actions top row */
+        .dash-top { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+        @media (max-width: 700px) { .dash-top { grid-template-columns: 1fr; } }
+
+        /* KPI cards */
+        .dash-kpi-list { display: flex; flex-direction: column; gap: 8px; }
+        .dash-kpi-card {
+            background: white; border-radius: 12px; padding: 12px 16px;
+            border: 1px solid #e8ecf0; border-left: 3px solid var(--info);
+            cursor: pointer; display: flex; align-items: center; gap: 12px;
+            transition: box-shadow .2s, transform .15s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .dash-kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
+        .dash-kpi-icon { font-size: 22px; width: 38px; text-align: center; flex-shrink: 0; }
+        .dash-kpi-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+        .dash-kpi-val { font-size: 22px; font-weight: 800; line-height: 1; margin-bottom: 2px; }
+        .dash-kpi-sub { font-size: 10px; color: #cbd5e1; }
+
+        /* Action grid */
+        .dash-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        @media (max-width: 480px) { .dash-actions { grid-template-columns: repeat(3, 1fr); gap: 6px; } }
+        .dash-btn {
+            background: white; border: 1.5px solid #e8ecf0; border-radius: 12px;
+            padding: 14px 6px 12px; cursor: pointer; text-align: center;
+            transition: all .15s; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 5px;
+            min-height: 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            touch-action: manipulation;
+        }
+        .dash-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+        .dash-btn:active { transform: translateY(0); box-shadow: none; }
+        .dash-btn .d-icon { font-size: 22px; line-height: 1; }
+        .dash-btn .d-label { font-size: 10px; font-weight: 700; color: #334155; line-height: 1.2; font-family: 'IBM Plex Sans Thai', sans-serif; }
+        .dash-btn.primary { background: #1e40af; border-color: #1e40af; }
+        .dash-btn.primary .d-label { color: white; }
+
+        /* Bottom row */
+        .dash-bottom { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; margin-top: 16px; }
+        @media (max-width: 700px) { .dash-bottom { grid-template-columns: 1fr; } }
+        .dash-panel { background: white; border-radius: 14px; border: 1px solid #e8ecf0; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .dash-panel-title { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; }
+
+        /* Activity list */
+        .dash-activity-item { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid #f8fafc; }
+        .dash-activity-item:last-child { border-bottom: none; }
+        .dash-activity-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+        .dash-activity-title { font-weight: 700; font-size: 11px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dash-activity-sub { font-size: 10px; color: #94a3b8; }
+    </style>
 </head>
 <body>
     <!-- Mobile hamburger -->
@@ -235,43 +295,33 @@
 
     <div class="main-content">
         <div id="dashboardView" class="no-print">
-            <div class="app-container" style="max-width:960px;">
-
-                <div id="viewOnlyAlert" class="hidden" style="background:#fff7ed;color:#c2410c;padding:10px 14px;border-radius:8px;border:1px solid #fdba74;margin-bottom:14px;font-size:12px;">
+            <div class="dash-wrap">
+                <div id="viewOnlyAlert" class="hidden" style="background:#fff7ed;color:#c2410c;padding:10px 14px;border-radius:8px;border:1px solid #fdba74;margin-bottom:16px;font-size:12px;">
                     ⚠️ <b>โหมดดูอย่างเดียว</b> — ไม่สามารถแก้ไขหรือบันทึกได้
                 </div>
                 <div id="dashAlertBanner"></div>
 
-                <!-- GREETING -->
-                <div style="margin-bottom:18px;">
-                    <h2 style="margin:0 0 2px;color:var(--primary-dark);font-size:18px;font-weight:800;" id="greetingText">สวัสดี...</h2>
-                    <p style="margin:0;color:#94a3b8;font-size:12px;" id="greetingDate"></p>
+                <div class="dash-greeting">
+                    <h2 id="greetingText">สวัสดี...</h2>
+                    <p id="greetingDate"></p>
                 </div>
 
-                <!-- TOP ROW: KPI (left) + ACTIONS (right) -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;" id="dashTopRow">
-
-                    <!-- KPI CARDS -->
-                    <div id="dashKpiRow" style="display:flex;flex-direction:column;gap:8px;"></div>
-
-                    <!-- ACTION BUTTONS -->
-                    <div id="dashActionRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;align-content:start;"></div>
-
+                <div class="dash-top">
+                    <div id="dashKpiRow" class="dash-kpi-list"></div>
+                    <div id="dashActionRow" class="dash-actions"></div>
                 </div>
 
-                <!-- BOTTOM: ACTIVITY + CHART -->
-                <div id="dashBottomRow" style="display:grid;grid-template-columns:1fr 1.6fr;gap:14px;">
-                    <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e2e8f0;overflow-y:auto;max-height:240px;">
-                        <div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">⚡ กิจกรรมล่าสุด</div>
-                        <div id="dashRecentList"><p style="color:#94a3b8;font-size:12px;">กำลังโหลด...</p></div>
+                <div class="dash-bottom" id="dashBottomRow">
+                    <div class="dash-panel" style="overflow-y:auto;max-height:260px;">
+                        <div class="dash-panel-title">⚡ กิจกรรมล่าสุด</div>
+                        <div id="dashRecentList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังโหลด...</p></div>
                     </div>
-                    <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e2e8f0;">
-                        <div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">📈 Trend การนับสต๊อก 7 วัน</div>
-                        <div class="chart-wrap" style="height:150px;"><canvas id="trendChart" height="150"></canvas></div>
+                    <div class="dash-panel">
+                        <div class="dash-panel-title">📈 Trend การนับสต๊อก 7 วัน</div>
+                        <div class="chart-wrap" style="height:160px;"><canvas id="trendChart" height="160"></canvas></div>
                     </div>
                 </div>
 
-                <!-- hidden stubs for backward compat -->
                 <div style="display:none;">
                     <span id="dashKpiGRVal"></span><span id="dashKpiGRSub"></span>
                     <span id="dashKpiMRVal"></span>
@@ -504,12 +554,12 @@
                 {id:'kpi_exp', label:'EXP ใกล้หมด',     icon:'⚠️', color:'#ef4444', fn:'openLotRegister()'},
             ];
             row.innerHTML = defs.map(k=>`
-                <div id="${k.id}_card" onclick="${k.fn}" style="background:white;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;border-left:3px solid ${k.color};cursor:pointer;display:flex;align-items:center;gap:12px;transition:box-shadow .15s;" onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow=''">
-                    <div style="font-size:20px;width:36px;text-align:center;">${k.icon}</div>
+                <div id="${k.id}_card" onclick="${k.fn}" class="dash-kpi-card" style="border-left-color:${k.color};">
+                    <div class="dash-kpi-icon">${k.icon}</div>
                     <div style="flex:1;min-width:0;">
-                        <div style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1px;">${k.label}</div>
-                        <div style="font-size:20px;font-weight:800;color:${k.color};line-height:1;margin-bottom:1px;" id="${k.id}_val">—</div>
-                        <div style="font-size:10px;color:#cbd5e1;" id="${k.id}_sub">กำลังโหลด...</div>
+                        <div class="dash-kpi-label">${k.label}</div>
+                        <div class="dash-kpi-val" style="color:${k.color};" id="${k.id}_val">—</div>
+                        <div class="dash-kpi-sub" id="${k.id}_sub">กำลังโหลด...</div>
                     </div>
                 </div>`).join('');
 
@@ -591,20 +641,20 @@
             } catch(e){}
 
             row.innerHTML = `
-                <div style="background:${monthlyDone?'#f0fdf4':'#fffbeb'};border-radius:10px;padding:14px 16px;border:1px solid ${monthlyDone?'#bbf7d0':'#fde68a'};border-left:3px solid ${monthlyDone?'#10b981':'#f59e0b'};cursor:pointer;display:flex;align-items:center;gap:12px;" onclick="tryOpenMonthlyCount()">
-                    <div style="font-size:26px;">${monthlyDone?'✅':'📅'}</div>
-                    <div>
-                        <div style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">นับสต๊อกสิ้นเดือน</div>
-                        <div style="font-size:14px;font-weight:800;color:${monthlyDone?'#059669':'#d97706'};">${monthlyDone?'นับแล้วเดือนนี้ ✓':'ยังไม่ได้นับ'}</div>
-                        <div style="font-size:10px;color:#94a3b8;">${monthTH} • ${zone}</div>
+                <div onclick="tryOpenMonthlyCount()" class="dash-kpi-card" style="border-left-color:${monthlyDone?'#10b981':'#f59e0b'};background:${monthlyDone?'#f0fdf4':'#fffbeb'};">
+                    <div class="dash-kpi-icon">${monthlyDone?'✅':'📅'}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="dash-kpi-label">นับสต๊อกสิ้นเดือน</div>
+                        <div class="dash-kpi-val" style="color:${monthlyDone?'#059669':'#d97706'};font-size:15px;">${monthlyDone?'นับแล้วเดือนนี้ ✓':'ยังไม่ได้นับ'}</div>
+                        <div class="dash-kpi-sub">${monthTH} • ${zone}</div>
                     </div>
                 </div>
-                <div style="background:${pilotCount>0?'#f5f3ff':'white'};border-radius:10px;padding:14px 16px;border:1px solid ${pilotCount>0?'#ddd6fe':'#e2e8f0'};border-left:3px solid ${pilotCount>0?'#7c3aed':'#e2e8f0'};cursor:pointer;display:flex;align-items:center;gap:12px;" onclick="openPilotHistory()">
-                    <div style="font-size:26px;">🎲</div>
-                    <div>
-                        <div style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">ทดลองนับเดือนนี้</div>
-                        <div style="font-size:14px;font-weight:800;color:${pilotCount>0?'#7c3aed':'#94a3b8'};">${pilotCount} ครั้ง</div>
-                        <div style="font-size:10px;color:#94a3b8;">${monthTH}</div>
+                <div onclick="openPilotHistory()" class="dash-kpi-card" style="border-left-color:${pilotCount>0?'#7c3aed':'#e2e8f0'};background:${pilotCount>0?'#f5f3ff':'white'};">
+                    <div class="dash-kpi-icon">🎲</div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="dash-kpi-label">ทดลองนับเดือนนี้</div>
+                        <div class="dash-kpi-val" style="color:${pilotCount>0?'#7c3aed':'#94a3b8'};font-size:20px;">${pilotCount} ครั้ง</div>
+                        <div class="dash-kpi-sub">${monthTH}</div>
                     </div>
                 </div>`;
         }
@@ -661,15 +711,14 @@
                 const rc = document.getElementById('dashRecentList');
                 if(rc){
                     if(!activities.length){rc.innerHTML='<p style="color:#94a3b8;font-size:12px;">ยังไม่มีกิจกรรม</p>';return;}
-                    rc.innerHTML = activities.slice(0,8).map(a=>{
-                        const ds = a.date?(()=>{const p=a.date.split('/');return p.length===3?`${p[0]}/${p[1]}`:a.date;})():(a.ts?new Date(a.ts).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit'}):'-');
-                        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f8fafc;">
-                            <div style="width:28px;height:28px;border-radius:50%;background:${a.color}18;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">${a.icon}</div>
-                            <div style="flex:1;min-width:0;">
-                                <div style="font-weight:700;font-size:11px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.title}</div>
-                                <div style="font-size:10px;color:#94a3b8;">${ds} • ${a.sub}</div>
-                            </div>
-                        </div>`;
+                    rc.innerHTML = activities.slice(0,10).map(a=>{
+                        const ds = a.date?(()=>{const p=a.date.split('/');return p.length===3?p[0]+'/'+p[1]:a.date;})():(a.ts?new Date(a.ts).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit'}):'-');
+                        return '<div class="dash-activity-item">'
+                            + '<div class="dash-activity-dot" style="background:'+a.color+'18;">'+a.icon+'</div>'
+                            + '<div style="flex:1;min-width:0;">'
+                            +   '<div class="dash-activity-title">'+a.title+'</div>'
+                            +   '<div class="dash-activity-sub">'+ds+' • '+a.sub+'</div>'
+                            + '</div></div>';
                     }).join('');
                 }
                 let stockSessions = [];
