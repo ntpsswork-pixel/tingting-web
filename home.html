@@ -473,7 +473,11 @@
 
             // ── BT: hide chart panel, full-width activity ──
             const br = document.getElementById('dashBottomRow');
-            if(br && isBT) br.style.gridTemplateColumns = '1fr';
+            if(br && isBT) {
+                br.style.gridTemplateColumns = '1fr';
+                // ซ่อน chart panel (อันที่ 2)
+                if(br.children[1]) br.children[1].style.display = 'none';
+            }
 
             await loadCountData();
             if(isBT) {
@@ -2035,25 +2039,6 @@
             if(!zoneProductMap[zone])zoneProductMap[zone]=[];
             const visible=document.querySelectorAll('#mappingContainer input[type=checkbox]');
             visible.forEach(cb=>{
-                const id=cb.value; cb.checked=checked;
-                const idx=zoneProductMap[zone].indexOf(id);
-                if(checked&&idx===-1) zoneProductMap[zone].push(id);
-                else if(!checked&&idx>-1) zoneProductMap[zone].splice(idx,1);
-                const lbl=cb.closest('label');
-                if(lbl){lbl.style.borderColor=checked?'#10b981':'#e2e8f0';lbl.style.background=checked?'#f0fdf4':'white';}
-            });
-            saveConfig();
-            toast(checked?`✅ เลือก ${visible.length} สินค้าเข้าโซน`:'❌ ยกเลิกทั้งหมด','#059669');
-        };
-        window.filterMapping=function(q){
-            const rows=document.querySelectorAll('#mappingContainer label[data-search]');
-            rows.forEach(r=>{ r.style.display=(r.dataset.search||'').includes(q.toLowerCase())?'':'none'; });
-        };
-        window.selectAllMapping=function(checked){
-            const zone=document.getElementById('selectZoneMap')?.value;if(!zone)return;
-            if(!zoneProductMap[zone])zoneProductMap[zone]=[];
-            const visible=document.querySelectorAll('#mappingContainer input[type=checkbox]');
-            visible.forEach(cb=>{
                 const id=cb.value;
                 cb.checked=checked;
                 const idx=zoneProductMap[zone].indexOf(id);
@@ -2111,35 +2096,6 @@
         window.deletePd=function(i){if(confirm('ยืนยันลบสินค้า?')){allProducts.splice(i,1);saveConfig();renderPdList();renderMapping();}};
 
         // ══ Category Management ══
-        window.renderCategoryChips = function() {
-            const c = document.getElementById('categoryChipList'); if(!c) return;
-            c.innerHTML = productCategories.map((cat,i)=>`
-                <span style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#a16207;border:1px solid #fde68a;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;">
-                    🏷️ ${cat}
-                    <button onclick="deleteCategory(${i})" style="background:none;border:none;cursor:pointer;color:#d97706;font-size:12px;padding:0;line-height:1;" title="ลบหมวดนี้">✕</button>
-                </span>`).join('');
-            document.querySelectorAll('#categoryDatalist').forEach(dl => {
-                dl.innerHTML = productCategories.map(c=>`<option value="${c}">`).join('');
-            });
-        };
-        window.addCategory = function() {
-            const inp = document.getElementById('newCategoryInput');
-            const val = inp?.value.trim();
-            if(!val) return;
-            if(productCategories.includes(val)){toast('⚠️ หมวดหมู่นี้มีอยู่แล้ว','#c2410c');return;}
-            productCategories.push(val);
-            if(inp) inp.value='';
-            saveConfig(); renderCategoryChips();
-            toast('✅ เพิ่มหมวดหมู่ "'+val+'" แล้ว','#059669');
-        };
-        window.deleteCategory = function(i) {
-            const name = productCategories[i];
-            if(!confirm(`ลบหมวดหมู่ "${name}"?\n(สินค้าที่อยู่ในหมวดนี้จะไม่ถูกลบออก)`)) return;
-            productCategories.splice(i,1);
-            saveConfig(); renderCategoryChips();
-            toast('🗑️ ลบหมวดหมู่แล้ว','#64748b');
-        };
-
         // ══ Category Management ══
         window.renderCategoryChips = function() {
             const c = document.getElementById('categoryChipList'); if(!c) return;
@@ -3742,48 +3698,7 @@ ${it.zone}`);
         // ======== REQUISITION SETTINGS ========
         const TEMPLATE_COLORS = ['#f59e0b','#3b82f6','#10b981','#7c3aed','#ef4444','#ec4899','#06b6d4','#84cc16'];
 
-        window.openRequisitionSettings = function() {
-            document.getElementById('dashboardView').classList.add('hidden');
-            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
-            renderReqSettingsPage(c);
-        };
-
-        function renderReqSettingsPage(c) {
-            const tmplList = Object.entries(reqTemplates);
-            c.innerHTML = `
-            <div class="tool-header">
-                <h2>⚙️ ตั้งค่าใบเบิก (Template)</h2>
-                <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button><button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
-            </div>
-            <p style="color:#64748b;font-size:13px;margin-bottom:20px;">สร้าง Template ใบเบิกสำเร็จรูปสำหรับแต่ละแผนก เช่น "ใบเบิกแผนกบิงซู" ฝ่ายผลิตกดใช้ได้เลยไม่ต้องกรอกใหม่ทุกครั้ง</p>
-
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px;">
-                ${tmplList.map(([id,t])=>`
-                <div style="background:white;border-radius:14px;border:3px solid ${t.color};padding:20px;position:relative;">
-                    <div style="position:absolute;top:12px;right:12px;display:flex;gap:6px;">
-                        <button onclick="editTemplate('${id}')" style="background:#f1f5f9;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;">✏️ แก้ไข</button>
-                        <button onclick="deleteTemplate('${id}')" style="background:#fef2f2;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#ef4444;">🗑️</button>
-                    </div>
-                    <div style="font-size:18px;font-weight:bold;color:${t.color};margin-bottom:4px;">${t.name}</div>
-                    <div style="font-size:12px;color:#64748b;margin-bottom:8px;">📦 ${t.zone} • 🏭 ${t.dept||'ไม่ระบุแผนก'}</div>
-                    <div style="font-size:12px;color:#94a3b8;">${(t.items||[]).length} รายการสินค้า</div>
-                    <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px;">
-                        ${(t.items||[]).slice(0,4).map(it=>`<span style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;padding:2px 10px;font-size:11px;">${it.name}</span>`).join('')}
-                        ${(t.items||[]).length>4?`<span style="color:#94a3b8;font-size:11px;">+${(t.items||[]).length-4} รายการ</span>`:''}
-                    </div>
-                </div>`).join('')}
-
-                <!-- Add new card -->
-                <div onclick="openNewTemplateForm()" style="background:white;border-radius:14px;border:3px dashed #e2e8f0;padding:20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:140px;transition:border 0.2s;"
-                    onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='#e2e8f0'">
-                    <div style="font-size:36px;color:#cbd5e1;">+</div>
-                    <div style="color:#94a3b8;font-size:13px;margin-top:4px;">สร้าง Template ใหม่</div>
-                </div>
-            </div>
-
-            <div id="templateFormArea"></div>`;
-        }
-
+        // openRequisitionSettings + renderReqSettingsPage: superseded by version at line ~5459
         window.openNewTemplateForm = function(editId) {
             const c = document.getElementById('toolAppContainer');
             const existing = editId ? reqTemplates[editId] : null;
@@ -4734,30 +4649,22 @@ ${r.zone}`);
         // Export Excel — ยอดนับสิ้นเดือนสาขา (จาก _bmcCurrentDoc)
         window.exportBranchMonthlyCountExcel = function() {
             const d = window._bmcCurrentDoc;
-            if(!d) { toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
-            const rows = [['สาขา','เดือน','วันที่นับ','รหัสสินค้า','ชื่อสินค้า','ยอดนับ','หน่วย','หมายเหตุ','ผู้นับ']];
-            (d.items||[]).forEach(it => {
-                rows.push([
-                    d.zone||'', d.month||'', d.date||'',
-                    it.id||'', it.name||'',
-                    it.balance??'', it.unit||'', it.note||'',
-                    d.countedBy||''
-                ]);
-            });
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            // ปรับความกว้างคอลัมน์
-            ws['!cols'] = [12,10,12,12,30,10,8,20,12].map(w=>({wch:w}));
-            // header style
-            const hdrRange = XLSX.utils.decode_range(ws['!ref']);
-            for(let c=hdrRange.s.c; c<=hdrRange.e.c; c++) {
-                const cell = ws[XLSX.utils.encode_cell({r:0,c})];
-                if(cell) cell.s = {font:{bold:true},fill:{fgColor:{rgb:'1E293B'}},alignment:{horizontal:'center'}};
-            }
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'ยอดนับสต๊อกสาขา');
-            const fname = `stock_${(d.zone||'branch').replace(/\s/g,'_')}_${d.month||'00'}.xlsx`;
-            XLSX.writeFile(wb, fname);
-            toast('📥 Export เรียบร้อย','#0891b2');
+            if(!d){ toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+            try {
+                const wb = XLSX.utils.book_new();
+                const header = ['รหัสสินค้า','ชื่อสินค้า','หมวด','ยอดนับ','หน่วย','หมายเหตุ'];
+                const rows = [header, ...(d.items||[]).map(it=>[it.id,it.name,it.group||'',it.balance??0,it.unit||'',it.note||''])];
+                const ws = XLSX.utils.aoa_to_sheet(rows);
+                ws['!cols'] = [{wch:12},{wch:30},{wch:14},{wch:10},{wch:8},{wch:20}];
+                // bold header
+                ['A1','B1','C1','D1','E1','F1'].forEach(ref=>{
+                    if(ws[ref]) ws[ref].s = {font:{bold:true},alignment:{horizontal:'center'}};
+                });
+                XLSX.utils.book_append_sheet(wb, ws, (d.zone||'สาขา').slice(0,31));
+                const zone = (d.zone||'สาขา').replace(/[:\/?*\[\]]/g,'_');
+                XLSX.writeFile(wb, \`stock_\${zone}_\${d.month||''}.xlsx\`);
+                toast('📥 Export Excel เรียบร้อย','#0891b2');
+            } catch(e){ toast('❌ Export ไม่สำเร็จ: '+e.message,'#ef4444'); }
         };
 
         // Export Excel รวมทุกสาขา — สำหรับ Admin (เลือกเดือน)
@@ -4907,16 +4814,17 @@ ${r.zone}`);
 
             const monthTH = now.toLocaleDateString('th-TH',{year:'numeric',month:'long'});
 
+            // เก็บ zone→tmplId map ไว้ใน window เพื่อให้ onclick เรียกใช้ได้ปลอดภัย
+            window._mcZoneTmplMap = Object.fromEntries(btZones.map(z=>[z, zoneTemplateMap[z]||fallbackTmplId]));
+
             const zoneCards = btZones.length
                 ? btZones.map(zone => {
                     const isDone = doneZones.has(zone);
-                    // หา tmplId: จาก user ที่ผูกไว้ → fallback ตัวแรก
                     const tmplId = zoneTemplateMap[zone] || fallbackTmplId;
                     const tmplName = stockSheetTemplates[tmplId]?.name || '';
+                    const safeZone = zone.replace(/'/g,"\\'");
                     return `
-                    <div onclick="${isDone
-                        ? `closeMCAdminPicker();openBranchMonthlyCountForAdmin('${tmplId}','${zone}')`
-                        : `closeMCAdminPicker();openBranchMonthlyCount('${tmplId}',stockSheetTemplates['${tmplId}'],'${zone}')`}"
+                    <div onclick="closeMCAdminPicker();pickAdminZone('${safeZone}')"
                         style="padding:14px 16px;border:2px solid ${isDone?'#10b981':'#e2e8f0'};border-radius:12px;cursor:pointer;background:${isDone?'#f0fdf4':'white'};display:flex;align-items:center;justify-content:space-between;transition:all .2s;"
                         onmouseover="this.style.borderColor='${isDone?'#059669':'#3b82f6'}';this.style.transform='translateY(-1px)'"
                         onmouseout="this.style.borderColor='${isDone?'#10b981':'#e2e8f0'}';this.style.transform=''">
@@ -4972,6 +4880,9 @@ ${r.zone}`);
         // BT modal เลือกโหมด: นับเต็ม หรือ สุ่มทดลอง
         window.openBTCountModePicker = function(tmplId, tmpl, zone) {
             const existing = document.getElementById('btModeModal'); if(existing) existing.remove();
+            // เก็บไว้ใน window เพื่อให้ onclick ใช้ได้ปลอดภัย
+            window._btModeTmplId = tmplId;
+            window._btModeZone = zone;
             const now = new Date();
             const monthTH = now.toLocaleDateString('th-TH',{year:'numeric',month:'long'});
             const m = document.createElement('div');
@@ -4983,7 +4894,7 @@ ${r.zone}`);
                 </div>
                 <div style="font-size:12px;color:#64748b;margin-bottom:20px;">📅 ${monthTH} • 👤 ${currentUser?.name||''}</div>
                 <div style="display:flex;flex-direction:column;gap:10px;">
-                    <div onclick="document.getElementById('btModeModal').remove();openBranchMonthlyCount('${tmplId}',stockSheetTemplates['${tmplId}'],'${zone}')"
+                    <div onclick="document.getElementById('btModeModal').remove();btPickFullCount()"
                         style="padding:18px 20px;border:2px solid #10b981;border-radius:14px;cursor:pointer;background:white;transition:all .2s;"
                         onmouseover="this.style.background='#f0fdf4';this.style.transform='translateY(-1px)'"
                         onmouseout="this.style.background='white';this.style.transform=''">
@@ -5002,8 +4913,32 @@ ${r.zone}`);
             document.body.appendChild(m);
         };
 
+        window.btPickFullCount = function() {
+            const tmplId = window._btModeTmplId;
+            const zone   = window._btModeZone;
+            const tmpl   = stockSheetTemplates[tmplId];
+            if(!tmpl){ toast('⚠️ ไม่พบ Template','#c2410c'); return; }
+            openBranchMonthlyCount(tmplId, tmpl, zone);
+        };
+
         window.closeMCAdminPicker = function() {
             const el = document.getElementById('mcAdminModal'); if(el) el.remove();
+        };
+
+        // เรียกหลังจาก admin picker ปิดแล้ว — ดึง tmplId จาก window map ที่เก็บไว้
+        window.pickAdminZone = async function(zone) {
+            const tmplId = (window._mcZoneTmplMap||{})[zone] || Object.keys(stockSheetTemplates)[0] || '';
+            const tmpl = stockSheetTemplates[tmplId];
+            if(!tmpl){ toast('⚠️ ไม่พบ Template สำหรับสาขานี้ กรุณาตั้งค่า Template ก่อน','#c2410c'); return; }
+            // เช็คว่านับแล้วหรือยัง
+            const monthKey = new Date().toISOString().slice(0,7);
+            let existingDoc = null;
+            try {
+                const snap = await getDocs(collection(db,'inventoryHistory'));
+                snap.forEach(d=>{ const x=d.data(); if(x.zone===zone&&x.month===monthKey&&x.type==='branch') existingDoc={id:d.id,...x}; });
+            } catch(e){}
+            if(existingDoc) openBranchMonthlyDoneSummary(tmplId, tmpl, zone, existingDoc);
+            else openBranchMonthlyCount(tmplId, tmpl, zone);
         };
 
         // ===== สุ่ม 10 SKU ทดลองนับ (Pilot mode) =====
@@ -5014,7 +4949,11 @@ ${r.zone}`);
                 : ''; // admin กรอกเอง
 
             // สุ่ม 10 SKU จาก allProducts
-            const pool = [...allProducts].filter(p=>p.id && p.name);
+            // BT: สุ่มเฉพาะ products ของ zone ตัวเอง  Admin: ทั้งหมด
+            const btZoneProducts = isBT && zone
+                ? (zoneProductMap[zone]||[])
+                : null;
+            const pool = [...allProducts].filter(p => p.id && p.name && (!btZoneProducts || btZoneProducts.includes(p.id)));
             const shuffled = pool.sort(()=>Math.random()-0.5).slice(0,Math.min(10,pool.length));
 
             document.getElementById('dashboardView').classList.add('hidden');
@@ -6012,8 +5951,12 @@ ${r.zone}`);
 
         function isoToDMY(val) {
             if(!val) return '';
-            const [y,m,d] = val.split('-');
-            return `${d}/${m}/${y}`;
+            // รับได้ทั้ง YYYY-MM-DD และ DD/MM/YYYY
+            if(val.includes('-') && val.indexOf('-') === 4) {
+                const [y,m,d] = val.split('-');
+                return d && m ? `${d}/${m}/${parseInt(y)+543}` : val;
+            }
+            return val; // ถ้าเป็น DD/MM/YYYY อยู่แล้ว return เลย
         }
         function dmyToISO(val) {
             if(!val||val.length!==10) return '';
@@ -8325,53 +8268,6 @@ setTimeout(() => {
 
 // ===== CENTRAL KITCHEN STOCK SYSTEM =====
 
-window.openCentralStock = function() {
-    document.getElementById('dashboardView').classList.add('hidden');
-    const container = document.getElementById('toolAppContainer');
-    container.classList.remove('hidden');
-
-    const zone = "ครัวกลาง";
-    const today = new Date().toISOString().split('T')[0];
-
-    const products = allProducts.filter(p =>
-        (zoneProductMap[zone] || []).includes(p.id)
-    );
-
-    container.innerHTML = `
-        <div class="tool-header">
-            <h2>📦 นับสต๊อกครัวกลาง</h2>
-            <button onclick="closeTool()">✕ ปิด</button>
-        </div>
-
-        <div class="user-card">
-            <div style="overflow:auto;max-height:70vh;">
-                <table class="stock-table">
-                    ${products.map(p => `
-                        <tr class="stock-row">
-                            <td style="width:40%">
-                                <b>${p.name}</b><br>
-                                <span style="font-size:12px;color:#94a3b8;">${p.unit}</span>
-                            </td>
-                            <td>
-                                <input type="number"
-                                    value="${countData[p.id]?.qty || 0}"
-                                    style="width:140px;padding:8px;border:1px solid #ddd;border-radius:8px;"
-                                    onchange="updateCentralTemp('${p.id}', this.value)">
-                            </td>
-                        </tr>
-                    `).join('')}
-                </table>
-            </div>
-
-            <div style="margin-top:20px;text-align:right;">
-                <button onclick="saveCentralStock()"
-                    style="background:#10b981;color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;">
-                    💾 บันทึกสต๊อก
-                </button>
-            </div>
-        </div>
-    `;
-};
 
 window.updateCentralTemp = function(id, value){
     if(!window.tempCentralData) window.tempCentralData = {};
