@@ -235,43 +235,52 @@
 
     <div class="main-content">
         <div id="dashboardView" class="no-print">
-            <div class="app-container" style="max-width:900px;">
+            <div class="app-container" style="max-width:960px;">
 
-                <div id="viewOnlyAlert" class="hidden" style="background:#fff7ed;color:#c2410c;padding:12px 16px;border-radius:10px;border:1px solid #fdba74;margin-bottom:16px;font-size:13px;">
+                <div id="viewOnlyAlert" class="hidden" style="background:#fff7ed;color:#c2410c;padding:10px 14px;border-radius:8px;border:1px solid #fdba74;margin-bottom:14px;font-size:12px;">
                     ⚠️ <b>โหมดดูอย่างเดียว</b> — ไม่สามารถแก้ไขหรือบันทึกได้
                 </div>
-
                 <div id="dashAlertBanner"></div>
 
-                <div style="margin-bottom:20px;">
-                    <h2 style="margin:0 0 2px;color:var(--primary-dark);font-size:20px;font-weight:800;" id="greetingText">สวัสดี...</h2>
+                <!-- GREETING -->
+                <div style="margin-bottom:18px;">
+                    <h2 style="margin:0 0 2px;color:var(--primary-dark);font-size:18px;font-weight:800;" id="greetingText">สวัสดี...</h2>
                     <p style="margin:0;color:#94a3b8;font-size:12px;" id="greetingDate"></p>
                 </div>
 
-                <div id="dashKpiRow" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-bottom:18px;"></div>
+                <!-- TOP ROW: KPI (left) + ACTIONS (right) -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;" id="dashTopRow">
 
-                <div id="dashActionRow" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;margin-bottom:20px;"></div>
+                    <!-- KPI CARDS -->
+                    <div id="dashKpiRow" style="display:flex;flex-direction:column;gap:8px;"></div>
 
-                <div id="dashBottomRow" style="display:grid;grid-template-columns:1fr 1.5fr;gap:14px;">
-                    <div style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;overflow-y:auto;max-height:260px;">
-                        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">⚡ กิจกรรมล่าสุด</div>
+                    <!-- ACTION BUTTONS -->
+                    <div id="dashActionRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;align-content:start;"></div>
+
+                </div>
+
+                <!-- BOTTOM: ACTIVITY + CHART -->
+                <div id="dashBottomRow" style="display:grid;grid-template-columns:1fr 1.6fr;gap:14px;">
+                    <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e2e8f0;overflow-y:auto;max-height:240px;">
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">⚡ กิจกรรมล่าสุด</div>
                         <div id="dashRecentList"><p style="color:#94a3b8;font-size:12px;">กำลังโหลด...</p></div>
                     </div>
-                    <div style="background:white;border-radius:14px;padding:16px;border:1px solid #e2e8f0;">
-                        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">📈 Trend การนับสต๊อก 7 วัน</div>
-                        <div class="chart-wrap" style="height:160px;"><canvas id="trendChart" height="160"></canvas></div>
+                    <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e2e8f0;">
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">📈 Trend การนับสต๊อก 7 วัน</div>
+                        <div class="chart-wrap" style="height:150px;"><canvas id="trendChart" height="150"></canvas></div>
                     </div>
                 </div>
 
-                <div id="dashSummaryCards" style="display:none;margin-top:14px;"></div>
-
-                <!-- KPI element stubs for backward compat with loadDashKPIs() -->
-                <span id="dashKpiGRVal" style="display:none"></span><span id="dashKpiGRSub" style="display:none"></span>
-                <span id="dashKpiMRVal" style="display:none"></span>
-                <span id="dashKpiQCVal" style="display:none"></span><span id="dashKpiQCSub" style="display:none"></span>
-                <span id="dashKpiEXPVal" style="display:none"></span>
-                <span id="dashKpiGR" style="display:none"></span><span id="dashKpiMR" style="display:none"></span>
-                <span id="dashKpiQC" style="display:none"></span><span id="dashKpiEXP" style="display:none"></span>
+                <!-- hidden stubs for backward compat -->
+                <div style="display:none;">
+                    <span id="dashKpiGRVal"></span><span id="dashKpiGRSub"></span>
+                    <span id="dashKpiMRVal"></span>
+                    <span id="dashKpiQCVal"></span><span id="dashKpiQCSub"></span>
+                    <span id="dashKpiEXPVal"></span>
+                    <span id="dashKpiGR"></span><span id="dashKpiMR"></span>
+                    <span id="dashKpiQC"></span><span id="dashKpiEXP"></span>
+                    <div id="dashSummaryCards"></div>
+                </div>
             </div>
         </div>
                 <div id="toolAppContainer" class="app-container hidden"></div>
@@ -436,7 +445,7 @@
             const isBT    = currentUser?.username?.toUpperCase().startsWith('BT');
             const isAdmin = currentUser?.role === 'admin';
 
-            // ── Action buttons (role-aware) ──
+            // ── Action buttons: compact pill style ──
             const actions = [
                 {icon:'📅', label:'นับสิ้นเดือน', fn:'tryOpenMonthlyCount()',      color:'#1e40af', show:true},
                 {icon:'📋', label:'Stock Card',    fn:'openDailyStockCard()',       color:'#0891b2', show:true},
@@ -446,27 +455,30 @@
                 {icon:'📝', label:'ใบเบิกสินค้า',  fn:'openPendingRequisitions()', color:'#d97706', show:!isBT},
                 {icon:'🔍', label:'QC Check',      fn:'openQCCheck()',             color:'#7c3aed', show:!isBT},
                 {icon:'🏷️', label:'ทะเบียน Lot',   fn:'openLotRegister()',         color:'#dc2626', show:!isBT},
-                {icon:'📦', label:'นับสต๊อก',      fn:'openCentralStock()',        color:'#1e293b', show:isAdmin},
+                {icon:'📦', label:'นับสต๊อก',      fn:'openCentralStock()',        color:'#334155', show:isAdmin},
                 {icon:'📈', label:'รายงาน',        fn:'openStockSummary()',        color:'#0369a1', show:isAdmin},
                 {icon:'⚙️', label:'ตั้งค่า',        fn:'openWarehouseManager()',    color:'#475569', show:isAdmin},
             ];
             const ar = document.getElementById('dashActionRow');
-            if(ar) ar.innerHTML = actions.filter(a=>a.show).map(a=>`
-                <button onclick="${a.fn}" style="background:${a.color};color:white;border:none;border-radius:12px;padding:12px 6px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:transform .15s,opacity .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.opacity='.88'" onmouseout="this.style.transform='';this.style.opacity='1'">
-                    <div style="font-size:20px;margin-bottom:3px;">${a.icon}</div>
-                    <div style="font-size:11px;font-weight:700;line-height:1.2;">${a.label}</div>
-                </button>`).join('');
-
-            // ── Bottom row: BT เห็นแค่ activity ──
-            const br = document.getElementById('dashBottomRow');
-            if(br && isBT) {
-                br.style.gridTemplateColumns = '1fr';
-                const chartPanel = br.querySelector('.chart-wrap');
-                if(chartPanel) chartPanel.closest('div[style*="border"]')?.remove();
+            if(ar) {
+                const visible = actions.filter(a=>a.show);
+                // BT: 2 col, others: 3 col
+                ar.style.gridTemplateColumns = isBT ? 'repeat(2,1fr)' : 'repeat(3,1fr)';
+                ar.innerHTML = visible.map(a=>`
+                    <button onclick="${a.fn}" style="background:${a.color};color:white;border:none;border-radius:10px;padding:11px 4px 9px;cursor:pointer;font-family:inherit;text-align:center;transition:filter .15s;" onmouseover="this.style.filter='brightness(1.12)'" onmouseout="this.style.filter=''">
+                        <div style="font-size:18px;margin-bottom:3px;">${a.icon}</div>
+                        <div style="font-size:10px;font-weight:700;line-height:1.2;">${a.label}</div>
+                    </button>`).join('');
             }
+
+            // ── BT: hide chart panel, full-width activity ──
+            const br = document.getElementById('dashBottomRow');
+            if(br && isBT) br.style.gridTemplateColumns = '1fr';
 
             await loadCountData();
             if(isBT) {
+                // BT: KPI = สถานะสาขาตัวเอง, no chart
+                renderBTKpi();
                 renderStockAlerts();
                 loadBTDashActivity();
             } else {
@@ -475,7 +487,7 @@
             }
         }
 
-        // ── KPI cards (admin/warehouse) ──
+        // ── KPI Cards: admin/warehouse ──
         async function renderDashKpiCards() {
             const row = document.getElementById('dashKpiRow');
             if(!row) return;
@@ -488,43 +500,54 @@
                 {id:'kpi_exp', label:'EXP ใกล้หมด',     icon:'⚠️', color:'#ef4444', fn:'openLotRegister()'},
             ];
             row.innerHTML = defs.map(k=>`
-                <div id="${k.id}_card" onclick="${k.fn}" style="background:white;border-radius:12px;padding:13px 16px;border:1px solid #e2e8f0;border-left:4px solid ${k.color};cursor:pointer;display:flex;align-items:center;gap:12px;transition:box-shadow .2s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow=''">
-                    <div style="font-size:22px;">${k.icon}</div>
-                    <div>
-                        <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">${k.label}</div>
-                        <div style="font-size:22px;font-weight:800;color:${k.color};line-height:1;" id="${k.id}_val">—</div>
-                        <div style="font-size:11px;color:#cbd5e1;" id="${k.id}_sub"></div>
+                <div id="${k.id}_card" onclick="${k.fn}" style="background:white;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;border-left:3px solid ${k.color};cursor:pointer;display:flex;align-items:center;gap:12px;transition:box-shadow .15s;" onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow=''">
+                    <div style="font-size:20px;width:36px;text-align:center;">${k.icon}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1px;">${k.label}</div>
+                        <div style="font-size:20px;font-weight:800;color:${k.color};line-height:1;margin-bottom:1px;" id="${k.id}_val">—</div>
+                        <div style="font-size:10px;color:#cbd5e1;" id="${k.id}_sub">กำลังโหลด...</div>
                     </div>
                 </div>`).join('');
 
-            // โหลดค่าจริงพร้อมกัน
+            // Load values
             try {
                 const grSnap = await getDocs(collection(db,'goodsReceipts'));
                 let n=0, sup=new Set();
                 grSnap.forEach(d=>{const x=d.data();if(x.date===today){n++;if(x.supplier)sup.add(x.supplier);}});
-                document.getElementById('kpi_gr_val').innerText=n;
-                document.getElementById('kpi_gr_sub').innerText=n?[...sup].slice(0,2).join(', ')||'ใบรับสินค้า':'ยังไม่มีวันนี้';
-                if(n>0) document.getElementById('kpi_gr_card').style.background='#ecfeff';
+                const gv=document.getElementById('kpi_gr_val'), gs=document.getElementById('kpi_gr_sub');
+                if(gv) gv.innerText=n;
+                if(gs) gs.innerText=n?[...sup].slice(0,2).join(', ')||'ใบรับสินค้า':'ยังไม่มีวันนี้';
+                if(n>0){const card=document.getElementById('kpi_gr_card');if(card)card.style.background='#ecfeff';}
             } catch(e){}
+
             try {
                 const mrSnap = await getDocs(collection(db,'requisitions'));
                 let p=0; mrSnap.forEach(d=>{if(d.data().status==='pending')p++;});
-                document.getElementById('kpi_mr_val').innerText=p;
-                document.getElementById('kpi_mr_sub').innerText='รายการรอ';
-                if(p>0) document.getElementById('kpi_mr_card').style.background='#fffbeb';
+                const mv=document.getElementById('kpi_mr_val'), ms=document.getElementById('kpi_mr_sub');
+                if(mv) mv.innerText=p;
+                if(ms) ms.innerText=p>0?p+' รายการรอ':'ไม่มีรอดำเนินการ';
+                if(p>0){const card=document.getElementById('kpi_mr_card');if(card)card.style.background='#fffbeb';}
             } catch(e){}
+
             try {
                 const qcSnap = await getDocs(collection(db,'qcChecks'));
                 let arr=[]; qcSnap.forEach(d=>arr.push(d.data()));
                 arr.sort((a,b)=>b.timestamp-a.timestamp);
                 const l=arr[0];
-                if(l){
+                const qv=document.getElementById('kpi_qc_val'), qs=document.getElementById('kpi_qc_sub');
+                if(l && l.totalChecked > 0){
                     const r=Math.round(l.passCount/l.totalChecked*100);
-                    document.getElementById('kpi_qc_val').innerText=r+'%';
-                    document.getElementById('kpi_qc_sub').innerText=isoToDMY(l.date);
-                    if(r<80) document.getElementById('kpi_qc_card').style.background='#fef2f2';
+                    if(qv) qv.innerText=r+'%';
+                    // แสดงวันที่อย่างปลอดภัย
+                    const dateLabel = l.date ? l.date.split('/').slice(0,2).join('/') : (l.timestamp ? new Date(l.timestamp).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit'}) : '—');
+                    if(qs) qs.innerText='ครั้งล่าสุด '+dateLabel;
+                    if(r<80){const card=document.getElementById('kpi_qc_card');if(card)card.style.background='#fef2f2';}
+                } else {
+                    if(qv) qv.innerText='—';
+                    if(qs) qs.innerText='ยังไม่มีข้อมูล';
                 }
-            } catch(e){}
+            } catch(e){ const qs=document.getElementById('kpi_qc_sub');if(qs)qs.innerText='ยังไม่มีข้อมูล'; }
+
             try {
                 const lotSnap = await getDoc(doc(db,'config','lotRegister'));
                 const lots = lotSnap.exists()?(lotSnap.data().lots||{}):{};
@@ -532,20 +555,57 @@
                 Object.values(lots).forEach(list=>list.forEach(l=>{
                     if(l.qtyRemaining&&l.exp&&Math.floor((new Date(l.exp)-now)/86400000)<=30)w++;
                 }));
-                document.getElementById('kpi_exp_val').innerText=w;
-                document.getElementById('kpi_exp_sub').innerText='Lot ≤30 วัน';
-                const expCard = document.getElementById('kpi_exp_card');
-                if(w>0) expCard.style.background='#fef2f2';
-                else { expCard.style.borderLeftColor='#10b981'; document.getElementById('kpi_exp_val').style.color='#10b981'; }
-            } catch(e){}
-
-            // backward-compat stubs (functions เก่าที่ยังใช้ dashKpiGRVal etc.)
-            ['dashKpiGRVal','dashKpiGRSub','dashKpiMRVal','dashKpiQCVal','dashKpiQCSub','dashKpiEXPVal'].forEach(id=>{
-                if(!document.getElementById(id)){const s=document.createElement('span');s.id=id;s.style.display='none';document.body.appendChild(s);}
-            });
+                const ev=document.getElementById('kpi_exp_val'), es=document.getElementById('kpi_exp_sub');
+                if(ev) ev.innerText=w;
+                if(es) es.innerText= w>0 ? w+' Lot ≤30 วัน' : 'ทุก Lot ปลอดภัย';
+                const card=document.getElementById('kpi_exp_card');
+                if(card){
+                    if(w>0) card.style.background='#fef2f2';
+                    else { card.style.borderLeftColor='#10b981'; if(ev) ev.style.color='#10b981'; }
+                }
+            } catch(e){ const es=document.getElementById('kpi_exp_sub');if(es)es.innerText='ยังไม่มีข้อมูล'; }
         }
 
-        // ── BT dashboard: activity ของสาขาตัวเอง ──
+        // ── KPI ของ BT: สถานะการนับเดือนนี้ ──
+        async function renderBTKpi() {
+            const row = document.getElementById('dashKpiRow');
+            if(!row) return;
+            const zone = (currentUser.assignedZones||[])[0]||'';
+            const now = new Date();
+            const monthKey = now.toISOString().slice(0,7);
+            const monthTH = now.toLocaleDateString('th-TH',{year:'numeric',month:'long'});
+
+            // check monthly count status
+            let monthlyDone = false, pilotCount = 0;
+            try {
+                const [histSnap, pilotSnap] = await Promise.all([
+                    getDocs(collection(db,'inventoryHistory')),
+                    getDocs(collection(db,'pilotCounts')),
+                ]);
+                histSnap.forEach(d=>{const x=d.data();if(x.zone===zone&&x.month===monthKey&&x.type==='branch')monthlyDone=true;});
+                pilotSnap.forEach(d=>{const x=d.data();if(x.zone===zone&&x.month===monthKey)pilotCount++;});
+            } catch(e){}
+
+            row.innerHTML = `
+                <div style="background:${monthlyDone?'#f0fdf4':'#fffbeb'};border-radius:10px;padding:14px 16px;border:1px solid ${monthlyDone?'#bbf7d0':'#fde68a'};border-left:3px solid ${monthlyDone?'#10b981':'#f59e0b'};cursor:pointer;display:flex;align-items:center;gap:12px;" onclick="tryOpenMonthlyCount()">
+                    <div style="font-size:26px;">${monthlyDone?'✅':'📅'}</div>
+                    <div>
+                        <div style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">นับสต๊อกสิ้นเดือน</div>
+                        <div style="font-size:14px;font-weight:800;color:${monthlyDone?'#059669':'#d97706'};">${monthlyDone?'นับแล้วเดือนนี้ ✓':'ยังไม่ได้นับ'}</div>
+                        <div style="font-size:10px;color:#94a3b8;">${monthTH} • ${zone}</div>
+                    </div>
+                </div>
+                <div style="background:${pilotCount>0?'#f5f3ff':'white'};border-radius:10px;padding:14px 16px;border:1px solid ${pilotCount>0?'#ddd6fe':'#e2e8f0'};border-left:3px solid ${pilotCount>0?'#7c3aed':'#e2e8f0'};cursor:pointer;display:flex;align-items:center;gap:12px;" onclick="openPilotHistory()">
+                    <div style="font-size:26px;">🎲</div>
+                    <div>
+                        <div style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">ทดลองนับเดือนนี้</div>
+                        <div style="font-size:14px;font-weight:800;color:${pilotCount>0?'#7c3aed':'#94a3b8'};">${pilotCount} ครั้ง</div>
+                        <div style="font-size:10px;color:#94a3b8;">${monthTH}</div>
+                    </div>
+                </div>`;
+        }
+
+        // ── BT Activity feed ──
         async function loadBTDashActivity() {
             const zone = (currentUser.assignedZones||[])[0]||'';
             const recent = document.getElementById('dashRecentList');
@@ -561,105 +621,15 @@
                 items.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
                 if(!items.length){recent.innerHTML='<p style="color:#94a3b8;font-size:12px;">ยังไม่มีประวัติการนับ</p>';return;}
                 recent.innerHTML = items.slice(0,10).map(a=>`
-                    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f8fafc;">
-                        <div style="width:28px;height:28px;border-radius:50%;background:${a._type==='pilot'?'#f5f3ff':'#eff6ff'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">${a._type==='pilot'?'🎲':'📅'}</div>
+                    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f8fafc;">
+                        <div style="width:26px;height:26px;border-radius:50%;background:${a._type==='pilot'?'#f5f3ff':'#eff6ff'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">${a._type==='pilot'?'🎲':'📅'}</div>
                         <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;font-size:12px;color:#1e293b;">${a._type==='pilot'?'ทดลองนับ '+(a.skuCount||0)+' SKU':'นับสต๊อกสิ้นเดือน'+(a.month?' ('+a.month+')':'')}</div>
-                            <div style="font-size:11px;color:#94a3b8;">${a.date||''} • ${(a.items||[]).length} รายการ</div>
+                            <div style="font-weight:700;font-size:11px;color:#1e293b;">${a._type==='pilot'?'ทดลองนับ '+(a.skuCount||0)+' SKU':'นับสต๊อกสิ้นเดือน'+(a.month?' '+a.month:'')}</div>
+                            <div style="font-size:10px;color:#94a3b8;">${a.date||''} • ${(a.items||[]).length} รายการ</div>
                         </div>
                     </div>`).join('');
             } catch(e){ recent.innerHTML='<p style="color:#94a3b8;font-size:12px;">โหลดไม่สำเร็จ</p>'; }
         }
-
-        // ── Pilot count history page ──
-        window.openPilotHistory = async function() {
-            document.getElementById('dashboardView').classList.add('hidden');
-            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
-            const isBT = currentUser?.username?.toUpperCase().startsWith('BT');
-            const myZone = (currentUser.assignedZones||[])[0]||'';
-            c.innerHTML = `
-            <div class="tool-header no-print">
-                <h2>🎲 ประวัติการทดลองนับ (Pilot)</h2>
-                <div style="display:flex;gap:8px;">
-                    <button onclick="openRandomSKUCount()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">+ ทดลองนับใหม่</button>
-                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
-                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
-                </div>
-            </div>
-            <div id="pilotHistoryContent" style="margin-top:8px;">
-                <div style="text-align:center;padding:40px;color:#94a3b8;">⏳ กำลังโหลด...</div>
-            </div>`;
-
-            try {
-                const snap = await getDocs(collection(db,'pilotCounts'));
-                let docs = [];
-                snap.forEach(d=>docs.push({id:d.id,...d.data()}));
-                if(isBT) docs = docs.filter(d=>d.zone===myZone);
-                docs.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
-
-                const ph = document.getElementById('pilotHistoryContent');
-                if(!docs.length){
-                    ph.innerHTML='<div style="text-align:center;padding:40px;color:#94a3b8;"><div style="font-size:48px;margin-bottom:12px;">🎲</div><div>ยังไม่มีประวัติการทดลองนับ</div></div>';
-                    return;
-                }
-
-                ph.innerHTML = `
-                <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#5b21b6;">
-                    📋 พบ <b>${docs.length}</b> รายการ${isBT?' ของสาขา '+myZone:'ทั้งหมด'} • ข้อมูลนี้ใช้สำหรับประเมินความถูกต้องการนับเท่านั้น ไม่กระทบ Stock จริง
-                </div>
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                ${docs.map(d=>`
-                    <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
-                        <div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:#fafafa;border-bottom:1px solid #f1f5f9;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-                            <div style="display:flex;align-items:center;gap:12px;">
-                                <div style="width:36px;height:36px;background:#f5f3ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">🎲</div>
-                                <div>
-                                    <div style="font-weight:700;font-size:13px;color:#1e293b;">${d.zone||'—'}</div>
-                                    <div style="font-size:11px;color:#94a3b8;">${d.date||''} • สุ่ม ${d.skuCount||0} SKU • โดย ${d.countedBy||'-'}</div>
-                                </div>
-                            </div>
-                            <div style="display:flex;align-items:center;gap:10px;">
-                                <span style="background:#ede9fe;color:#5b21b6;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${(d.items||[]).length} รายการ</span>
-                                ${currentUser.role==='admin'?`<button onclick="event.stopPropagation();deletePilotDoc('${d.id}')" style="background:#fef2f2;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;color:#ef4444;">🗑️ ลบ</button>`:''}
-                                <span style="color:#94a3b8;font-size:14px;">▾</span>
-                            </div>
-                        </div>
-                        <div style="display:none;padding:0;">
-                            <table style="width:100%;border-collapse:collapse;">
-                                <thead><tr style="background:#f8fafc;">
-                                    <th style="padding:8px 16px;text-align:left;font-size:11px;color:#64748b;font-weight:700;">รหัส</th>
-                                    <th style="padding:8px;text-align:left;font-size:11px;color:#64748b;font-weight:700;">ชื่อสินค้า</th>
-                                    <th style="padding:8px;text-align:center;font-size:11px;color:#1d4ed8;font-weight:700;">ยอดนับ</th>
-                                    <th style="padding:8px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">หน่วย</th>
-                                    <th style="padding:8px;text-align:left;font-size:11px;color:#64748b;font-weight:700;">หมายเหตุ</th>
-                                </tr></thead>
-                                <tbody>
-                                ${(d.items||[]).map((it,idx)=>`
-                                    <tr style="border-top:1px solid #f1f5f9;${idx%2?'background:#fafafa':''}">
-                                        <td style="padding:8px 16px;font-size:12px;font-weight:700;color:#475569;">${it.id}</td>
-                                        <td style="padding:8px;font-size:12px;">${it.name}</td>
-                                        <td style="padding:8px;text-align:center;font-weight:800;font-size:15px;color:${(it.balance||0)>0?'#1d4ed8':'#94a3b8'};">${it.balance??'—'}</td>
-                                        <td style="padding:8px;text-align:center;font-size:11px;color:#94a3b8;">${it.unit||''}</td>
-                                        <td style="padding:8px;font-size:11px;color:#64748b;">${it.note||'—'}</td>
-                                    </tr>`).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>`).join('')}
-                </div>`;
-            } catch(e) {
-                document.getElementById('pilotHistoryContent').innerHTML='<div style="color:#ef4444;padding:20px;">โหลดข้อมูลไม่สำเร็จ: '+e.message+'</div>';
-            }
-        };
-
-        window.deletePilotDoc = async function(id) {
-            if(!confirm('ลบผลทดลองนับนี้?')) return;
-            try {
-                await deleteDoc(doc(db,'pilotCounts',id));
-                toast('🗑️ ลบแล้ว','#64748b');
-                openPilotHistory();
-            } catch(e) { toast('❌ ลบไม่สำเร็จ','#ef4444'); }
-        };
 
         async function loadDashHistory() {
             try {
