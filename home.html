@@ -5118,14 +5118,21 @@ ${r.zone}`);
             </table>
             </div>
             <div style="text-align:center;padding-bottom:20px;" class="no-print">
-                <button onclick="saveRandomSKUCount(${JSON.stringify(shuffled.map(p=>({id:p.id,name:p.name,unit:(p.units||[{name:p.unit||''}])[0]?.name||p.unit||''})))})"
+                <button onclick="saveRandomSKUCount()"
                     style="background:#7c3aed;color:white;padding:14px 50px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(124,58,237,.3);">
                     💾 บันทึกผลทดลองนับ
                 </button>
             </div>`;
+            // เก็บ skuList ไว้ใน window แทนการฝังใน onclick
+            window._rndSkuList = shuffled.map(p=>({
+                id:p.id, name:p.name,
+                unit:(p.units||[{name:p.unit||''}])[0]?.name||p.unit||''
+            }));
         };
 
-        window.saveRandomSKUCount = async function(skuList) {
+        window.saveRandomSKUCount = async function() {
+            const skuList = window._rndSkuList;
+            if(!skuList?.length){ toast('⚠️ ไม่พบรายการสุ่ม','#c2410c'); return; }
             const dateVal = document.getElementById('rnd_date')?.value;
             const zone = document.getElementById('rnd_zone')?.value.trim();
             if(!dateVal||!zone){toast('⚠️ กรุณากรอกวันที่และคลัง','#c2410c');return;}
@@ -5148,7 +5155,7 @@ ${r.zone}`);
                 });
                 toast('✅ บันทึกผลทดลองนับเรียบร้อย','#7c3aed');
                 goToDashboard();
-            } catch(e){toast('❌ '+e.message,'#ef4444');}
+            } catch(e){toast('❌ บันทึกไม่สำเร็จ: '+e.message,'#ef4444');}
         };
 
         // Admin เปิดดูสาขาที่นับแล้ว (แสดง summary แล้วแก้ได้)
