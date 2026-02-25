@@ -423,7 +423,7 @@
                     if (d.monthlyCountOpen!=null) monthlyCountOpen = d.monthlyCountOpen;
                     if (d.stockSheetTemplates)  stockSheetTemplates = d.stockSheetTemplates;
                     if (d.productCategories)    productCategories   = d.productCategories;
-                    if (d.productCategories)    productCategories   = d.productCategories;
+                    if (d.warehouseGroups)      warehouseGroups     = d.warehouseGroups;
                     // --- migrate: เพิ่ม requisition ให้ทุก role ที่ยังไม่มี ---
                     let needSave = false;
                     const reqDefaults = {
@@ -450,7 +450,7 @@
         }
 
         async function saveConfig() {
-            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories }, { merge:true }); }
+            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories, warehouseGroups }); }
             catch(e) { toast('❌ บันทึก config ไม่สำเร็จ','#c2410c'); }
         }
 
@@ -4605,19 +4605,25 @@ ${r.zone}`);
                 const zone = (currentUser.assignedZones||[])[0] || '';
                 if(!zone) { toast('⚠️ ไม่พบข้อมูลสาขาของคุณ กรุณาติดต่อ Admin','#c2410c'); return; }
 
-                // หา Template ที่ตรงกับ BT
                 const sstEntries = Object.entries(stockSheetTemplates);
-                const matchedTmpl = sstEntries.find(([id,t]) => {
-                    const bt = (t.branchType||t.zone||'').toUpperCase();
-                    return bt && zone.toUpperCase().startsWith(bt);
-                }) || sstEntries[0]; // fallback ตัวแรก
+                if(!sstEntries.length) { toast('⚠️ ยังไม่มี Template ใบนับสต๊อก กรุณาติดต่อ Admin','#c2410c'); return; }
 
-                if(!matchedTmpl) { toast('⚠️ ยังไม่มี Template ใบนับสต๊อก กรุณาติดต่อ Admin','#c2410c'); return; }
+                // หา Template: ถ้ามีตัวเดียวใช้เลย / ถ้ามีหลายตัว match branchType กับ zone
+                let matchedTmpl;
+                if(sstEntries.length === 1) {
+                    matchedTmpl = sstEntries[0];
+                } else {
+                    matchedTmpl = sstEntries.find(([id,t]) => {
+                        const bt = (t.branchType||t.zone||'').toUpperCase();
+                        return bt && zone.toUpperCase().includes(bt);
+                    }) || sstEntries[0];
+                }
+
                 const [tmplId, tmpl] = matchedTmpl;
 
-                // เช็คว่าเดือนนี้นับไปแล้วหรือยัง
+                // ถ้ายังไม่เปิดเดือนนี้ — เช็คก่อนว่านับไปแล้วหรือยัง
                 const now = new Date();
-                const monthKey = now.toISOString().slice(0,7); // "yyyy-mm"
+                const monthKey = now.toISOString().slice(0,7);
                 let existingDoc = null;
                 try {
                     const snap = await getDocs(collection(db,'inventoryHistory'));
@@ -4630,11 +4636,10 @@ ${r.zone}`);
                 } catch(e) { console.error(e); }
 
                 if(existingDoc) {
-                    // นับแล้ว → แสดงสรุปพร้อมปุ่มแก้ไข
                     openBranchMonthlyDoneSummary(tmplId, tmpl, zone, existingDoc);
                 } else {
-                    // ยังไม่นับ → เปิดใบเลย
-                    openBranchMonthlyCount(tmplId, tmpl, zone);
+                    // แสดง modal เลือก: นับเต็ม หรือ สุ่มทดลอง
+                    openBTCountModePicker(tmplId, tmpl, zone);
                 }
             } else {
                 // === Admin/Warehouse Flow: เลือกสาขา ===
@@ -4662,6 +4667,8 @@ ${r.zone}`);
                         style="background:#f59e0b;color:white;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:bold;">✏️ แก้ไข / นับใหม่</button>
                     <button onclick="printBranchMonthlyCountSummary()"
                         style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ พิมพ์</button>
+                    <button onclick="exportBranchMonthlyCountExcel()"
+                        style="background:#0891b2;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Excel</button>
                     ${isAdmin ? `<button onclick="deleteBMCSummary()" style="background:#ef4444;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ ลบ</button>` : ''}
                     <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
@@ -4734,6 +4741,148 @@ ${r.zone}`);
             } catch(e) { toast('❌ ลบไม่สำเร็จ: '+e.message,'#ef4444'); }
         };
 
+        // Export Excel — ยอดนับสิ้นเดือนสาขา (จาก _bmcCurrentDoc)
+        window.exportBranchMonthlyCountExcel = function() {
+            const d = window._bmcCurrentDoc;
+            if(!d) { toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+            const rows = [['สาขา','เดือน','วันที่นับ','รหัสสินค้า','ชื่อสินค้า','ยอดนับ','หน่วย','หมายเหตุ','ผู้นับ']];
+            (d.items||[]).forEach(it => {
+                rows.push([
+                    d.zone||'', d.month||'', d.date||'',
+                    it.id||'', it.name||'',
+                    it.balance??'', it.unit||'', it.note||'',
+                    d.countedBy||''
+                ]);
+            });
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            // ปรับความกว้างคอลัมน์
+            ws['!cols'] = [12,10,12,12,30,10,8,20,12].map(w=>({wch:w}));
+            // header style
+            const hdrRange = XLSX.utils.decode_range(ws['!ref']);
+            for(let c=hdrRange.s.c; c<=hdrRange.e.c; c++) {
+                const cell = ws[XLSX.utils.encode_cell({r:0,c})];
+                if(cell) cell.s = {font:{bold:true},fill:{fgColor:{rgb:'1E293B'}},alignment:{horizontal:'center'}};
+            }
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'ยอดนับสต๊อกสาขา');
+            const fname = `stock_${(d.zone||'branch').replace(/\s/g,'_')}_${d.month||'00'}.xlsx`;
+            XLSX.writeFile(wb, fname);
+            toast('📥 Export เรียบร้อย','#0891b2');
+        };
+
+        // Export Excel รวมทุกสาขา — สำหรับ Admin (เลือกเดือน)
+        window.openBranchExportModal = async function() {
+            const existing = document.getElementById('branchExportModal'); if(existing) existing.remove();
+            const now = new Date();
+            const defaultMonth = now.toISOString().slice(0,7);
+            const m = document.createElement('div');
+            m.className='modal-overlay'; m.id='branchExportModal';
+            m.innerHTML=`<div class="modal-box" style="max-width:440px;width:95vw;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 style="margin:0;">📥 Export ยอดนับสต๊อกสาขา</h3>
+                    <button onclick="document.getElementById('branchExportModal').remove()" style="background:#f1f5f9;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div>
+                        <label style="font-size:12px;color:#64748b;font-weight:600;">📅 เลือกเดือน</label>
+                        <input type="month" id="bexMonth" value="${defaultMonth}"
+                            style="width:100%;margin-top:4px;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;"
+                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                    <div>
+                        <label style="font-size:12px;color:#64748b;font-weight:600;">🏪 เลือกสาขา</label>
+                        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;max-height:180px;overflow-y:auto;padding:4px;">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" id="bexAll" checked onchange="document.querySelectorAll('.bexZoneCb').forEach(cb=>cb.checked=this.checked)" style="accent-color:#0891b2;">
+                                <b>ทุกสาขา</b>
+                            </label>
+                            ${warehouseList.filter(z=>z.toUpperCase().startsWith('BT')).map(z=>`
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding-left:12px;">
+                                <input type="checkbox" class="bexZoneCb" value="${z}" checked style="accent-color:#0891b2;">
+                                ${z}
+                            </label>`).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size:12px;color:#64748b;font-weight:600;">📊 รูปแบบ</label>
+                        <div style="display:flex;gap:8px;margin-top:6px;">
+                            <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:13px;">
+                                <input type="radio" name="bexFmt" value="combined" checked style="accent-color:#0891b2;"> ทุกสาขาใน Sheet เดียว
+                            </label>
+                            <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:13px;">
+                                <input type="radio" name="bexFmt" value="sheets" style="accent-color:#0891b2;"> แยก Sheet ต่อสาขา
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:18px;display:flex;gap:8px;">
+                    <button onclick="document.getElementById('branchExportModal').remove()"
+                        style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:11px;border-radius:10px;cursor:pointer;font-weight:600;">ยกเลิก</button>
+                    <button onclick="doExportBranchExcel()"
+                        style="flex:1.5;background:#0891b2;color:white;border:none;padding:11px;border-radius:10px;cursor:pointer;font-weight:700;">📥 Export Excel</button>
+                </div>
+            </div>`;
+            document.body.appendChild(m);
+        };
+
+        window.doExportBranchExcel = async function() {
+            const monthVal = document.getElementById('bexMonth')?.value;
+            if(!monthVal) { toast('⚠️ เลือกเดือนก่อน','#c2410c'); return; }
+            const fmt = document.querySelector('input[name="bexFmt"]:checked')?.value || 'combined';
+            const selectedZones = [...document.querySelectorAll('.bexZoneCb:checked')].map(cb=>cb.value);
+            if(!selectedZones.length) { toast('⚠️ เลือกสาขาก่อน','#c2410c'); return; }
+
+            toast('⏳ กำลังโหลดข้อมูล...','#0891b2');
+            document.getElementById('branchExportModal')?.remove();
+
+            // โหลดจาก Firestore
+            let docs = [];
+            try {
+                const snap = await getDocs(collection(db,'inventoryHistory'));
+                snap.forEach(d => {
+                    const x = d.data();
+                    if((x.type==='branch'||x.isBranchTemplate) && x.month===monthVal && selectedZones.includes(x.zone)) {
+                        docs.push({id:d.id,...x});
+                    }
+                });
+            } catch(e) { toast('❌ โหลดข้อมูลไม่สำเร็จ','#ef4444'); return; }
+
+            if(!docs.length) { toast('⚠️ ไม่พบข้อมูลสาขาในเดือนที่เลือก','#f59e0b'); return; }
+
+            const wb = XLSX.utils.book_new();
+            const hdr = ['สาขา','เดือน','วันที่นับ','รหัสสินค้า','ชื่อสินค้า','ยอดนับ','หน่วย','หมายเหตุ','ผู้นับ'];
+
+            if(fmt === 'combined') {
+                const rows = [hdr];
+                // เรียงตามสาขา
+                docs.sort((a,b)=>(a.zone||'').localeCompare(b.zone||''));
+                docs.forEach(d => {
+                    (d.items||[]).forEach(it => {
+                        rows.push([d.zone||'',d.month||'',d.date||'',it.id||'',it.name||'',it.balance??'',it.unit||'',it.note||'',d.countedBy||'']);
+                    });
+                });
+                const ws = XLSX.utils.aoa_to_sheet(rows);
+                ws['!cols'] = [14,10,12,12,30,10,8,20,12].map(w=>({wch:w}));
+                XLSX.utils.book_append_sheet(wb, ws, `ยอดนับ ${monthVal}`);
+            } else {
+                // แยก sheet ต่อสาขา
+                docs.sort((a,b)=>(a.zone||'').localeCompare(b.zone||''));
+                docs.forEach(d => {
+                    const rows = [hdr];
+                    (d.items||[]).forEach(it => {
+                        rows.push([d.zone||'',d.month||'',d.date||'',it.id||'',it.name||'',it.balance??'',it.unit||'',it.note||'',d.countedBy||'']);
+                    });
+                    const ws = XLSX.utils.aoa_to_sheet(rows);
+                    ws['!cols'] = [14,10,12,12,30,10,8,20,12].map(w=>({wch:w}));
+                    const sheetName = (d.zone||'branch').replace(/[:\\\/\?\*\[\]]/g,'').slice(0,31);
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                });
+            }
+
+            XLSX.writeFile(wb, `stock_branch_${monthVal}.xlsx`);
+            toast(`✅ Export ${docs.length} สาขา เรียบร้อย`,'#059669');
+        };
+
         // Admin picker: เลือกสาขา
         window.openMonthlyCountAdminPicker = async function() {
             const existing = document.getElementById('mcAdminModal'); if(existing) existing.remove();
@@ -4799,6 +4948,10 @@ ${r.zone}`);
                 </div>
                 ${sstEntries.length === 0 ? `<div style="margin-top:14px;padding:12px;background:#fef2f2;border-radius:8px;font-size:12px;color:#c2410c;">⚠️ ยังไม่มี Template ใบนับสต๊อกสาขา — ไปสร้างที่ Admin → ตั้งค่า Template</div>` : ''}
                 <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:8px;">
+                    <button onclick="closeMCAdminPicker();openBranchExportModal()"
+                        style="width:100%;padding:11px;background:#0891b2;color:white;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">
+                        📥 Export ยอดนับสาขา (Excel)
+                    </button>
                     <button onclick="closeMCAdminPicker();openRandomSKUCount()"
                         style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">
                         🎲 สุ่ม 10 SKU ทดลองนับ (ช่วง Pilot)
@@ -4807,6 +4960,39 @@ ${r.zone}`);
                         style="width:100%;padding:11px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:13px;color:#475569;font-weight:600;">
                         📦 นับสต๊อกคลังหลัก (ไม่ใช้ Template)
                     </button>
+                </div>
+            </div>`;
+            document.body.appendChild(m);
+        };
+
+        // BT modal เลือกโหมด: นับเต็ม หรือ สุ่มทดลอง
+        window.openBTCountModePicker = function(tmplId, tmpl, zone) {
+            const existing = document.getElementById('btModeModal'); if(existing) existing.remove();
+            const now = new Date();
+            const monthTH = now.toLocaleDateString('th-TH',{year:'numeric',month:'long'});
+            const m = document.createElement('div');
+            m.className='modal-overlay'; m.id='btModeModal';
+            m.innerHTML=`<div class="modal-box" style="max-width:420px;width:95vw;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <h3 style="margin:0;">📋 นับสต๊อก — ${zone}</h3>
+                    <button onclick="document.getElementById('btModeModal').remove()" style="background:#f1f5f9;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+                </div>
+                <div style="font-size:12px;color:#64748b;margin-bottom:20px;">📅 ${monthTH} • 👤 ${currentUser?.name||''}</div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div onclick="document.getElementById('btModeModal').remove();openBranchMonthlyCount('${tmplId}',stockSheetTemplates['${tmplId}'],'${zone}')"
+                        style="padding:18px 20px;border:2px solid #10b981;border-radius:14px;cursor:pointer;background:white;transition:all .2s;"
+                        onmouseover="this.style.background='#f0fdf4';this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.background='white';this.style.transform=''">
+                        <div style="font-size:18px;margin-bottom:4px;">📋 นับสต๊อกสิ้นเดือน (ครบทุกรายการ)</div>
+                        <div style="font-size:12px;color:#64748b;">นับตาม Template — ${(tmpl.items||[]).length} รายการ • บันทึกผลรายเดือน</div>
+                    </div>
+                    <div onclick="document.getElementById('btModeModal').remove();openRandomSKUCount()"
+                        style="padding:18px 20px;border:2px solid #7c3aed;border-radius:14px;cursor:pointer;background:white;transition:all .2s;"
+                        onmouseover="this.style.background='#f5f3ff';this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.background='white';this.style.transform=''">
+                        <div style="font-size:18px;margin-bottom:4px;">🎲 สุ่ม 10 SKU ทดลองนับ</div>
+                        <div style="font-size:12px;color:#64748b;">เฉพาะช่วง Pilot — สุ่มวันละ 10 รายการ • ไม่กระทบยอด stock จริง</div>
+                    </div>
                 </div>
             </div>`;
             document.body.appendChild(m);
@@ -5206,6 +5392,74 @@ ${r.zone}`);
             w.document.close(); setTimeout(()=>w.print(),500);
         };
 
+        // Export Excel จากหน้า Summary (ข้อมูลเอกสารเดียว)
+        window.exportBranchMonthlyCountExcel = function() {
+            const existingDoc = window._bmcCurrentDoc;
+            const zone = window._bmcCurrentZone;
+            if(!existingDoc) { toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+            const rows = [['สาขา','เดือน','วันที่นับ','รหัสสินค้า','ชื่อสินค้า','ยอดนับ','หน่วย','หมายเหตุ','ผู้นับ']];
+            (existingDoc.items||[]).forEach(it => {
+                rows.push([
+                    zone,
+                    existingDoc.month||'',
+                    existingDoc.date||'',
+                    it.id, it.name,
+                    it.balance??0,
+                    it.unit||'',
+                    it.note||'',
+                    existingDoc.countedBy||''
+                ]);
+            });
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [{wch:20},{wch:10},{wch:14},{wch:12},{wch:35},{wch:10},{wch:8},{wch:20},{wch:14}];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'นับสต๊อกสาขา');
+            XLSX.writeFile(wb, `BranchCount_${zone}_${existingDoc.month||'unknown'}.xlsx`);
+        };
+
+        // Export Excel รวมทุกสาขา (Admin) — ดึงจาก Firestore ตามเดือน
+        window.exportAllBranchMonthlyExcel = async function(monthKey) {
+            if(!monthKey) {
+                const now = new Date();
+                monthKey = now.toISOString().slice(0,7);
+            }
+            toast('⏳ กำลังโหลดข้อมูล...','#0891b2');
+            try {
+                const snap = await getDocs(collection(db,'inventoryHistory'));
+                const docs = [];
+                snap.forEach(d => {
+                    const x = d.data();
+                    if(x.month === monthKey && (x.type === 'branch' || x.isBranchTemplate)) {
+                        docs.push({id: d.id, ...x});
+                    }
+                });
+                if(!docs.length) { toast(`⚠️ ไม่มีข้อมูลสาขาเดือน ${monthKey}`,'#f59e0b'); return; }
+
+                const rows = [['สาขา','เดือน','วันที่นับ','รหัสสินค้า','ชื่อสินค้า','ยอดนับ','หน่วย','หมายเหตุ','ผู้นับ','Template']];
+                docs.sort((a,b)=>(a.zone||'').localeCompare(b.zone||'')).forEach(doc => {
+                    (doc.items||[]).forEach(it => {
+                        rows.push([
+                            doc.zone||'',
+                            doc.month||monthKey,
+                            doc.date||'',
+                            it.id, it.name,
+                            it.balance??0,
+                            it.unit||'',
+                            it.note||'',
+                            doc.countedBy||'',
+                            doc.templateName||''
+                        ]);
+                    });
+                });
+                const ws = XLSX.utils.aoa_to_sheet(rows);
+                ws['!cols'] = [{wch:20},{wch:10},{wch:14},{wch:12},{wch:35},{wch:10},{wch:8},{wch:20},{wch:14},{wch:20}];
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, `สาขา ${monthKey}`);
+                XLSX.writeFile(wb, `AllBranch_${monthKey}.xlsx`);
+                toast(`✅ Export ${docs.length} สาขา เดือน ${monthKey}`,'#059669');
+            } catch(e) { toast('❌ '+e.message,'#ef4444'); }
+        };
+
         window.toggleMonthlyCount = function() {
             const action = monthlyCountOpen ? 'ปิด' : 'เปิด';
             if(!confirm(`ยืนยัน${action}ระบบนับสต๊อกสิ้นเดือน?\n${monthlyCountOpen?'พนักงานจะไม่สามารถนับสต๊อกได้จนกว่า Admin จะเปิดอีกครั้ง':'พนักงานทุกคนจะสามารถเข้าระบบนับสต๊อกได้'}`)) return;
@@ -5447,14 +5701,24 @@ ${r.zone}`);
             openNewSheetTemplateForm(id);
         };
 
-        window.deleteSheetTemplate = function(id) {
-            if(!confirm(`ลบ Template "${stockSheetTemplates[id]?.name}"?`))return;
+        window.deleteSheetTemplate = async function(id) {
+            const tmplName = stockSheetTemplates[id]?.name || id;
+            if(!confirm(`ลบ Template "${tmplName}"?\nสาขาที่ใช้ Template นี้จะไม่สามารถนับสต๊อกได้จนกว่าจะตั้งค่าใหม่`)) return;
             delete stockSheetTemplates[id];
-            saveConfig();
-            const c = document.getElementById('toolAppContainer');
-            renderTemplateSettingsPage(c);
-            setTimeout(()=>switchTmplTab('sheet'),100);
-            toast('🗑️ ลบแล้ว','#64748b');
+            try {
+                // setDoc แบบไม่ merge เพื่อ overwrite stockSheetTemplates ทั้ง field
+                await setDoc(doc(db,'config','main'), {
+                    warehouseList, allProducts, zoneProductMap, roleSettings,
+                    productMinMax, reqTemplates, monthlyCountOpen,
+                    stockSheetTemplates, productCategories, warehouseGroups
+                });
+            } catch(e) { toast('❌ ลบไม่สำเร็จ: '+e.message,'#c2410c'); return; }
+            toast('🗑️ ลบ Template แล้ว','#64748b');
+            // re-render เฉพาะ tab sheet โดยตรง
+            const tc = document.getElementById('tmplTabContent');
+            if(tc) renderSheetTemplateTab(tc);
+            // อัปเดต tab highlight
+            switchTmplTab('sheet');
         };
 
         // ---- Print Stock Sheet Template ----
