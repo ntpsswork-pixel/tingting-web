@@ -4661,8 +4661,8 @@ ${r.zone}`);
                     if(ws[ref]) ws[ref].s = {font:{bold:true},alignment:{horizontal:'center'}};
                 });
                 XLSX.utils.book_append_sheet(wb, ws, (d.zone||'สาขา').slice(0,31));
-                const zone = (d.zone||'สาขา').replace(/[:\/?*\[\]]/g,'_');
-                XLSX.writeFile(wb, \`stock_\${zone}_\${d.month||''}.xlsx\`);
+                const zone = (d.zone||'สาขา').replace(/[:\/?*[\]]/g,'_');
+                XLSX.writeFile(wb, 'stock_' + zone + '_' + (d.month||'') + '.xlsx');
                 toast('📥 Export Excel เรียบร้อย','#0891b2');
             } catch(e){ toast('❌ Export ไม่สำเร็จ: '+e.message,'#ef4444'); }
         };
