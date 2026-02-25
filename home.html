@@ -1005,9 +1005,24 @@
             const snap=await getDoc(doc(db,'users',username));
             const userData=snap.exists()?snap.data():{};
             const assigned=userData.assignedZones||[];
+            const savedTmplId = userData.stockTemplateId||'';
+            const isBT = username.toUpperCase().startsWith('BT');
+
+            // Template picker สำหรับ BT
+            const sstEntries = Object.entries(stockSheetTemplates);
+            const tmplPicker = isBT && sstEntries.length > 0 ? `
+                <div style="margin-bottom:18px;padding:14px;background:#eff6ff;border:1.5px solid #bae6fd;border-radius:12px;">
+                    <div style="font-size:12px;font-weight:700;color:#0369a1;margin-bottom:8px;">📋 Template ใบนับสต๊อกสิ้นเดือน</div>
+                    <select id="zoneTemplateSelect" style="width:100%;padding:9px 12px;border:1.5px solid #bae6fd;border-radius:8px;font-size:13px;outline:none;background:white;">
+                        <option value="">-- ไม่ระบุ (ใช้ Template แรก) --</option>
+                        ${sstEntries.map(([id,t])=>`<option value="${id}" ${savedTmplId===id?'selected':''}>${t.name} (${(t.items||[]).length} รายการ)</option>`).join('')}
+                    </select>
+                </div>` : '<input type="hidden" id="zoneTemplateSelect" value="">';
+
             const modal=document.createElement('div'); modal.className='modal-overlay'; modal.id='assignZoneModal';
             modal.innerHTML=`<div class="modal-box"><h3>📍 ผูกคลังให้ ${username}</h3>
                 <p style="color:#64748b;font-size:13px;margin-bottom:15px;">เลือกคลังที่ต้องการให้ user นี้มีสิทธิ์เข้าถึง</p>
+                ${tmplPicker}
                 <div id="zoneCheckList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
                     ${warehouseList.map(wh=>`<label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;">
                         <input type="checkbox" value="${wh}" ${assigned.includes(wh)?'checked':''} style="width:18px;height:18px;">
@@ -1023,10 +1038,17 @@
         window.saveAssignedZones = async function(username) {
             const checks=document.querySelectorAll('#zoneCheckList input:checked');
             const zones=Array.from(checks).map(c=>c.value);
-            await setDoc(doc(db,'users',username),{assignedZones:zones},{merge:true});
-            if (currentUser.username===username){currentUser.assignedZones=zones;localStorage.setItem('currentUser',JSON.stringify(currentUser));}
+            const tmplId=document.getElementById('zoneTemplateSelect')?.value||'';
+            const updateData={assignedZones:zones};
+            if(tmplId) updateData.stockTemplateId=tmplId;
+            await setDoc(doc(db,'users',username),updateData,{merge:true});
+            if (currentUser.username===username){
+                currentUser.assignedZones=zones;
+                if(tmplId) currentUser.stockTemplateId=tmplId;
+                localStorage.setItem('currentUser',JSON.stringify(currentUser));
+            }
             document.getElementById('assignZoneModal').remove();
-            toast('✅ ผูกคลังเรียบร้อย','#059669'); renderUserCards();
+            toast('✅ ผูกคลัง' + (tmplId?' + Template ':' ') + 'เรียบร้อย','#059669'); renderUserCards();
         };
 
         window.adminResetPassword=async function(u){if(!confirm(`Reset Password ของ ${u} → "1234"?`))return;await setDoc(doc(db,'users',u),{password:await hashPassword('1234')},{merge:true});toast('✅ Reset เรียบร้อย Password ใหม่: 1234','#059669');};
@@ -4608,9 +4630,12 @@ ${r.zone}`);
                 const sstEntries = Object.entries(stockSheetTemplates);
                 if(!sstEntries.length) { toast('⚠️ ยังไม่มี Template ใบนับสต๊อก กรุณาติดต่อ Admin','#c2410c'); return; }
 
-                // หา Template: ถ้ามีตัวเดียวใช้เลย / ถ้ามีหลายตัว match branchType กับ zone
+                // หา Template: 1) ดูจาก stockTemplateId ที่ผูกไว้กับ user  2) match branchType  3) fallback ตัวแรก
                 let matchedTmpl;
-                if(sstEntries.length === 1) {
+                const userTmplId = currentUser?.stockTemplateId;
+                if(userTmplId && stockSheetTemplates[userTmplId]) {
+                    matchedTmpl = [userTmplId, stockSheetTemplates[userTmplId]];
+                } else if(sstEntries.length === 1) {
                     matchedTmpl = sstEntries[0];
                 } else {
                     matchedTmpl = sstEntries.find(([id,t]) => {
@@ -4887,31 +4912,42 @@ ${r.zone}`);
         window.openMonthlyCountAdminPicker = async function() {
             const existing = document.getElementById('mcAdminModal'); if(existing) existing.remove();
 
-            // โหลดข้อมูลว่าสาขาไหนนับแล้วเดือนนี้
+            // โหลดข้อมูลพร้อมกัน: inventoryHistory + users
             const now = new Date();
             const monthKey = now.toISOString().slice(0,7);
             const doneZones = new Set();
+            const zoneTemplateMap = {}; // zone → templateId (จาก user ที่ผูกไว้)
+
             try {
-                const snap = await getDocs(collection(db,'inventoryHistory'));
-                snap.forEach(d => {
+                const [histSnap, usersSnap] = await Promise.all([
+                    getDocs(collection(db,'inventoryHistory')),
+                    getDocs(collection(db,'users'))
+                ]);
+                histSnap.forEach(d => {
                     const x = d.data();
                     if(x.month === monthKey && x.type === 'branch') doneZones.add(x.zone);
+                });
+                usersSnap.forEach(d => {
+                    const u = d.data();
+                    if(d.id.toUpperCase().startsWith('BT') && u.stockTemplateId) {
+                        (u.assignedZones||[]).forEach(z => { zoneTemplateMap[z] = u.stockTemplateId; });
+                    }
                 });
             } catch(e) { console.error(e); }
 
             // หาสาขา BT ทั้งหมดจาก warehouseList
             const btZones = warehouseList.filter(z => z.toUpperCase().startsWith('BT'));
             const sstEntries = Object.entries(stockSheetTemplates);
-
-            // หา template เดียวสำหรับ BT (หรือ fallback ตัวแรก)
-            const defaultTmpl = sstEntries.find(([id,t]) => (t.branchType||'').toUpperCase() === 'BT') || sstEntries[0];
+            const fallbackTmplId = sstEntries[0]?.[0] || '';
 
             const monthTH = now.toLocaleDateString('th-TH',{year:'numeric',month:'long'});
 
             const zoneCards = btZones.length
                 ? btZones.map(zone => {
                     const isDone = doneZones.has(zone);
-                    const tmplId = defaultTmpl?.[0] || '';
+                    // หา tmplId: จาก user ที่ผูกไว้ → fallback ตัวแรก
+                    const tmplId = zoneTemplateMap[zone] || fallbackTmplId;
+                    const tmplName = stockSheetTemplates[tmplId]?.name || '';
                     return `
                     <div onclick="${isDone
                         ? `closeMCAdminPicker();openBranchMonthlyCountForAdmin('${tmplId}','${zone}')`
@@ -4923,7 +4959,10 @@ ${r.zone}`);
                             <div style="font-size:24px;">${isDone?'✅':'🏪'}</div>
                             <div>
                                 <div style="font-weight:700;font-size:14px;color:${isDone?'#065f46':'#1e293b'};">${zone}</div>
-                                <div style="font-size:11px;color:${isDone?'#059669':'#94a3b8'};">${isDone?'นับแล้วเดือนนี้ — กดเพื่อดู/แก้ไข':'ยังไม่ได้นับ'}</div>
+                                <div style="font-size:11px;color:${isDone?'#059669':'#64748b'};">
+                                    ${isDone ? 'นับแล้วเดือนนี้ — กดเพื่อดู/แก้ไข' : 'ยังไม่ได้นับ'}
+                                    ${tmplName ? ` • 📋 ${tmplName}` : ''}
+                                </div>
                             </div>
                         </div>
                         <div style="font-size:18px;color:#cbd5e1;">›</div>
