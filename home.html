@@ -472,7 +472,7 @@
 
         function getVisibleWarehouses() {
             const u = currentUser;
-            if (u.username && u.username.toUpperCase().startsWith('BT000')) {
+            if (u.username && u.username.toUpperCase().startsWith('BT')) {
                 return u.assignedZones && u.assignedZones.length > 0 ? u.assignedZones : [];
             }
             return warehouseList;
@@ -954,7 +954,7 @@
             snap.forEach(d=>{
                 const k=d.id, u=d.data(), active=u.toolExpiry>now, isSusp=u.status==='suspended';
                 const isPendDel=u.deleteAt!=null&&u.deleteAt!==undefined;
-                const isBranch=k.toUpperCase().startsWith('BT000');
+                const isBranch=k.toUpperCase().startsWith('BT');
                 let delInfo="";
                 if(isPendDel){const dl=Math.ceil(((u.deleteAt+259200000)-now)/86400000);delInfo=`<div style="color:var(--danger);font-size:10px;margin-top:5px;font-weight:bold;">⏳ ลบถาวรใน ${dl>0?dl:0} วัน</div>`;}
                 const assignedZones=u.assignedZones||[];
@@ -1114,7 +1114,7 @@
             const n=document.getElementById('newUserName').value.trim(),u=document.getElementById('newUserKey').value.trim(),r=document.getElementById('newUserRole').value,rp=document.getElementById('newUserPass').value.trim()||'1234';
             if(!n||!u)return;
             const ud={name:n,role:r,username:u,password:await hashPassword(rp),toolExpiry:0,status:'active'};
-            if(u.toUpperCase().startsWith('BT000'))ud.assignedZones=[];
+            if(u.toUpperCase().startsWith('BT'))ud.assignedZones=[];
             await setDoc(doc(db,'users',u),ud);
             toast('✅ เพิ่มพนักงานเรียบร้อย','#059669');
             document.getElementById('newUserName').value=document.getElementById('newUserKey').value=document.getElementById('newUserPass').value='';
