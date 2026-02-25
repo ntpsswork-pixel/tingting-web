@@ -393,6 +393,7 @@
         let monthlyCountOpen   = false; // admin toggle: เปิด/ปิดนับสต๊อกสิ้นเดือน
         let stockSheetTemplates = {}; // { templateId: { name, branchType, items:[{id,name,unit,group}], color } }
         let productCategories   = []; // ['เครื่องดื่ม','อาหารแห้ง',...]
+        let warehouseGroups     = {}; // { "WHRM01": { name, zones:[] } }
 
         // ---- UTILS ----
         async function hashPassword(p) {
@@ -450,7 +451,7 @@
         }
 
         async function saveConfig() {
-            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories, warehouseGroups }); }
+            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories, warehouseGroups }, {merge:true}); }
             catch(e) { toast('❌ บันทึก config ไม่สำเร็จ','#c2410c'); }
         }
 
@@ -5284,7 +5285,11 @@ ${r.zone}`);
         };
 
         window.saveBranchMonthlyCount = async function(tmplId, _zoneFromBtn) {
-            const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
+            const tmpl = stockSheetTemplates[tmplId];
+            if(!tmpl) {
+                toast(`⚠️ ไม่พบ Template (${tmplId}) กรุณาติดต่อ Admin เพื่อผูก Template ใหม่`,'#c2410c');
+                return;
+            }
             const dateVal = document.getElementById('bmc_date')?.value;
             if(!dateVal){toast('⚠️ กรุณาเลือกวันที่','#c2410c');return;}
             const zone = document.getElementById('bmc_zone')?.value.trim() || _zoneFromBtn || '';
@@ -5315,7 +5320,7 @@ ${r.zone}`);
                         break;
                     }
                 }
-            } catch(e){ console.error(e); }
+            } catch(e){ console.error('ลบของเดิม error:', e); }
 
             try {
                 await addDoc(collection(db,'inventoryHistory'),{
@@ -5329,7 +5334,7 @@ ${r.zone}`);
                 });
                 toast('✅ บันทึกผลการนับเรียบร้อย','#059669');
                 goToDashboard();
-            } catch(e){toast('❌ '+e.message,'#ef4444');}
+            } catch(e){toast('❌ บันทึกไม่สำเร็จ: '+e.message,'#ef4444');}
         };
 
         window.printBranchMonthlyCount = function(tmplId, zone) {
@@ -5745,18 +5750,15 @@ ${r.zone}`);
             if(!confirm(`ลบ Template "${tmplName}"?\nสาขาที่ใช้ Template นี้จะไม่สามารถนับสต๊อกได้จนกว่าจะตั้งค่าใหม่`)) return;
             delete stockSheetTemplates[id];
             try {
-                // setDoc แบบไม่ merge เพื่อ overwrite stockSheetTemplates ทั้ง field
-                await setDoc(doc(db,'config','main'), {
-                    warehouseList, allProducts, zoneProductMap, roleSettings,
-                    productMinMax, reqTemplates, monthlyCountOpen,
-                    stockSheetTemplates, productCategories, warehouseGroups
+                // ใช้ updateDoc + dot-notation เพื่อลบ key เฉพาะ ไม่กระทบ field อื่น
+                const { deleteField } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+                await updateDoc(doc(db,'config','main'), {
+                    [`stockSheetTemplates.${id}`]: deleteField()
                 });
             } catch(e) { toast('❌ ลบไม่สำเร็จ: '+e.message,'#c2410c'); return; }
             toast('🗑️ ลบ Template แล้ว','#64748b');
-            // re-render เฉพาะ tab sheet โดยตรง
             const tc = document.getElementById('tmplTabContent');
             if(tc) renderSheetTemplateTab(tc);
-            // อัปเดต tab highlight
             switchTmplTab('sheet');
         };
 
