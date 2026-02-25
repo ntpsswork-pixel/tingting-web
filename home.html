@@ -4644,17 +4644,25 @@ ${r.zone}`);
 
         // สรุปยอดที่นับแล้ว + ปุ่มแก้ไข
         window.openBranchMonthlyDoneSummary = function(tmplId, tmpl, zone, existingDoc) {
+            // เก็บ doc ไว้ใน window เพื่อให้ปุ่มแก้ไข/พิมพ์ใช้ได้
+            window._bmcCurrentDoc = existingDoc;
+            window._bmcCurrentTmplId = tmplId;
+            window._bmcCurrentZone = zone;
+
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
             const groups = [...new Set((existingDoc.items||[]).map(i=>i.group||'ทั่วไป'))];
+            const isAdmin = currentUser?.role === 'admin';
 
             c.innerHTML = `
             <div class="tool-header no-print">
                 <h2>✅ ผลการนับสต๊อกสิ้นเดือน</h2>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="openBranchMonthlyCount('${tmplId}',stockSheetTemplates['${tmplId}'],'${zone}')"
+                    <button onclick="editBMCSummary()"
                         style="background:#f59e0b;color:white;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:bold;">✏️ แก้ไข / นับใหม่</button>
-                    <button onclick="printBranchMonthlyCountSummary('${tmplId}','${zone}','${existingDoc.id}')" style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ พิมพ์</button>
+                    <button onclick="printBranchMonthlyCountSummary()"
+                        style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ พิมพ์</button>
+                    ${isAdmin ? `<button onclick="deleteBMCSummary()" style="background:#ef4444;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ ลบ</button>` : ''}
                     <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
                 </div>
@@ -4664,15 +4672,15 @@ ${r.zone}`);
                 <div>
                     <div style="font-size:16px;font-weight:700;color:#065f46;">${zone}</div>
                     <div style="font-size:13px;color:#059669;">นับสต๊อกเดือนนี้เรียบร้อยแล้ว ✓</div>
-                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">วันที่บันทึก: ${existingDoc.date||''} • โดย: ${existingDoc.countedBy||'-'}</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">วันที่บันทึก: ${existingDoc.date||''} • โดย: ${existingDoc.countedBy||'-'} • Template: ${existingDoc.templateName||'-'}</div>
                 </div>
             </div>
             <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
             <table style="width:100%;border-collapse:collapse;">
                 <thead><tr style="background:#1e293b;color:white;">
                     <th style="padding:12px 16px;text-align:left;font-size:12px;">สินค้า</th>
-                    <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
                     <th style="padding:12px;text-align:center;font-size:12px;background:#1d4ed8;">ยอดนับ</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
                     <th style="padding:12px;text-align:left;font-size:12px;">หมายเหตุ</th>
                 </tr></thead>
                 <tbody>
@@ -4685,10 +4693,10 @@ ${r.zone}`);
                                 <div style="font-weight:700;font-size:13px;">${it.id}</div>
                                 <div style="color:#475569;font-size:12px;">${it.name}</div>
                             </td>
-                            <td style="padding:11px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
                             <td style="padding:11px;text-align:center;">
                                 <span style="font-size:20px;font-weight:800;color:${(it.balance||0)>0?'#1d4ed8':'#94a3b8'};">${it.balance??'-'}</span>
                             </td>
+                            <td style="padding:11px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
                             <td style="padding:11px;color:#64748b;font-size:12px;">${it.note||'—'}</td>
                         </tr>`).join('');
                     return header+rows;
@@ -4697,11 +4705,33 @@ ${r.zone}`);
             </table>
             </div>
             <div style="margin-top:16px;text-align:center;padding-bottom:20px;" class="no-print">
-                <button onclick="openBranchMonthlyCount('${tmplId}',stockSheetTemplates['${tmplId}'],'${zone}')"
+                <button onclick="editBMCSummary()"
                     style="background:#f59e0b;color:white;padding:14px 50px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;">
                     ✏️ แก้ไขยอดนับ
                 </button>
             </div>`;
+        };
+
+        // แก้ไข: เปิดใบนับพร้อม prefill ข้อมูลเดิม
+        window.editBMCSummary = function() {
+            const doc_ = window._bmcCurrentDoc;
+            const tmplId = window._bmcCurrentTmplId;
+            const zone = window._bmcCurrentZone;
+            const tmpl = stockSheetTemplates[tmplId];
+            if(!doc_ || !tmpl) { toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+            openBranchMonthlyCount(tmplId, tmpl, zone, doc_);
+        };
+
+        // ลบเอกสาร (admin only)
+        window.deleteBMCSummary = async function() {
+            const doc_ = window._bmcCurrentDoc;
+            if(!doc_) { toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+            if(!confirm(`ยืนยันลบผลการนับสต๊อก ${window._bmcCurrentZone} วันที่ ${doc_.date||''}?\nการลบไม่สามารถกู้คืนได้`)) return;
+            try {
+                await deleteDoc(doc(db,'inventoryHistory', doc_.id));
+                toast('🗑️ ลบเอกสารเรียบร้อย','#64748b');
+                goToDashboard();
+            } catch(e) { toast('❌ ลบไม่สำเร็จ: '+e.message,'#ef4444'); }
         };
 
         // Admin picker: เลือกสาขา
@@ -4768,7 +4798,11 @@ ${r.zone}`);
                     ${zoneCards}
                 </div>
                 ${sstEntries.length === 0 ? `<div style="margin-top:14px;padding:12px;background:#fef2f2;border-radius:8px;font-size:12px;color:#c2410c;">⚠️ ยังไม่มี Template ใบนับสต๊อกสาขา — ไปสร้างที่ Admin → ตั้งค่า Template</div>` : ''}
-                <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
+                <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:8px;">
+                    <button onclick="closeMCAdminPicker();openRandomSKUCount()"
+                        style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">
+                        🎲 สุ่ม 10 SKU ทดลองนับ (ช่วง Pilot)
+                    </button>
                     <button onclick="closeMCAdminPicker();openCentralStock()"
                         style="width:100%;padding:11px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:13px;color:#475569;font-weight:600;">
                         📦 นับสต๊อกคลังหลัก (ไม่ใช้ Template)
@@ -4780,6 +4814,115 @@ ${r.zone}`);
 
         window.closeMCAdminPicker = function() {
             const el = document.getElementById('mcAdminModal'); if(el) el.remove();
+        };
+
+        // ===== สุ่ม 10 SKU ทดลองนับ (Pilot mode) =====
+        window.openRandomSKUCount = function() {
+            const isBT = currentUser?.username?.toUpperCase().startsWith('BT');
+            const zone = isBT
+                ? (currentUser.assignedZones||[])[0] || ''
+                : ''; // admin กรอกเอง
+
+            // สุ่ม 10 SKU จาก allProducts
+            const pool = [...allProducts].filter(p=>p.id && p.name);
+            const shuffled = pool.sort(()=>Math.random()-0.5).slice(0,Math.min(10,pool.length));
+
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            const now = new Date();
+            const today = now.toISOString().slice(0,10);
+            const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <h2>🎲 ทดลองนับสต๊อก — ${shuffled.length} SKU สุ่ม</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="openRandomSKUCount()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">🎲 สุ่มใหม่</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
+                </div>
+            </div>
+            <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#5b21b6;" class="no-print">
+                🎯 <b>โหมดทดลอง Pilot</b> — สุ่ม ${shuffled.length} รายการจากสินค้าทั้งหมด ${allProducts.length} รายการ • ข้อมูลจะบันทึกแยกใน collection <code>pilotCounts</code> ไม่กระทบ stock จริง
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;" class="no-print">
+                <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ</label>
+                    <input type="date" id="rnd_date" value="${today}" style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;">
+                </div>
+                <div class="input-group" style="border:2px solid var(--info);${isBT?'background:#f0fdf4;':''}"><label>📦 คลัง/สาขา</label>
+                    ${isBT
+                        ? `<b style="font-size:14px;color:#065f46;">${zone}</b><input type="hidden" id="rnd_zone" value="${zone}">`
+                        : `<input type="text" id="rnd_zone" value="${zone}" placeholder="ระบุคลัง/สาขา..." style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;font-family:inherit;">`
+                    }
+                </div>
+                <div class="input-group" style="background:#f0fdf4;border:1.5px solid #bbf7d0;"><label>🙋 ผู้นับ</label>
+                    <b style="font-size:13px;color:#065f46;">${currentUser?.name||''}</b>
+                </div>
+            </div>
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#5b21b6;color:white;">
+                    <th style="padding:12px 16px;text-align:left;font-size:12px;">สินค้า</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;background:#4c1d95;">ยอดนับได้</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;">หมายเหตุ</th>
+                </tr></thead>
+                <tbody>
+                ${shuffled.map((p,idx)=>{
+                    const unit = (p.units||[{name:p.unit||''}])[0]?.name||p.unit||'';
+                    return `
+                    <tr style="border-bottom:1px solid #f1f5f9;${idx%2===1?'background:#fafafa':''}">
+                        <td style="padding:12px 16px;">
+                            <div style="font-weight:700;font-size:13px;">${p.id}</div>
+                            <div style="color:#475569;font-size:12px;">${p.name}</div>
+                        </td>
+                        <td style="padding:12px;text-align:center;">
+                            <input type="number" id="rnd_${p.id}" min="0" placeholder="0"
+                                style="width:90px;padding:9px;border-radius:10px;border:2px solid #7c3aed;text-align:center;font-weight:700;font-size:16px;outline:none;"
+                                onfocus="this.style.borderColor='#4c1d95'" onblur="this.style.borderColor='#7c3aed'">
+                        </td>
+                        <td style="padding:12px;text-align:center;color:#64748b;font-size:13px;">${unit}</td>
+                        <td style="padding:12px;">
+                            <input type="text" id="rndNote_${p.id}" placeholder="หมายเหตุ"
+                                style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;">
+                        </td>
+                    </tr>`;
+                }).join('')}
+                </tbody>
+            </table>
+            </div>
+            <div style="text-align:center;padding-bottom:20px;" class="no-print">
+                <button onclick="saveRandomSKUCount(${JSON.stringify(shuffled.map(p=>({id:p.id,name:p.name,unit:(p.units||[{name:p.unit||''}])[0]?.name||p.unit||''})))})"
+                    style="background:#7c3aed;color:white;padding:14px 50px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(124,58,237,.3);">
+                    💾 บันทึกผลทดลองนับ
+                </button>
+            </div>`;
+        };
+
+        window.saveRandomSKUCount = async function(skuList) {
+            const dateVal = document.getElementById('rnd_date')?.value;
+            const zone = document.getElementById('rnd_zone')?.value.trim();
+            if(!dateVal||!zone){toast('⚠️ กรุณากรอกวันที่และคลัง','#c2410c');return;}
+            const [cy,cm,cd]=dateVal.split('-');
+            const dateTH=`${cd}/${cm}/${parseInt(cy)+543}`;
+
+            const items = skuList.map(p=>({
+                id:p.id, name:p.name, unit:p.unit,
+                balance:parseFloat(document.getElementById(`rnd_${p.id}`)?.value)||0,
+                note:document.getElementById(`rndNote_${p.id}`)?.value.trim()||''
+            }));
+
+            try {
+                await addDoc(collection(db,'pilotCounts'),{
+                    zone, date:dateTH, month:`${cy}-${cm}`,
+                    timestamp:Date.now(),
+                    countedBy:currentUser.name,
+                    skuCount:skuList.length,
+                    items
+                });
+                toast('✅ บันทึกผลทดลองนับเรียบร้อย','#7c3aed');
+                goToDashboard();
+            } catch(e){toast('❌ '+e.message,'#ef4444');}
         };
 
         // Admin เปิดดูสาขาที่นับแล้ว (แสดง summary แล้วแก้ได้)
@@ -4864,8 +5007,8 @@ ${r.zone}`);
                 <thead>
                     <tr style="background:#1e293b;color:white;">
                         <th style="padding:12px 16px;text-align:left;font-size:12px;">สินค้า</th>
-                        <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
                         <th style="padding:12px;text-align:center;font-size:12px;background:#1d4ed8;">ยอดนับได้</th>
+                        <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
                         <th style="padding:12px;text-align:center;font-size:12px;">หมายเหตุ</th>
                     </tr>
                 </thead>
@@ -4884,12 +5027,12 @@ ${r.zone}`);
                                 <div style="font-weight:700;font-size:13px;">${it.id}</div>
                                 <div style="color:#475569;font-size:12px;">${it.name}</div>
                             </td>
-                            <td style="padding:12px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
                             <td style="padding:12px;text-align:center;">
                                 <input type="number" id="bmc_${it.id}" min="0" placeholder="0" value="${prevVal}"
                                     style="width:90px;padding:9px;border-radius:10px;border:2px solid ${hasPrev?'#f59e0b':'#3b82f6'};text-align:center;font-weight:700;font-size:16px;outline:none;"
                                     onfocus="this.style.borderColor='#1d4ed8'" onblur="this.style.borderColor='${hasPrev?'#f59e0b':'#3b82f6'}'">
                             </td>
+                            <td style="padding:12px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
                             <td style="padding:12px;">
                                 <input type="text" id="bmcNote_${it.id}" placeholder="หมายเหตุ" value="${prevNote}"
                                     style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;">
@@ -4999,38 +5142,26 @@ ${r.zone}`);
         };
 
         // พิมพ์จากหน้า summary (ข้อมูลที่บันทึกแล้ว)
-        window.printBranchMonthlyCountSummary = function(tmplId, zone, docId) {
-            const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
-            // ดึงจาก DOM ที่ render ไว้ใน summary page
-            const rows = [...document.querySelectorAll('#toolAppContainer table tbody tr')];
-            const dateTH = document.querySelector('#toolAppContainer .history-card-header b')?.textContent || '';
-            const groups = [...new Set(tmpl.items.map(i=>i.group||i.category||'ทั่วไป'))];
+        // พิมพ์จากหน้า summary — ดึงข้อมูลจาก window._bmcCurrentDoc โดยตรง
+        window.printBranchMonthlyCountSummary = function() {
+            const existingDoc = window._bmcCurrentDoc;
+            const tmplId = window._bmcCurrentTmplId;
+            const zone = window._bmcCurrentZone;
+            const tmpl = stockSheetTemplates[tmplId];
+            if(!existingDoc || !tmpl) { toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
 
-            // หาข้อมูลจาก DOM table
-            const itemData = {};
-            rows.forEach(tr => {
-                const cells = tr.querySelectorAll('td');
-                if(cells.length >= 3) {
-                    const id = cells[0]?.querySelector('div')?.textContent?.trim();
-                    const bal = cells[2]?.querySelector('span')?.textContent?.trim();
-                    const note = cells[3]?.textContent?.trim()||'';
-                    if(id && bal && bal !== '-') itemData[id] = {balance: bal, note};
-                }
-            });
-
+            const groups = [...new Set((existingDoc.items||[]).map(i=>i.group||i.category||'ทั่วไป'))];
             const tableBody = groups.map(grp => {
-                const grpItems = tmpl.items.filter(i=>(i.group||i.category||'ทั่วไป')===grp);
+                const grpItems = (existingDoc.items||[]).filter(i=>(i.group||i.category||'ทั่วไป')===grp);
                 const header = `<tr><td colspan="5" style="padding:8px 12px;background:#f0f9ff;font-weight:700;font-size:11px;color:#0369a1;border-top:2px solid #bae6fd;">▌ ${grp.toUpperCase()}</td></tr>`;
-                const itemRows = grpItems.map((it,idx) => {
-                    const d = itemData[it.id];
-                    return `<tr style="${idx%2===0?'background:#f8fafc':''}">
+                const itemRows = grpItems.map((it,idx) => `
+                    <tr style="${idx%2===0?'background:#f8fafc':''}">
                         <td style="padding:9px 12px;">${it.id}</td>
                         <td style="padding:9px 12px;">${it.name}</td>
+                        <td style="padding:9px;text-align:center;font-weight:bold;font-size:14px;">${it.balance??''}</td>
                         <td style="padding:9px;text-align:center;">${it.unit||''}</td>
-                        <td style="padding:9px;text-align:center;font-weight:bold;">${d?.balance||''}</td>
-                        <td style="padding:9px;">${d?.note||''}</td>
-                    </tr>`;
-                }).join('');
+                        <td style="padding:9px;">${it.note||''}</td>
+                    </tr>`).join('');
                 return header + itemRows;
             }).join('');
 
@@ -5038,17 +5169,41 @@ ${r.zone}`);
             const printDate = now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
             const w = window.open('','_blank');
             w.document.write(`<html><head><title>ใบนับสต๊อก ${zone}</title>
-            <style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th{background:#1e293b;color:white;padding:10px}td{border:1px solid #e2e8f0;font-size:12px}@media print{body{padding:0}}</style></head><body>
-            <h2 style="margin:0 0 4px;">ใบนับสต๊อกคงเหลือ</h2>
-            <div style="font-size:13px;color:#64748b;margin-bottom:16px;">สาขา: <b>${zone}</b> • Template: <b>${tmpl.name}</b> • พิมพ์วันที่: <b>${printDate}</b> • โดย: <b>${currentUser.name}</b></div>
-            <table><thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>ยอดนับ</th><th>หมายเหตุ</th></tr></thead>
-            <tbody>${tableBody}</tbody></table>
-            <div style="margin-top:40px;display:flex;gap:60px;">
-                <div style="text-align:center;border-top:1px solid #333;padding-top:8px;min-width:150px;">ผู้นับ</div>
-                <div style="text-align:center;border-top:1px solid #333;padding-top:8px;min-width:150px;">ผู้ตรวจสอบ</div>
+            <style>
+                @page{size:A4;margin:15mm}
+                body{font-family:'Sarabun',sans-serif;margin:0;color:#1e293b;font-size:13px;}
+                table{width:100%;border-collapse:collapse;margin-top:8px;}
+                thead tr{background:#1e293b;color:white;}
+                th{padding:9px 12px;text-align:left;font-size:12px;}
+                td{border-bottom:1px solid #e2e8f0;font-size:12px;padding:0;}
+                @media print{body{padding:0}}
+            </style>
+            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+            </head><body>
+            <h2 style="margin:0 0 2px;">ใบนับสต๊อกคงเหลือ</h2>
+            <div style="font-size:12px;color:#64748b;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap;">
+                <span>🏪 สาขา: <b>${zone}</b></span>
+                <span>📅 วันที่นับ: <b>${existingDoc.date||''}</b></span>
+                <span>📄 Template: <b>${tmpl.name}</b></span>
+                <span>👤 โดย: <b>${existingDoc.countedBy||currentUser.name}</b></span>
+                <span style="color:#94a3b8;">พิมพ์: ${printDate}</span>
+            </div>
+            <table>
+                <thead><tr>
+                    <th style="width:110px;">รหัส</th>
+                    <th>ชื่อสินค้า</th>
+                    <th style="width:90px;text-align:center;">ยอดนับ</th>
+                    <th style="width:70px;text-align:center;">หน่วย</th>
+                    <th style="width:140px;">หมายเหตุ</th>
+                </tr></thead>
+                <tbody>${tableBody}</tbody>
+            </table>
+            <div style="margin-top:36px;display:flex;gap:60px;">
+                <div style="text-align:center;border-top:1px solid #333;padding-top:6px;min-width:150px;">ผู้นับ</div>
+                <div style="text-align:center;border-top:1px solid #333;padding-top:6px;min-width:150px;">ผู้ตรวจสอบ</div>
             </div>
             </body></html>`);
-            w.document.close(); setTimeout(()=>w.print(),400);
+            w.document.close(); setTimeout(()=>w.print(),500);
         };
 
         window.toggleMonthlyCount = function() {
