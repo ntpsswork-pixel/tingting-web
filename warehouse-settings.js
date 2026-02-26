@@ -12,6 +12,20 @@
                 </label>
                 <small style="color:#94a3b8;align-self:center;font-size:11px;">สำรอง/กู้คืน คลัง, สินค้า, mapping ทั้งหมด</small>
             </div>
+
+            <!-- Parent Warehouse Groups -->
+            <div style="background:white;padding:24px;border-radius:15px;border:2px solid #ddd6fe;margin-bottom:25px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+                    <div>
+                        <h4 style="margin:0 0 4px;color:#5b21b6;">🏭 คลังหลัก (Parent Warehouse Groups)</h4>
+                        <small style="color:#94a3b8;">ผูก Zone ย่อยหลายห้องเข้ากับคลังหลัก → เมื่อ Export จะรวมยอดสินค้าชื่อเดียวกันให้อัตโนมัติ</small>
+                    </div>
+                    <button onclick="openAddParentWhForm()" style="background:#7c3aed;color:white;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:bold;font-size:13px;">+ เพิ่มคลังหลัก</button>
+                </div>
+                <div id="parentWhContainer"></div>
+                <div id="parentWhFormArea"></div>
+            </div>
+
             <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:25px;">
                 <div style="background:white;padding:20px;border-radius:15px;border:1px solid #e2e8f0;">
                     <h4>📦 คลังสินค้า (Zones)</h4>
@@ -121,6 +135,112 @@
             document.getElementById('selectZoneMap').innerHTML=warehouseList.map(w=>`<option value="${w}">${w}</option>`).join('');
             renderMapping();
             renderMinMaxTable();
+            renderParentWhList();
+        };
+
+        // ======== PARENT WAREHOUSE MANAGEMENT ========
+        window.renderParentWhList = function() {
+            const c = document.getElementById('parentWhContainer'); if(!c) return;
+            const groups = Object.entries(warehouseGroups||{}).filter(([k])=>k!=='__names__');
+            if(!groups.length) {
+                c.innerHTML = `<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px;border:2px dashed #e2e8f0;border-radius:10px;">
+                    ยังไม่มีคลังหลัก — กด "เพิ่มคลังหลัก" เพื่อเริ่มผูก Zone ย่อยเข้าด้วยกัน
+                </div>`;
+                return;
+            }
+            c.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+            ${groups.map(([parentId, zones]) => {
+                const zoneList = (zones||[]);
+                const colors = {'WHRM':'#7c3aed','WHPD':'#0891b2','WH':'#059669'};
+                const color = Object.entries(colors).find(([k])=>parentId.toUpperCase().startsWith(k))?.[1] || '#64748b';
+                return `<div style="background:white;border-radius:12px;border:2px solid ${color}30;padding:18px;position:relative;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+                        <div>
+                            <div style="font-size:15px;font-weight:800;color:${color};">🏭 ${parentId}</div>
+                            <div style="font-size:12px;color:#475569;margin-top:1px;">${(warehouseGroups.__names__||{})[parentId]||''}</div>
+                            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${zoneList.length} Zone ย่อย</div>
+                        </div>
+                        <div style="display:flex;gap:5px;">
+                            <button onclick="openEditParentWhForm('${parentId}')"
+                                style="background:#f1f5f9;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;">✏️</button>
+                            <button onclick="deleteParentWh('${parentId}')"
+                                style="background:#fef2f2;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#ef4444;">🗑️</button>
+                        </div>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                        ${zoneList.map(z=>`<span style="background:${color}15;color:${color};font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid ${color}30;font-weight:600;">📦 ${z}</span>`).join('')}
+                        ${!zoneList.length ? '<span style="color:#cbd5e1;font-size:11px;">ยังไม่มี Zone</span>' : ''}
+                    </div>
+                </div>`;
+            }).join('')}
+            </div>`;
+        };
+
+        window.openAddParentWhForm = function(editId) {
+            const existing = editId ? (warehouseGroups||{})[editId] : null;
+            const area = document.getElementById('parentWhFormArea'); if(!area) return;
+            const allZones = warehouseList;
+            area.innerHTML = `
+            <div style="margin-top:16px;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:20px;">
+                <h4 style="margin:0 0 14px;color:#5b21b6;">${editId?'✏️ แก้ไข':'➕ สร้าง'}คลังหลัก</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                    <div>
+                        <label style="font-size:11px;font-weight:700;color:#5b21b6;display:block;margin-bottom:4px;">รหัสคลังหลัก <span style="color:red;">*</span></label>
+                        <input id="pwh_id" value="${editId||''}" placeholder="เช่น WHRM01, WHPD01" ${editId?'readonly':''}
+                            style="width:100%;padding:9px 12px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;font-weight:700;box-sizing:border-box;outline:none;font-family:inherit;${editId?'background:#f1f5f9;color:#64748b;':''}">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;font-weight:700;color:#5b21b6;display:block;margin-bottom:4px;">ชื่อแสดง (ถ้ามี)</label>
+                        <input id="pwh_name" value="${(warehouseGroups?.__names__||{})[editId]||''}" placeholder="เช่น คลังวัตถุดิบ 1"
+                            style="width:100%;padding:9px 12px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;font-family:inherit;">
+                    </div>
+                </div>
+                <label style="font-size:11px;font-weight:700;color:#5b21b6;display:block;margin-bottom:8px;">เลือก Zone ที่อยู่ใน${editId?editId:'คลังหลักนี้'}</label>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;max-height:220px;overflow-y:auto;padding:8px;background:white;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;" id="pwhZoneCheckboxes">
+                    ${allZones.map(z => {
+                        const checked = existing ? existing.includes(z) : false;
+                        return `<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid ${checked?'#7c3aed':'#e2e8f0'};border-radius:8px;cursor:pointer;background:${checked?'#f5f3ff':'white'};transition:.15s;" id="pwhZoneLbl_${z.replace(/\s/g,'_')}">
+                            <input type="checkbox" value="${z}" ${checked?'checked':''} style="width:16px;height:16px;accent-color:#7c3aed;"
+                                onchange="this.closest('label').style.borderColor=this.checked?'#7c3aed':'#e2e8f0';this.closest('label').style.background=this.checked?'#f5f3ff':'white'">
+                            <span style="font-size:12px;font-weight:600;color:#1e293b;">${z}</span>
+                        </label>`;
+                    }).join('')}
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button onclick="document.getElementById('parentWhFormArea').innerHTML=''"
+                        style="background:#f1f5f9;color:#475569;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;">ยกเลิก</button>
+                    <button onclick="saveParentWh('${editId||''}')"
+                        style="background:#7c3aed;color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-weight:700;">💾 บันทึก</button>
+                </div>
+            </div>`;
+            area.scrollIntoView({behavior:'smooth',block:'nearest'});
+        };
+
+        window.openEditParentWhForm = function(id) { openAddParentWhForm(id); };
+
+        window.saveParentWh = function(editId) {
+            const id = (document.getElementById('pwh_id')?.value||'').trim().toUpperCase();
+            const displayName = document.getElementById('pwh_name')?.value.trim()||'';
+            if(!id) { toast('⚠️ กรุณาใส่รหัสคลังหลัก','#c2410c'); return; }
+            const checked = [...document.querySelectorAll('#pwhZoneCheckboxes input[type=checkbox]:checked')].map(cb=>cb.value);
+            if(!warehouseGroups) window.warehouseGroups = {};
+            warehouseGroups[id] = checked;
+            // เก็บ displayName ใน __names__ เพื่อไม่ต้องเพิ่ม config key ใหม่
+            if(!warehouseGroups.__names__) warehouseGroups.__names__ = {};
+            warehouseGroups.__names__[id] = displayName;
+            saveConfig();
+            toast(`✅ บันทึกคลังหลัก "${id}" (${checked.length} Zones)`,'#7c3aed');
+            document.getElementById('parentWhFormArea').innerHTML='';
+            renderParentWhList();
+        };
+
+        window.deleteParentWh = function(id) {
+            if(!confirm(`ลบคลังหลัก "${id}"?\nZone ย่อยจะไม่ถูกลบ เพียงแต่เลิกผูกกัน`)) return;
+            delete warehouseGroups[id];
+            if(warehouseGroups.__names__) delete warehouseGroups.__names__[id];
+            saveConfig();
+            renderParentWhList();
+            toast(`🗑️ ลบคลังหลัก "${id}" แล้ว`,'#64748b');
         };
 
         window.renderWhList=function(){
