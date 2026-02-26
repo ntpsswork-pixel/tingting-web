@@ -1197,10 +1197,75 @@
         // ---- STOCK TOOL (แก้ bug selectedStaff) ----
         window.openCentralStock=function(){
             document.getElementById('dashboardView').classList.add('hidden');
-            document.getElementById('toolAppContainer').classList.remove('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
             tempCountData={};
-            const visibleZones=getVisibleWarehouses();
-            renderStockTool(visibleZones[0]||warehouseList[0]);
+            const visibleZones = getVisibleWarehouses();
+            // ถ้ามี zones ที่มี rooms → ให้เลือก room ก่อน
+            const zonesWithRooms = visibleZones.filter(z => {
+                const wg = Object.values(warehouseGroups).find(g => (g.zones||[]).includes(z) || g.name===z);
+                return wg?.rooms?.length > 0;
+            });
+            if(zonesWithRooms.length > 0) {
+                openCentralRoomPicker(visibleZones, zonesWithRooms);
+            } else {
+                renderStockTool(visibleZones[0]||warehouseList[0]);
+            }
+        };
+
+        window.openCentralRoomPicker = function(allZones, zonesWithRooms) {
+            const c = document.getElementById('toolAppContainer');
+            // สร้าง list: zone ปกติ + zone ที่มี room แตกเป็น rooms
+            const entries = [];
+            allZones.forEach(zone => {
+                const wg = Object.values(warehouseGroups).find(g=>(g.zones||[]).includes(zone)||g.name===zone);
+                const rooms = wg?.rooms||[];
+                if(rooms.length > 0) {
+                    rooms.forEach(room => entries.push({
+                        label: zone+' — '+room,
+                        zone, room,
+                        display: zone,
+                        isRoom: true
+                    }));
+                } else {
+                    entries.push({label:zone, zone, room:null, display:zone, isRoom:false});
+                }
+            });
+
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <h2>📦 นับสต๊อกคลังกลาง</h2>
+                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
+            </div>
+            <div style="max-width:500px;margin:0 auto;">
+                <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#0369a1;">
+                    💡 เลือกคลัง/ห้องที่จะนับ — ระบบจะรวมยอดทุกห้องของ Warehouse เดียวกันตอน Export อัตโนมัติ
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                ${entries.map(e=>`
+                    <div onclick="openCentralRoomCount('${e.zone}','${e.room||''}')"
+                        style="padding:14px 18px;background:white;border:2px solid ${e.isRoom?'#bae6fd':'#e2e8f0'};border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all .2s;"
+                        onmouseover="this.style.borderColor='#3b82f6';this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.borderColor='${e.isRoom?'#bae6fd':'#e2e8f0'}';this.style.transform=''">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="font-size:22px;">${e.isRoom?'🚪':'🏭'}</div>
+                            <div>
+                                <div style="font-weight:700;font-size:14px;color:#1e293b;">${e.label}</div>
+                                <div style="font-size:11px;color:#64748b;">${e.isRoom?'ห้องย่อย — รวมยอดใน '+e.zone+' ตอน Export':'คลังหลัก'}</div>
+                            </div>
+                        </div>
+                        <div style="font-size:18px;color:#cbd5e1;">›</div>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        };
+
+        window.openCentralRoomCount = function(zone, room) {
+            // ตั้งค่า room ปัจจุบัน เพื่อให้ finalSaveStock รู้ว่านับห้องไหน
+            window._currentCountRoom = room || null;
+            window._currentCountZoneMain = zone;
+            // ชื่อที่ใช้ display = zone + room (ถ้ามี)
+            const displayZone = room ? zone+' — '+room : zone;
+            renderStockTool(displayZone);
         };
 
         window.renderStockTool=async function(zone){
@@ -1350,10 +1415,19 @@
                 return {id,name:td.name,amounts,units};
             });
 
+            // ถ้ามี room ให้บันทึกแยก แต่ zone หลักยังคงเป็น warehouseหลัก
+            const mainZone = window._currentCountZoneMain || zone;
+            const currentRoom = window._currentCountRoom || null;
             await addDoc(collection(db,'stockHistory'),{
-                zone,date:dateStr,timestamp:now.getTime(),
-                countedBy:selectedStaff,recordedBy:currentUser.name,items:sessionItems
+                zone: mainZone,
+                room: currentRoom,
+                displayZone: zone, // zone+room string ที่แสดงให้ user เห็น
+                date:dateStr, timestamp:now.getTime(),
+                countedBy:selectedStaff, recordedBy:currentUser.name,
+                items:sessionItems
             });
+            window._currentCountRoom = null;
+            window._currentCountZoneMain = null;
 
             tempCountData={};
             toast('✅ บันทึกสำเร็จ! ตัวเลขรีเซ็ตแล้ว','#059669');
@@ -1450,7 +1524,7 @@
                                     <td style="padding:10px;font-weight:bold;">${p.id}</td>
                                     <td style="padding:10px;color:#475569;">${p.name}</td>
                                     <td style="padding:10px;text-align:center;font-weight:bold;color:var(--success);font-size:16px;">${cd.total||0}</td>
-                                    <td style="padding:10px;text-align:center;color:#64748b;">${units[0]?.name||''}</td>
+                                    <td style="padding:10px;text-align:center;color:#64748b;">${units[units.length-1]?.name||units[0]?.name||''}<span style="font-size:9px;background:#dcfce7;color:#059669;padding:1px 4px;border-radius:4px;margin-left:3px;font-weight:700;">BASE</span></td>
                                     <td style="padding:10px;text-align:center;font-size:12px;color:#94a3b8;">${cd.lastUpdate||'-'}</td>
                                     <td style="padding:10px;text-align:center;font-size:12px;color:#94a3b8;">${cd.countedBy||'-'}</td>
                                     <td style="padding:8px;text-align:center;">${currentUser.role==='admin'?`<button onclick="openEditStockModal('${p.id}')" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;color:#475569;">✏️ แก้</button>`:''}</td>
@@ -1464,20 +1538,43 @@
         };
 
         window.exportExcelSnapshot=function(){
-            const zone=document.getElementById('filterZone')?.value||'';
-            const zones=zone?[zone]:getVisibleWarehouses();
-            const rows=[['คลัง','รหัสสินค้า','ชื่อสินค้า','ยอดสต๊อก','หน่วย','นับล่าสุด','โดย']];
-            zones.forEach(z=>{
-                const prods=getZoneProducts(z);
+            const filterZone=document.getElementById('filterZone')?.value||'';
+            const allZones=filterZone?[filterZone]:getVisibleWarehouses();
+            const wb=XLSX.utils.book_new();
+            const dateStr=new Date().toLocaleDateString('th-TH');
+
+            // ── รวม rooms → warehouse หลัก ──
+            // สร้าง map: mainZone → [zone, room strings ที่ควร aggregate]
+            const zoneAggMap = {}; // mainZone → [displayZones to include]
+            allZones.forEach(z => {
+                const wgKey = 'wg_'+z.replace(/[^a-zA-Z0-9]/g,'_');
+                const rooms = warehouseGroups[wgKey]?.rooms || [];
+                if(rooms.length > 0) {
+                    // zone นี้มี rooms: aggregate เฉพาะ rooms (displayZone = z+' — '+room)
+                    zoneAggMap[z] = rooms.map(r => z+' — '+r);
+                } else {
+                    zoneAggMap[z] = [z];
+                }
+            });
+
+            // Sheet รวม (aggregate rooms)
+            const rows=[['คลัง','รหัสสินค้า','ชื่อสินค้า','ยอดสต๊อก (Base Unit)','หน่วย (Base)','นับล่าสุด','โดย']];
+            allZones.forEach(mainZone=>{
+                const displayZones = zoneAggMap[mainZone];
+                const prods = getZoneProducts(mainZone);
                 prods.forEach(p=>{
-                    const cd=countData[p.id]||{total:0};
-                    const units=p.units||[{name:p.unit||''}];
-                    rows.push([z,p.id,p.name,cd.total||0,units[0]?.name||'',cd.lastUpdate||'',cd.countedBy||'']);
+                    const units = p.units||[{name:p.unit||''}];
+                    const baseUnit = units[units.length-1]?.name || units[0]?.name || '';
+                    const cd = countData[p.id]||{total:0};
+                    rows.push([mainZone, p.id, p.name, cd.total||0, baseUnit, cd.lastUpdate||'', cd.countedBy||'']);
                 });
             });
-            const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb,ws,'ยอดสต๊อก');
-            XLSX.writeFile(wb,`Stock_Snapshot_${new Date().toLocaleDateString('th-TH')}.xlsx`);
+            const ws=XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols']=[16,12,30,16,10,14,12].map(w=>({wch:w}));
+            XLSX.utils.book_append_sheet(wb,ws,'ยอดสต๊อก (รวม)');
+
+            XLSX.writeFile(wb,'Stock_Snapshot_'+dateStr+'.xlsx');
+            toast('📥 Export Snapshot เรียบร้อย','#059669');
         };
 
         let currentHistoryData=[];
@@ -1776,6 +1873,12 @@
                     <div id="sortList" style="display:flex;flex-direction:column;gap:6px;"></div>
                     <button onclick="saveSortOrder()" style="margin-top:12px;background:#7c3aed;color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-weight:bold;">💾 บันทึกลำดับ</button>
                 </div>
+            </div>
+            <div style="margin-top:25px;background:white;padding:24px;border-radius:15px;border:1px solid #e2e8f0;">
+                <h4 style="margin:0 0 4px;">🚪 จัดการห้องย่อย (Rooms) สำหรับคลังกลาง</h4>
+                <small style="color:#94a3b8;display:block;margin-bottom:16px;">เช่น WHRM01 → Room A, Room B — ตอนนับจะแยกตามห้อง แต่ Export รวมยอดกลับเป็น WHRM01 อัตโนมัติ</small>
+                <div id="roomManagerContent"></div>
+                <script>renderRoomManager();</script>
             </div>
             <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -2101,6 +2204,56 @@
             const rows=document.querySelectorAll('#mappingContainer label[data-search]');
             rows.forEach(r=>{ r.style.display=(r.dataset.search||'').includes(q.toLowerCase())?'':'none'; });
         };
+        window.renderRoomManager = function() {
+            const c = document.getElementById('roomManagerContent'); if(!c) return;
+            // แสดงเฉพาะ zones ที่ไม่ใช่ BT (central warehouses)
+            const centralZones = warehouseList.filter(z => !z.toUpperCase().startsWith('BT'));
+            if(!centralZones.length) {
+                c.innerHTML = '<p style="color:#94a3b8;font-size:13px;">ยังไม่มีคลังกลาง (เพิ่มคลังที่ไม่ใช่ BT ก่อน)</p>';
+                return;
+            }
+            c.innerHTML = centralZones.map(zone => {
+                const wgKey = 'wg_'+zone.replace(/[^a-zA-Z0-9]/g,'_');
+                if(!warehouseGroups[wgKey]) warehouseGroups[wgKey] = {name:zone, zones:[zone], rooms:[]};
+                const rooms = warehouseGroups[wgKey].rooms || [];
+                return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;">'
+                    + '<div style="font-weight:700;font-size:14px;margin-bottom:8px;">🏭 '+zone+'</div>'
+                    + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">'
+                    + (rooms.length ? rooms.map((r,ri) => '<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:3px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">'
+                        + '🚪 '+r
+                        + '<button onclick="deleteRoom(''+wgKey+'','+ri+')" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:12px;padding:0;line-height:1;">✕</button>'
+                        + '</span>').join('') : '<span style="color:#94a3b8;font-size:12px;">ยังไม่มีห้องย่อย — นับรวมเป็นคลังเดียว</span>')
+                    + '</div>'
+                    + '<div style="display:flex;gap:6px;">'
+                    + '<input type="text" id="newRoom_'+wgKey+'" placeholder="เช่น Room A" maxlength="20"'
+                    + ' style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;outline:none;flex:1;"'
+                    + ' onkeydown="if(event.key==='Enter')addRoom(''+wgKey+'')">'
+                    + '<button onclick="addRoom(''+wgKey+'')" style="background:#3b82f6;color:white;border:none;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">+ เพิ่มห้อง</button>'
+                    + '</div>'
+                    + '</div>';
+            }).join('');
+        };
+
+        window.addRoom = function(wgKey) {
+            const inp = document.getElementById('newRoom_'+wgKey);
+            const val = inp?.value.trim();
+            if(!val) return;
+            if(!warehouseGroups[wgKey]) warehouseGroups[wgKey] = {rooms:[]};
+            if(!warehouseGroups[wgKey].rooms) warehouseGroups[wgKey].rooms = [];
+            if(warehouseGroups[wgKey].rooms.includes(val)) { toast('⚠️ มีห้องนี้อยู่แล้ว','#c2410c'); return; }
+            warehouseGroups[wgKey].rooms.push(val);
+            saveConfig();
+            renderRoomManager();
+            toast('✅ เพิ่มห้อง '+val+' แล้ว','#059669');
+        };
+
+        window.deleteRoom = function(wgKey, ri) {
+            if(!confirm('ลบห้องนี้?')) return;
+            warehouseGroups[wgKey].rooms.splice(ri,1);
+            saveConfig();
+            renderRoomManager();
+        };
+
         window.addWh=function(){const n=document.getElementById('newWhName').value.trim();if(n){warehouseList.push(n);saveConfig();openWarehouseManager();}};
         window.deleteWh=function(i){if(confirm('ยืนยันลบโซน?')){warehouseList.splice(i,1);saveConfig();openWarehouseManager();}};
 
@@ -4592,6 +4745,8 @@ ${r.zone}`);
                 if(existingDoc) {
                     openBranchMonthlyDoneSummary(tmplId, tmpl, zone, existingDoc);
                 } else {
+                    // set IN_PROGRESS ทันทีที่ BT เข้าระบบนับ
+                    setZoneSessionStatus(zone, monthKey, 'IN_PROGRESS');
                     // แสดง modal เลือก: นับเต็ม หรือ สุ่มทดลอง
                     openBTCountModePicker(tmplId, tmpl, zone);
                 }
@@ -4657,7 +4812,7 @@ ${r.zone}`);
                             <td style="padding:11px;text-align:center;">
                                 <span style="font-size:20px;font-weight:800;color:${(it.balance||0)>0?'#1d4ed8':'#94a3b8'};">${it.balance??'-'}</span>
                             </td>
-                            <td style="padding:11px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
+                            <td style="padding:11px;text-align:center;color:#64748b;font-size:12px;">${it.baseUnit||it.unit||''}<br><span style="font-size:9px;background:#dcfce7;color:#059669;padding:1px 4px;border-radius:4px;font-weight:700;">BASE</span></td>
                             <td style="padding:11px;color:#64748b;font-size:12px;">${it.note||'—'}</td>
                         </tr>`).join('');
                     return header+rows;
@@ -4796,37 +4951,53 @@ ${r.zone}`);
             if(!docs.length) { toast('⚠️ ไม่พบข้อมูลสาขาในเดือนที่เลือก','#f59e0b'); return; }
 
             const wb = XLSX.utils.book_new();
-            const hdr = ['สาขา','เดือน','วันที่นับ','รหัสสินค้า','ชื่อสินค้า','ยอดนับ','หน่วย','หมายเหตุ','ผู้นับ'];
+            const hdrFull = ['สาขา','เดือน','วันที่นับ','รหัสสินค้า','ชื่อสินค้า','ยอดนับ (Base Unit)','หน่วย (Base)','หมายเหตุ','ผู้นับ'];
+            docs.sort((a,b)=>(a.zone||'').localeCompare(b.zone||''));
 
             if(fmt === 'combined') {
-                const rows = [hdr];
-                // เรียงตามสาขา
-                docs.sort((a,b)=>(a.zone||'').localeCompare(b.zone||''));
+                const rows = [hdrFull];
                 docs.forEach(d => {
                     (d.items||[]).forEach(it => {
-                        rows.push([d.zone||'',d.month||'',d.date||'',it.id||'',it.name||'',it.balance??'',it.unit||'',it.note||'',d.countedBy||'']);
+                        const baseUnit = it.baseUnit || it.unit || '';
+                        rows.push([d.zone||'',d.month||'',d.date||'',it.id||'',it.name||'',it.balance??'',baseUnit,it.note||'',d.countedBy||'']);
                     });
                 });
                 const ws = XLSX.utils.aoa_to_sheet(rows);
-                ws['!cols'] = [14,10,12,12,30,10,8,20,12].map(w=>({wch:w}));
-                XLSX.utils.book_append_sheet(wb, ws, `ยอดนับ ${monthVal}`);
+                ws['!cols'] = [14,10,12,12,30,14,10,20,12].map(w=>({wch:w}));
+                XLSX.utils.book_append_sheet(wb, ws, 'ยอดนับ '+monthVal);
             } else {
-                // แยก sheet ต่อสาขา
-                docs.sort((a,b)=>(a.zone||'').localeCompare(b.zone||''));
                 docs.forEach(d => {
-                    const rows = [hdr];
+                    const rows = [hdrFull];
                     (d.items||[]).forEach(it => {
-                        rows.push([d.zone||'',d.month||'',d.date||'',it.id||'',it.name||'',it.balance??'',it.unit||'',it.note||'',d.countedBy||'']);
+                        const baseUnit = it.baseUnit || it.unit || '';
+                        rows.push([d.zone||'',d.month||'',d.date||'',it.id||'',it.name||'',it.balance??'',baseUnit,it.note||'',d.countedBy||'']);
                     });
                     const ws = XLSX.utils.aoa_to_sheet(rows);
-                    ws['!cols'] = [14,10,12,12,30,10,8,20,12].map(w=>({wch:w}));
-                    const sheetName = (d.zone||'branch').replace(/[:\\\/\?\*\[\]]/g,'').slice(0,31);
+                    ws['!cols'] = [14,10,12,12,30,14,10,20,12].map(w=>({wch:w}));
+                    const sheetName = (d.zone||'branch').replace(/[:/\\?*[\]]/g,'').slice(0,31);
                     XLSX.utils.book_append_sheet(wb, ws, sheetName);
                 });
             }
 
-            XLSX.writeFile(wb, `stock_branch_${monthVal}.xlsx`);
-            toast(`✅ Export ${docs.length} สาขา เรียบร้อย`,'#059669');
+            // Sheet สรุปรวม: aggregate per SKU ทุกสาขา
+            const skuAgg = {};
+            docs.forEach(d => {
+                (d.items||[]).forEach(it => {
+                    if(!skuAgg[it.id]) skuAgg[it.id] = {id:it.id, name:it.name, unit:it.baseUnit||it.unit||'', total:0, zones:[]};
+                    skuAgg[it.id].total += (it.balance||0);
+                    skuAgg[it.id].zones.push(d.zone);
+                });
+            });
+            const summaryRows = [['รหัสสินค้า','ชื่อสินค้า','ยอดรวม (Base Unit)','หน่วย','จำนวนสาขา']];
+            Object.values(skuAgg).sort((a,b)=>a.id.localeCompare(b.id)).forEach(s => {
+                summaryRows.push([s.id, s.name, Math.round(s.total*1000)/1000, s.unit, s.zones.length]);
+            });
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+            wsSummary['!cols'] = [14,30,18,10,12].map(w=>({wch:w}));
+            XLSX.utils.book_append_sheet(wb, wsSummary, 'สรุปรวมทุกสาขา');
+
+            XLSX.writeFile(wb, 'stock_branch_'+monthVal+'.xlsx');
+            toast('✅ Export '+docs.length+' สาขา เรียบร้อย + Sheet สรุปรวม','#059669');
         };
 
         // Admin picker: เลือกสาขา
@@ -4872,22 +5043,30 @@ ${r.zone}`);
                     const tmplId = zoneTemplateMap[zone] || fallbackTmplId;
                     const tmplName = stockSheetTemplates[tmplId]?.name || '';
                     const safeZone = zone.replace(/'/g,"\\'");
+                    const sess = sessionMap[zone] || {};
+                    const rawStatus = sess.status || (isDone?'COMPLETED':'NOT_STARTED');
+                    const sl = getStatusLabel(rawStatus);
+                    const isLocked = rawStatus === 'LOCKED';
+                    const borderCol = isLocked?'#6366f1':isDone?'#10b981':rawStatus==='IN_PROGRESS'?'#f59e0b':'#e2e8f0';
                     return `
-                    <div onclick="closeMCAdminPicker();pickAdminZone('${safeZone}')"
-                        style="padding:14px 16px;border:2px solid ${isDone?'#10b981':'#e2e8f0'};border-radius:12px;cursor:pointer;background:${isDone?'#f0fdf4':'white'};display:flex;align-items:center;justify-content:space-between;transition:all .2s;"
-                        onmouseover="this.style.borderColor='${isDone?'#059669':'#3b82f6'}';this.style.transform='translateY(-1px)'"
-                        onmouseout="this.style.borderColor='${isDone?'#10b981':'#e2e8f0'}';this.style.transform=''">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <div style="font-size:24px;">${isDone?'✅':'🏪'}</div>
-                            <div>
-                                <div style="font-weight:700;font-size:14px;color:${isDone?'#065f46':'#1e293b'};">${zone}</div>
-                                <div style="font-size:11px;color:${isDone?'#059669':'#64748b'};">
-                                    ${isDone ? 'นับแล้วเดือนนี้ — กดเพื่อดู/แก้ไข' : 'ยังไม่ได้นับ'}
-                                    ${tmplName ? ` • 📋 ${tmplName}` : ''}
+                    <div style="border:2px solid ${borderCol};border-radius:12px;background:${sl.bg};overflow:hidden;transition:all .2s;">
+                        <div onclick="${isLocked?'':'closeMCAdminPicker();pickAdminZone(\''+safeZone+'\')'}"
+                            style="padding:13px 16px;display:flex;align-items:center;justify-content:space-between;cursor:${isLocked?'default':'pointer'};"
+                            ${!isLocked?'onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'"':''}>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div style="font-size:22px;">${sl.icon}</div>
+                                <div>
+                                    <div style="font-weight:700;font-size:14px;color:#1e293b;">${zone}</div>
+                                    <div style="font-size:11px;color:${sl.color};font-weight:600;">${sl.label}${tmplName?' • 📋 '+tmplName:''}</div>
+                                    ${sess.completedBy?'<div style="font-size:10px;color:#94a3b8;">โดย '+sess.completedBy+'</div>':''}
                                 </div>
                             </div>
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="background:${sl.color}18;color:${sl.color};font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;">${sl.label}</span>
+                                ${isDone||rawStatus==='IN_PROGRESS'?'<button onclick="event.stopPropagation();adminToggleLock(\''+safeZone+'\',\''+monthKey+'\',\''+rawStatus+'\')" style="background:'+(isLocked?'#eef2ff':'#f1f5f9')+';border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:'+(isLocked?'#6366f1':'#64748b')+';font-weight:700;">'+(isLocked?'🔓 ปลดล็อก':'🔒 ล็อก')+'</button>':''}
+                                ${!isLocked?'<div style="font-size:16px;color:#cbd5e1;">›</div>':''}
+                            </div>
                         </div>
-                        <div style="font-size:18px;color:#cbd5e1;">›</div>
                     </div>`;
                 }).join('')
                 : `<div style="text-align:center;padding:24px;color:#94a3b8;font-size:13px;">ยังไม่มีสาขา BT ใน warehouseList<br>ไปเพิ่มได้ที่ Admin → ตั้งค่าคลัง</div>`;
@@ -4962,6 +5141,16 @@ ${r.zone}`);
             document.body.appendChild(m);
         };
 
+        window.adminToggleLock = async function(zone, monthKey, currentStatus) {
+            const newStatus = currentStatus === 'LOCKED' ? 'COMPLETED' : 'LOCKED';
+            const label = newStatus === 'LOCKED' ? 'ล็อก' : 'ปลดล็อก';
+            if(!confirm(label+'สาขา '+zone+' เดือน '+monthKey+'?')) return;
+            await setZoneSessionStatus(zone, monthKey, newStatus);
+            toast((newStatus==='LOCKED'?'🔒':'🔓')+' '+label+' '+zone+' แล้ว','#6366f1');
+            // รีโหลด picker
+            openMonthlyCountAdminPicker();
+        };
+
         window.btPickFullCount = function() {
             const tmplId = window._btModeTmplId;
             const zone   = window._btModeZone;
@@ -4972,6 +5161,40 @@ ${r.zone}`);
 
         window.closeMCAdminPicker = function() {
             const el = document.getElementById('mcAdminModal'); if(el) el.remove();
+        };
+
+        // ── Session State helpers ──
+        // collection: monthSessions / doc: {monthKey}_{zone}
+        // status: NOT_STARTED | IN_PROGRESS | COMPLETED | LOCKED
+        window._getSessionDocId = (zone, monthKey) => (monthKey+'_'+zone).replace(/[^a-zA-Z0-9_-]/g,'_');
+
+        window.getZoneSessionStatus = async function(zone, monthKey) {
+            try {
+                const sid = window._getSessionDocId(zone, monthKey);
+                const snap = await getDoc(doc(db,'monthSessions', sid));
+                return snap.exists() ? snap.data() : {status:'NOT_STARTED'};
+            } catch(e) { return {status:'NOT_STARTED'}; }
+        };
+
+        window.setZoneSessionStatus = async function(zone, monthKey, status, extra) {
+            try {
+                const sid = window._getSessionDocId(zone, monthKey);
+                await setDoc(doc(db,'monthSessions', sid), {
+                    zone, monthKey, status,
+                    updatedAt: Date.now(),
+                    updatedBy: currentUser.name,
+                    ...extra
+                }, {merge:true});
+            } catch(e) { console.error('setZoneSessionStatus error:', e); }
+        };
+
+        window.getStatusLabel = function(status) {
+            return {
+                'NOT_STARTED': {label:'ยังไม่เริ่ม', color:'#94a3b8', bg:'#f8fafc', icon:'⬜'},
+                'IN_PROGRESS': {label:'กำลังนับ',    color:'#d97706', bg:'#fffbeb', icon:'🟡'},
+                'COMPLETED':   {label:'นับแล้ว',     color:'#059669', bg:'#f0fdf4', icon:'✅'},
+                'LOCKED':      {label:'ล็อกแล้ว',    color:'#6366f1', bg:'#eef2ff', icon:'🔒'},
+            }[status] || {label:status, color:'#64748b', bg:'#f8fafc', icon:'❓'};
         };
 
         // เรียกหลังจาก admin picker ปิดแล้ว — ดึง tmplId จาก window map ที่เก็บไว้
@@ -5144,7 +5367,14 @@ ${r.zone}`);
             // prefill จากข้อมูลเดิม ถ้ามี
             const prefillMap = {};
             if(prefillDoc) {
-                (prefillDoc.items||[]).forEach(it => { prefillMap[it.id] = it; });
+                (prefillDoc.items||[]).forEach(it => {
+                    // สร้าง u0/u1/u2 จาก rawInputs ถ้ามี
+                    const entry = {...it};
+                    if(it.rawInputs?.length) {
+                        it.rawInputs.forEach((r,ui) => { entry['u'+ui] = r.val; });
+                    }
+                    prefillMap[it.id] = entry;
+                });
             }
 
             // ถ้าเป็น BT และมีข้อมูลเดิม ให้แสดง badge แจ้ง
@@ -5200,29 +5430,45 @@ ${r.zone}`);
                 <tbody id="bmcTbody">
                 ${groups.map(grp=>{
                     const grpItems = tmpl.items.filter(i=>(i.group||i.category||'ทั่วไป')===grp);
-                    const header = `<tr><td colspan="4" style="padding:10px 16px;background:linear-gradient(90deg,#f0f9ff,#f8fafc);font-weight:700;font-size:12px;color:#0369a1;border-top:2px solid #bae6fd;letter-spacing:.5px;">▌ ${grp.toUpperCase()}</td></tr>`;
+                    const header = '<tr><td colspan="4" style="padding:10px 16px;background:linear-gradient(90deg,#f0f9ff,#f8fafc);font-weight:700;font-size:12px;color:#0369a1;border-top:2px solid #bae6fd;letter-spacing:.5px;">▌ '+grp.toUpperCase()+'</td></tr>';
+                    const unitColors = ['#3b82f6','#8b5cf6','#f59e0b'];
                     const rows = grpItems.map(it=>{
                         const prev = prefillMap[it.id];
-                        const prevVal = prev?.balance != null ? prev.balance : '';
                         const prevNote = prev?.note || '';
-                        const hasPrev = prevVal !== '';
-                        return `
-                        <tr class="bmc-row" data-search="${it.id.toLowerCase()} ${it.name.toLowerCase()}" style="border-bottom:1px solid #f1f5f9;${hasPrev?'background:#fffbeb;':''}">
-                            <td style="padding:12px 16px;">
-                                <div style="font-weight:700;font-size:13px;">${it.id}</div>
-                                <div style="color:#475569;font-size:12px;">${it.name}</div>
-                            </td>
-                            <td style="padding:12px;text-align:center;">
-                                <input type="number" id="bmc_${it.id}" min="0" placeholder="0" value="${prevVal}"
-                                    style="width:90px;padding:9px;border-radius:10px;border:2px solid ${hasPrev?'#f59e0b':'#3b82f6'};text-align:center;font-weight:700;font-size:16px;outline:none;"
-                                    onfocus="this.style.borderColor='#1d4ed8'" onblur="this.style.borderColor='${hasPrev?'#f59e0b':'#3b82f6'}'">
-                            </td>
-                            <td style="padding:12px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
-                            <td style="padding:12px;">
-                                <input type="text" id="bmcNote_${it.id}" placeholder="หมายเหตุ" value="${prevNote}"
-                                    style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;">
-                            </td>
-                        </tr>`;
+                        const hasPrev = !!prev;
+                        // ดึง units จาก template item (ถ้ามี) หรือ fallback จาก allProducts
+                        const pRef = allProducts.find(p=>p.id===it.id);
+                        const itUnits = it.units || pRef?.units || [{name:it.unit||it.baseUnit||'',rate:0}];
+                        const baseUnit = itUnits[itUnits.length-1]?.name || itUnits[0]?.name || '';
+                        // สร้าง input fields per unit
+                        const inputsHtml = itUnits.map((u,ui)=>{
+                            const prevUnitVal = prev ? (prev['u'+ui] != null ? prev['u'+ui] : (ui===0 && prev.balance!=null ? '' : '')) : '';
+                            const col = unitColors[ui] || '#64748b';
+                            const isBase = ui === itUnits.length-1;
+                            return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:'+(ui<itUnits.length-1?'6px':'0')+'">'
+                                + '<label style="font-size:10px;color:'+col+';font-weight:700;min-width:38px;text-align:right;">'+u.name+'</label>'
+                                + '<input type="number" id="bmc_'+it.id+'_'+ui+'" min="0" placeholder="0" value="'+prevUnitVal+'"'
+                                + ' style="width:80px;padding:7px 8px;border-radius:8px;border:2px solid '+(isBase?'#10b981':col)+';text-align:center;font-weight:700;font-size:15px;outline:none;"'
+                                + ' onfocus="this.style.borderColor='#1d4ed8'" onblur="this.style.borderColor=''+(isBase?'#10b981':col)+''">'
+                                + (u.rate>0 && ui<itUnits.length-1 ? '<span style="font-size:10px;color:#cbd5e1;">= '+u.rate+' '+itUnits[ui+1]?.name+'</span>' : '')
+                                + (isBase ? '<span style="font-size:9px;background:#dcfce7;color:#059669;padding:1px 5px;border-radius:6px;font-weight:700;">BASE</span>' : '')
+                                + '</div>';
+                        }).join('');
+                        return '<tr class="bmc-row" data-search="'+it.id.toLowerCase()+' '+it.name.toLowerCase()+'" style="border-bottom:1px solid #f1f5f9;'+(hasPrev?'background:#fffbeb;':'')+'">'
+                            + '<td style="padding:10px 16px;">'
+                            +   '<div style="font-weight:700;font-size:13px;">'+it.id+'</div>'
+                            +   '<div style="color:#475569;font-size:12px;">'+it.name+'</div>'
+                            +   '<div style="font-size:10px;color:#94a3b8;margin-top:2px;">Base: <b>'+baseUnit+'</b></div>'
+                            + '</td>'
+                            + '<td style="padding:10px 12px;">'+inputsHtml+'</td>'
+                            + '<td style="padding:10px;text-align:center;">'
+                            +   '<div style="font-size:10px;color:#059669;font-weight:700;">'+baseUnit+'</div>'
+                            + '</td>'
+                            + '<td style="padding:10px;">'
+                            +   '<input type="text" id="bmcNote_'+it.id+'" placeholder="หมายเหตุ" value="'+prevNote+'"'
+                            +   ' style="width:100%;padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;">'
+                            + '</td>'
+                            + '</tr>';
                     }).join('');
                     return header+rows;
                 }).join('')}
@@ -5259,12 +5505,44 @@ ${r.zone}`);
             const datetimeTH = dateTH + (timeVal ? ' ' + timeVal : '');
             const monthKey = `${cy}-${cm}`;
 
-            const items = tmpl.items.map(it=>({
-                id:it.id, name:it.name, unit:it.unit||'',
-                group:it.group||it.category||'',
-                balance:parseFloat(document.getElementById(`bmc_${it.id}`)?.value)||0,
-                note:document.getElementById(`bmcNote_${it.id}`)?.value.trim()||''
-            }));
+            // ── Convert multi-unit inputs → Base Unit ──
+            const items = tmpl.items.map(it=>{
+                const pRef = allProducts.find(p=>p.id===it.id);
+                const itUnits = it.units || pRef?.units || [{name:it.unit||'',rate:0}];
+                const baseUnit = itUnits[itUnits.length-1]?.name || itUnits[0]?.name || '';
+                // แปลงทุกหน่วยเป็น base unit (หน่วยสุดท้าย)
+                let baseQty = 0;
+                itUnits.forEach((u, ui) => {
+                    const val = parseFloat(document.getElementById('bmc_'+it.id+'_'+ui)?.value) || 0;
+                    if(val <= 0) return;
+                    // หา multiplier จาก ui → base
+                    let mult = 1;
+                    for(let k = ui; k < itUnits.length - 1; k++) {
+                        mult *= (itUnits[k].rate || 1);
+                    }
+                    baseQty += val * mult;
+                });
+                // fallback: ถ้าไม่มี _0 _1 inputs (template เก่า) ลองอ่าน bmc_${id} เดิม
+                if(baseQty === 0) {
+                    const oldEl = document.getElementById('bmc_'+it.id);
+                    if(oldEl) baseQty = parseFloat(oldEl.value)||0;
+                }
+                baseQty = Math.round(baseQty * 1000) / 1000;
+                const note = document.getElementById('bmcNote_'+it.id)?.value.trim()||'';
+                // เก็บ raw inputs ด้วยเพื่อแสดงผล
+                const rawInputs = itUnits.map((u,ui)=>({
+                    unit: u.name,
+                    val: parseFloat(document.getElementById('bmc_'+it.id+'_'+ui)?.value)||0
+                })).filter(r=>r.val>0);
+                return {
+                    id: it.id, name: it.name,
+                    unit: baseUnit, baseUnit,
+                    balance: baseQty,
+                    rawInputs,
+                    group: it.group||it.category||'',
+                    note
+                };
+            });
             if(!items.some(it=>it.balance>0)){
                 if(!confirm('ยังไม่ได้กรอกยอดใดเลย ยืนยันบันทึกไหม?')) return;
             }
@@ -5291,6 +5569,12 @@ ${r.zone}`);
                     isBranchTemplate:true,
                     items
                 });
+                // ── อัพเดต session status เป็น COMPLETED ──
+                await setZoneSessionStatus(zone, monthKey, 'COMPLETED', {
+                    completedAt: Date.now(),
+                    completedBy: currentUser.name,
+                    templateName: tmpl.name
+                });
                 toast('✅ บันทึกผลการนับเรียบร้อย','#059669');
                 goToDashboard();
             } catch(e){toast('❌ บันทึกไม่สำเร็จ: '+e.message,'#ef4444');}
@@ -5309,8 +5593,8 @@ ${r.zone}`);
                     <tr style="${idx%2===0?'background:#f8fafc':''}">
                         <td style="padding:9px 12px;">${it.id}</td>
                         <td style="padding:9px 12px;">${it.name}</td>
-                        <td style="padding:9px;text-align:center;">${it.unit||''}</td>
-                        <td style="padding:9px;width:100px;border-bottom:1px solid #cbd5e1;">${parseFloat(document.getElementById(`bmc_${it.id}`)?.value)||''}</td>
+                        <td style="padding:9px;text-align:center;">${it.unit||it.baseUnit||''}</td>
+                        <td style="padding:9px;width:120px;border-bottom:1px solid #cbd5e1;"></td>
                         <td style="padding:9px;width:120px;"></td>
                     </tr>`).join('');
                 return header+rows;
@@ -5684,12 +5968,20 @@ ${r.zone}`);
             if(!name){toast('⚠️ กรุณาใส่ชื่อ Template','#c2410c');return;}
             if(!branchType){toast('⚠️ กรุณาใส่ branchType','#c2410c');return;}
             const items = allProducts.filter(p=>document.getElementById(`sstitem_${p.id}`)?.checked)
-                .map(p=>({
-                    id:p.id, name:p.name,
-                    unit:(p.units||[{name:p.unit||''}])[0]?.name||'',
-                    category:p.category||'',
-                    group:document.getElementById(`sstgroup_${p.id}`)?.value.trim()||p.category||''
-                }));
+                .map(p=>{
+                    const pUnits = p.units||[{name:p.unit||'',rate:0}];
+                    return {
+                        id: p.id,
+                        name: p.name,
+                        // เก็บ units[] เต็มๆ พร้อม rate เพื่อใช้ convert
+                        units: pUnits,
+                        // backward compat
+                        unit: pUnits[pUnits.length-1]?.name || pUnits[0]?.name || '',
+                        baseUnit: pUnits[pUnits.length-1]?.name || pUnits[0]?.name || '',
+                        category: p.category||'',
+                        group: document.getElementById(`sstgroup_${p.id}`)?.value.trim()||p.category||''
+                    };
+                });
             if(!items.length){toast('⚠️ เลือกสินค้าอย่างน้อย 1 รายการ','#c2410c');return;}
             stockSheetTemplates[tid] = {name,branchType,zone:branchType,color,items};
             saveConfig();
