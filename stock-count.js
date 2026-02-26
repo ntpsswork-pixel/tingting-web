@@ -202,6 +202,17 @@
                     <button onclick="window.print()" style="background:var(--danger);color:white;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;font-weight:bold;">🖨️ Print PDF</button>
                 </div>
             </div>
+            <div style="margin:0 0 16px;padding:14px 18px;background:linear-gradient(90deg,#f5f3ff,#eff6ff);border:1.5px solid #c4b5fd;border-radius:12px;display:flex;align-items:center;gap:14px;" class="no-print">
+                <div style="font-size:28px;">📅</div>
+                <div style="flex:1;">
+                    <div style="font-weight:700;font-size:14px;color:#5b21b6;">ประวัติการนับสต๊อกสิ้นเดือน</div>
+                    <div style="font-size:12px;color:#64748b;">ดูรายงานการนับสต๊อกสิ้นเดือนทุกสาขาแยกตามเดือน — มีประวัติย้อนหลัง, Export Excel และ PDF</div>
+                </div>
+                <button onclick="openMonthlyHistoryView()"
+                    style="background:#7c3aed;color:white;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:bold;font-size:13px;white-space:nowrap;">
+                    📅 ดูประวัติสิ้นเดือน →
+                </button>
+            </div>
             <div id="historyContainer"><p style="color:#94a3b8;text-align:center;padding:40px;">กำลังโหลด...</p></div>`;
             await loadCurrentReport();
         };
@@ -1276,7 +1287,7 @@ ${r.zone}`);
                         const p = allProducts.find(x=>x.id===it.id);
                         const tmpl = stockSheetTemplates[window._bmcCurrentTmplId] || {};
                         const tmplItem = (tmpl.items||[]).find(x=>x.id===it.id);
-                        const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                        const exportUnit = _getExportUnit(it.id, tmplItem);
                         const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
                         const showConvert = exportUnit && exportUnit !== it.unit && it.unit;
                         return `
@@ -1497,7 +1508,7 @@ ${r.zone}`);
                 (d.items||[]).forEach(it => {
                     const p = allProducts.find(x=>x.id===it.id);
                     const tmplItem = stockSheetTemplates[d.templateId]?.items?.find(x=>x.id===it.id);
-                    const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                    const exportUnit = _getExportUnit(it.id, tmplItem);
                     const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
                     rows.push([d.zone||'',d.month||'',d.date||'',it.id,it.name,it.group||'',
                         converted,exportUnit,it.note||'',d.countedBy||'',d.templateName||'']);
@@ -1538,7 +1549,7 @@ ${r.zone}`);
                         const rows = grpItems.map((it,idx) => {
                             const p = allProducts.find(x=>x.id===it.id);
                             const tmplItem = stockSheetTemplates[d.templateId]?.items?.find(x=>x.id===it.id);
-                            const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                            const exportUnit = _getExportUnit(it.id, tmplItem);
                             const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
                             return `<tr style="${idx%2===1?'background:#f8fafc':''}">
                                 <td style="padding:7px 10px;font-weight:600;font-size:11px;">${it.id}</td>
@@ -1595,6 +1606,12 @@ ${r.zone}`);
 
         // ======== EXPORT UNIT CONVERSION HELPER ========
         // แปลง amount จาก fromUnit → toUnit โดยใช้ข้อมูล units ของสินค้า
+        // ลำดับความสำคัญ exportUnit: template item > product.exportUnit > units[0]
+        window._getExportUnit = function(productId, tmplItem) {
+            const p = allProducts.find(x=>x.id===productId);
+            return tmplItem?.exportUnit || p?.exportUnit || (p?.units||[{name:p?.unit||''}])[0]?.name || '';
+        };
+
         window._convertToExportUnit = function(amount, fromUnit, toUnit, product) {
             if(!amount || amount === 0) return 0;
             if(!fromUnit || !toUnit || fromUnit === toUnit) return Math.round(amount*1000)/1000;
@@ -1625,7 +1642,7 @@ ${r.zone}`);
                 const rows = [header, ...(d.items||[]).map(it=>{
                     const p = allProducts.find(x=>x.id===it.id);
                     const tmplItem = (tmpl.items||[]).find(x=>x.id===it.id);
-                    const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                    const exportUnit = _getExportUnit(it.id, tmplItem);
                     const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
                     return [it.id, it.name, it.group||'', converted, exportUnit, it.unit||'', it.note||''];
                 })];
@@ -1680,7 +1697,7 @@ ${r.zone}`);
                 const rows = grpItems.map((it,idx) => {
                     const p = allProducts.find(x=>x.id===it.id);
                     const tmplItem = (tmpl.items||[]).find(x=>x.id===it.id);
-                    const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                    const exportUnit = _getExportUnit(it.id, tmplItem);
                     const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
                     const showConvert = exportUnit !== it.unit && it.unit;
                     return `<tr style="${idx%2===1?'background:#f8fafc':''}">

@@ -44,18 +44,29 @@
                     <div style="background:#f8fafc;border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid #e2e8f0;">
                         <div style="font-size:11px;color:#64748b;font-weight:bold;margin-bottom:8px;">หน่วยและอัตราแปลง (สูงสุด 3 หน่วย)</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-                            <input type="text" id="newPdUnit1" placeholder="หน่วยที่ 1 (ใหญ่สุด) เช่น ลัง" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                            <input type="text" id="newPdUnit1" placeholder="หน่วยที่ 1 (ใหญ่สุด) เช่น ลัง" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;" onblur="refreshNewPdExportUnitOpts()">
                             <input type="number" id="newPdRate1" placeholder="1 ลัง = ? ถุง" min="1" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
                             <small style="color:#94a3b8;">× หน่วยที่ 2</small>
                         </div>
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-                            <input type="text" id="newPdUnit2" placeholder="หน่วยที่ 2 (กลาง) เช่น ถุง" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                            <input type="text" id="newPdUnit2" placeholder="หน่วยที่ 2 (กลาง) เช่น ถุง" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;" onblur="refreshNewPdExportUnitOpts()">
                             <input type="number" id="newPdRate2" placeholder="1 ถุง = ? กรัม" min="1" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
                             <small style="color:#94a3b8;">× หน่วยที่ 3</small>
                         </div>
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;">
-                            <input type="text" id="newPdUnit3" placeholder="หน่วยที่ 3 (เล็กสุด) เช่น กรัม" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                            <input type="text" id="newPdUnit3" placeholder="หน่วยที่ 3 (เล็กสุด) เช่น กรัม" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:12px;" onblur="refreshNewPdExportUnitOpts()">
                             <div></div><small style="color:#94a3b8;">หน่วยสุดท้าย</small>
+                        </div>
+                        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e2e8f0;">
+                            <div style="font-size:10px;color:#0369a1;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">📤 หน่วยสำหรับ Export สิ้นเดือน</div>
+                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" id="newPdExportUnitWrap">
+                                <label style="font-size:11px;color:#64748b;">เลือกหน่วยที่จะ export:</label>
+                                <select id="newPdExportUnit" onchange="syncNewPdExportUnit(this)"
+                                    style="padding:7px 10px;border:1.5px solid #bae6fd;border-radius:7px;font-size:12px;color:#0369a1;font-weight:600;outline:none;background:#f0f9ff;min-width:120px;">
+                                    <option value="">— ยังไม่ได้ตั้งค่าหน่วย —</option>
+                                </select>
+                                <small style="color:#94a3b8;font-size:10px;">จำนวนจะถูก convert อัตโนมัติเวลา export</small>
+                            </div>
                         </div>
                     </div>
                     <button onclick="addPd()" style="width:100%;background:var(--info);color:white;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;">+ บันทึกสินค้า</button>
@@ -181,6 +192,7 @@
                         </div>
                         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                             <span style="color:#7c3aed;font-size:12px;font-weight:600;">📦 ${unitsStr}</span>
+                            ${p.exportUnit?`<span style="background:#f0f9ff;color:#0369a1;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid #bae6fd;flex-shrink:0;">📤 Export: <b>${p.exportUnit}</b></span>`:''}
                             ${p.barcode?`<span style="color:#94a3b8;font-size:11px;font-family:monospace;">🔖 ${p.barcode}</span>`:''}
                         </div>
                     </div>
@@ -210,19 +222,28 @@
                         <div style="grid-column:span 2;border-top:1px solid #e2e8f0;padding-top:10px;margin-top:2px;">
                             <div style="font-size:10px;color:#7c3aed;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">📦 หน่วยและอัตราแปลง (สูงสุด 3 หน่วย)</div>
                             <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px;">
-                                <input id="pdEditUnit0_${i}" value="${units[0]?.name||''}" placeholder="หน่วยที่ 1 (ใหญ่สุด) เช่น ลัง" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+                                <input id="pdEditUnit0_${i}" value="${units[0]?.name||''}" placeholder="หน่วยที่ 1 (ใหญ่สุด) เช่น ลัง" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0';refreshEditPdExportUnit(${i})">
                                 <input id="pdEditRate0_${i}" value="${units[0]?.rate||''}" placeholder="1 ลัง = ? หน่วยที่ 2" type="number" min="1" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
                                 <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">× หน่วยที่ 2</span>
                             </div>
                             <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px;">
-                                <input id="pdEditUnit1_${i}" value="${units[1]?.name||''}" placeholder="หน่วยที่ 2 (กลาง) เช่น ถุง" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+                                <input id="pdEditUnit1_${i}" value="${units[1]?.name||''}" placeholder="หน่วยที่ 2 (กลาง) เช่น ถุง" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0';refreshEditPdExportUnit(${i})">
                                 <input id="pdEditRate1_${i}" value="${units[1]?.rate||''}" placeholder="1 ถุง = ? หน่วยที่ 3" type="number" min="1" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
                                 <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">× หน่วยที่ 3</span>
                             </div>
                             <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;">
-                                <input id="pdEditUnit2_${i}" value="${units[2]?.name||''}" placeholder="หน่วยที่ 3 (เล็กสุด) เช่น กรัม" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+                                <input id="pdEditUnit2_${i}" value="${units[2]?.name||''}" placeholder="หน่วยที่ 3 (เล็กสุด) เช่น กรัม" style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0';refreshEditPdExportUnit(${i})">
                                 <div></div>
                                 <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">หน่วยสุดท้าย</span>
+                            </div>
+                            <!-- Export Unit -->
+                            <div style="margin-top:10px;padding:10px 12px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                <span style="font-size:11px;color:#0369a1;font-weight:700;">📤 หน่วย Export สิ้นเดือน:</span>
+                                <select id="pdEditExportUnit_${i}"
+                                    style="padding:6px 10px;border:1.5px solid #93c5fd;border-radius:7px;font-size:12px;color:#1d4ed8;font-weight:700;outline:none;background:white;">
+                                    ${units.map(u=>`<option value="${u.name}" ${u.name===(p.exportUnit||units[0]?.name||'')?'selected':''}>${u.name}</option>`).join('')}
+                                </select>
+                                <span style="font-size:10px;color:#64748b;">จำนวนจะถูก convert อัตโนมัติเมื่อ export</span>
                             </div>
                         </div>
                         <button onclick="saveEditPd(${i})" style="grid-column:span 2;background:var(--success);color:white;border:none;padding:11px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:bold;margin-top:4px;">💾 บันทึก</button>
@@ -259,6 +280,7 @@
             const editedSupplier=document.getElementById(`pdEditSupplier_${i}`)?.value.trim()||'';
             const editedBarcode=document.getElementById(`pdEditBarcode_${i}`)?.value.trim()||'';
             const editedCategory=document.getElementById(`pdEditCategory_${i}`)?.value.trim()||'';
+            const editedExportUnit=document.getElementById(`pdEditExportUnit_${i}`)?.value||newUnits[0]?.name||'';
             allProducts[i].name=name;
             allProducts[i].units=newUnits;
             allProducts[i].unit=newUnits[0]?.name||'';
@@ -266,8 +288,20 @@
             allProducts[i].supplier=editedSupplier;
             allProducts[i].barcode=editedBarcode;
             allProducts[i].category=editedCategory;
+            allProducts[i].exportUnit=editedExportUnit;
             saveConfig(); renderPdList();
             toast('✅ แก้ไขสินค้าเรียบร้อย','#059669');
+        };
+
+        // refresh export unit dropdown ใน edit form เมื่อพิมพ์ชื่อหน่วยใหม่
+        window.refreshEditPdExportUnit = function(i) {
+            const sel = document.getElementById(`pdEditExportUnit_${i}`); if(!sel) return;
+            const cur = sel.value;
+            const u0 = document.getElementById(`pdEditUnit0_${i}`)?.value.trim()||'';
+            const u1 = document.getElementById(`pdEditUnit1_${i}`)?.value.trim()||'';
+            const u2 = document.getElementById(`pdEditUnit2_${i}`)?.value.trim()||'';
+            const opts = [u0,u1,u2].filter(Boolean);
+            sel.innerHTML = opts.map(u=>`<option value="${u}" ${u===cur?'selected':''}>${u}</option>`).join('');
         };
 
         // ---- PRODUCT SORT ORDER ----
@@ -447,7 +481,8 @@
             const supplier = document.getElementById('newPdSupplier')?.value.trim()||'';
             const barcode = document.getElementById('newPdBarcode')?.value.trim()||'';
             const category = document.getElementById('newPdCategory')?.value.trim()||'';
-            allProducts.push({id:finalId,name,units,supplier,barcode,category,
+            const exportUnit = document.getElementById('newPdExportUnit')?.value.trim() || u1;
+            allProducts.push({id:finalId,name,units,supplier,barcode,category,exportUnit,
                 // backward compat
                 unit:u1, subUnit:u2||''
             });
@@ -455,11 +490,30 @@
             ['newPdId','newPdName','newPdSupplier','newPdBarcode','newPdCategory','newPdUnit1','newPdRate1','newPdUnit2','newPdRate2','newPdUnit3'].forEach(x=>{
                 const el=document.getElementById(x); if(el) el.value='';
             });
+            const euEl = document.getElementById('newPdExportUnit');
+            if(euEl) euEl.innerHTML = '<option value="">— กรอกหน่วยก่อน —</option>';
             toast(`✅ เพิ่มสินค้า [${finalId}] เรียบร้อย`,'#059669');
         };
 
         window.deletePd=function(i){if(confirm('ยืนยันลบสินค้า?')){allProducts.splice(i,1);saveConfig();renderPdList();renderMapping();}};
 
+        // sync export unit dropdown เมื่อพิมพ์หน่วยใน add form
+        window.syncNewPdExportUnit = function(sel) {
+            // ไม่ต้องทำอะไร — user เลือกเองแล้ว
+        };
+        // เรียกทุกครั้งที่ blur จาก unit input เพื่ออัพเดท dropdown
+        window.refreshNewPdExportUnitOpts = function() {
+            const u1 = document.getElementById('newPdUnit1')?.value.trim();
+            const u2 = document.getElementById('newPdUnit2')?.value.trim();
+            const u3 = document.getElementById('newPdUnit3')?.value.trim();
+            const sel = document.getElementById('newPdExportUnit');
+            if(!sel) return;
+            const cur = sel.value;
+            const opts = [u1,u2,u3].filter(Boolean);
+            sel.innerHTML = opts.length
+                ? opts.map(u=>`<option value="${u}" ${u===cur?'selected':''}>${u}</option>`).join('')
+                : '<option value="">— กรอกหน่วยก่อน —</option>';
+        };
         // ══ Category Management ══
         // ══ Category Management ══
         window.renderCategoryChips = function() {
