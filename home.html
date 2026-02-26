@@ -2220,14 +2220,14 @@
                     + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">'
                     + (rooms.length ? rooms.map((r,ri) => '<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:3px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">'
                         + '🚪 '+r
-                        + '<button onclick="deleteRoom(''+wgKey+'','+ri+')" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:12px;padding:0;line-height:1;">✕</button>'
+                        + '<button onclick="deleteRoom(\''+wgKey+'\','+ri+')" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:12px;padding:0;line-height:1;">✕</button>'
                         + '</span>').join('') : '<span style="color:#94a3b8;font-size:12px;">ยังไม่มีห้องย่อย — นับรวมเป็นคลังเดียว</span>')
                     + '</div>'
                     + '<div style="display:flex;gap:6px;">'
                     + '<input type="text" id="newRoom_'+wgKey+'" placeholder="เช่น Room A" maxlength="20"'
                     + ' style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;outline:none;flex:1;"'
-                    + ' onkeydown="if(event.key==='Enter')addRoom(''+wgKey+'')">'
-                    + '<button onclick="addRoom(''+wgKey+'')" style="background:#3b82f6;color:white;border:none;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">+ เพิ่มห้อง</button>'
+                    + ' onkeydown="if(event.key===\'Enter\')addRoom(\''+wgKey+'\')">'
+                    + '<button onclick="addRoom(\''+wgKey+'\')" style="background:#3b82f6;color:white;border:none;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">+ เพิ่มห้อง</button>'
                     + '</div>'
                     + '</div>';
             }).join('');
