@@ -1878,7 +1878,6 @@
                 <h4 style="margin:0 0 4px;">🚪 จัดการห้องย่อย (Rooms) สำหรับคลังกลาง</h4>
                 <small style="color:#94a3b8;display:block;margin-bottom:16px;">เช่น WHRM01 → Room A, Room B — ตอนนับจะแยกตามห้อง แต่ Export รวมยอดกลับเป็น WHRM01 อัตโนมัติ</small>
                 <div id="roomManagerContent"></div>
-                <script>renderRoomManager();</script>
             </div>
             <div style="margin-top:25px;background:white;padding:25px;border-radius:15px;border:1px solid #e2e8f0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -1893,7 +1892,7 @@
                 <div id="minMaxZoneLabel" style="font-size:13px;color:#64748b;margin-bottom:10px;"></div>
                 <div id="minMaxContainer"></div>
             </div>`;
-            renderWhList(); renderPdList(); renderCategoryChips();
+            renderWhList(); renderPdList(); renderCategoryChips(); renderRoomManager();
             document.getElementById('selectZoneMap').innerHTML=warehouseList.map(w=>`<option value="${w}">${w}</option>`).join('');
             renderMapping();
             renderMinMaxTable();
