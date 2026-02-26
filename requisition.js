@@ -1,12 +1,6 @@
-/**
- * requisition.js — TTGPlus
- * Auto-extracted from home.html
- * Depends on globals: db, currentUser, allProducts, warehouseList,
- *   zoneProductMap, countData, tempCountData, stockSheetTemplates,
- *   warehouseGroups, monthlyCountOpen, productCategories,
- *   saveConfig, toast, goToDashboard, closeTool,
- *   getVisibleWarehouses, getZoneProducts, loadCountData, saveCountData, XLSX
- */
+// requisition.js — TTGPlus (extracted)
+
+        // ======== REQUISITION SYSTEM ========
         // Firestore: requisitions/{id} = {
         //   mrNumber, date, requestedBy, department, zone, purpose,
         //   items:[{id,name,unit,qtyRequested,qtyIssued}],

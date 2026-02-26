@@ -1,12 +1,6 @@
-/**
- * warehouse-settings.js — TTGPlus
- * Auto-extracted from home.html
- * Depends on globals: db, currentUser, allProducts, warehouseList,
- *   zoneProductMap, countData, tempCountData, stockSheetTemplates,
- *   warehouseGroups, monthlyCountOpen, productCategories,
- *   saveConfig, toast, goToDashboard, closeTool,
- *   getVisibleWarehouses, getZoneProducts, loadCountData, saveCountData, XLSX
- */
+// warehouse-settings.js — TTGPlus (extracted)
+
+        // ---- WAREHOUSE MANAGER (เพิ่ม edit + subUnit) ----
         window.openWarehouseManager=function(){
             document.getElementById('dashboardView').classList.add('hidden');
             const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');
@@ -503,6 +497,7 @@
 
         // ---- MISC ----
 
+        // ======== IMPORT PRODUCTS FROM EXCEL ========
         window.openImportProducts=function(){
             document.getElementById('dashboardView').classList.add('hidden');
             const c=document.getElementById('toolAppContainer');c.classList.remove('hidden');

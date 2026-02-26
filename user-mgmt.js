@@ -1,12 +1,6 @@
-/**
- * user-mgmt.js — TTGPlus
- * Auto-extracted from home.html
- * Depends on globals: db, currentUser, allProducts, warehouseList,
- *   zoneProductMap, countData, tempCountData, stockSheetTemplates,
- *   warehouseGroups, monthlyCountOpen, productCategories,
- *   saveConfig, toast, goToDashboard, closeTool,
- *   getVisibleWarehouses, getZoneProducts, loadCountData, saveCountData, XLSX
- */
+// user-mgmt.js — TTGPlus (extracted)
+
+        // ---- PERMISSIONS ----
         window.applyPermissions = function() {
             const role       = currentUser.role || 'guest';
             const perms      = roleSettings[role]?.menus || [];
@@ -88,6 +82,41 @@
             } catch(e) {}
         };
 
+        // ---- CHANGE PASSWORD ----
+        window.openChangePasswordModal = function() {
+            if (currentUser.username==='admin'&&currentUser.role==='admin') { toast('⚠️ บัญชี Admin หลักไม่สามารถเปลี่ยน Password ได้','#c2410c'); return; }
+            const modal=document.createElement('div'); modal.className='modal-overlay'; modal.id='changePassModal';
+            modal.innerHTML=`<div class="modal-box"><h3>🔑 เปลี่ยน Password</h3>
+                <input type="password" id="oldPassInput" placeholder="Password ปัจจุบัน">
+                <input type="password" id="newPassInput" placeholder="Password ใหม่">
+                <input type="password" id="confirmPassInput" placeholder="ยืนยัน Password ใหม่">
+                <div class="modal-error" id="passModalError"></div>
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                    <button onclick="submitChangePassword()" style="flex:1;background:var(--info);color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:bold;">✅ ยืนยัน</button>
+                    <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;">ยกเลิก</button>
+                </div></div>`;
+            document.body.appendChild(modal);
+        };
+
+        window.submitChangePassword = async function() {
+            const op=document.getElementById('oldPassInput').value, np=document.getElementById('newPassInput').value, cp=document.getElementById('confirmPassInput').value;
+            const err=document.getElementById('passModalError'); err.style.display='none';
+            if (!op||!np||!cp){err.innerText='⚠️ กรุณากรอกให้ครบ';err.style.display='block';return;}
+            if (np!==cp){err.innerText='❌ Password ใหม่ไม่ตรงกัน';err.style.display='block';return;}
+            if (np.length<4){err.innerText='❌ ต้องมีอย่างน้อย 4 ตัวอักษร';err.style.display='block';return;}
+            try {
+                const snap=await getDoc(doc(db,'users',currentUser.username));
+                if (!snap.exists()){err.innerText='❌ ไม่พบข้อมูลผู้ใช้';err.style.display='block';return;}
+                const ho=await hashPassword(op), st=snap.data().password||await hashPassword('1234');
+                if (ho!==st){err.innerText='❌ Password ปัจจุบันไม่ถูกต้อง';err.style.display='block';return;}
+                await setDoc(doc(db,'users',currentUser.username),{password:await hashPassword(np)},{merge:true});
+                closeModal(); toast('✅ เปลี่ยน Password เรียบร้อย!','#059669');
+            } catch(e){err.innerText='⚠️ เกิดข้อผิดพลาด';err.style.display='block';}
+        };
+
+        window.closeModal = function() { const m=document.getElementById('changePassModal'); if(m) m.remove(); };
+
+        // ---- USER MANAGEMENT ----
         window.openUserManagement = function() {
             document.getElementById('dashboardView').classList.add('hidden');
             const c=document.getElementById('toolAppContainer'); c.classList.remove('hidden');

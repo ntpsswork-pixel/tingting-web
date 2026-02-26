@@ -1,12 +1,6 @@
-/**
- * help.js — TTGPlus
- * Auto-extracted from home.html
- * Depends on globals: db, currentUser, allProducts, warehouseList,
- *   zoneProductMap, countData, tempCountData, stockSheetTemplates,
- *   warehouseGroups, monthlyCountOpen, productCategories,
- *   saveConfig, toast, goToDashboard, closeTool,
- *   getVisibleWarehouses, getZoneProducts, loadCountData, saveCountData, XLSX
- */
+// help.js — TTGPlus (extracted)
+
+        // ======== HELP GUIDE ========
         window.openHelpGuide = function() {
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');

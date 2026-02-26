@@ -1,12 +1,6 @@
-/**
- * lot-register.js — TTGPlus
- * Auto-extracted from home.html
- * Depends on globals: db, currentUser, allProducts, warehouseList,
- *   zoneProductMap, countData, tempCountData, stockSheetTemplates,
- *   warehouseGroups, monthlyCountOpen, productCategories,
- *   saveConfig, toast, goToDashboard, closeTool,
- *   getVisibleWarehouses, getZoneProducts, loadCountData, saveCountData, XLSX
- */
+// lot-register.js — TTGPlus (extracted)
+
+        // ════ LOT REGISTER ════
         window.openLotRegister = async function() {
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');

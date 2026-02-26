@@ -1,12 +1,6 @@
-/**
- * stock-count.js — TTGPlus
- * Auto-extracted from home.html
- * Depends on globals: db, currentUser, allProducts, warehouseList,
- *   zoneProductMap, countData, tempCountData, stockSheetTemplates,
- *   warehouseGroups, monthlyCountOpen, productCategories,
- *   saveConfig, toast, goToDashboard, closeTool,
- *   getVisibleWarehouses, getZoneProducts, loadCountData, saveCountData, XLSX
- */
+// stock-count.js — TTGPlus (extracted)
+
+        // ---- STOCK TOOL (แก้ bug selectedStaff) ----
         window.openCentralStock=function(){
             document.getElementById('dashboardView').classList.add('hidden');
             document.getElementById('toolAppContainer').classList.remove('hidden');
@@ -496,6 +490,7 @@
             toast('📥 Export เรียบร้อย','#10b981');
         };
 
+        // ======== INVENTORY CHECK SYSTEM ========
         // Firestore collection: inventoryHistory
         // แต่ละ doc = { zone, date, timestamp, countedBy, recordedBy, items:[{id,name,balance,unit,note}] }
 
@@ -743,6 +738,7 @@
             renderInventoryRows(); // reload เพื่อแสดง prev ใหม่
         };
 
+        // ======== DAILY STOCK CARD ========
         // Firestore: dailyStockCards/{id} = {
         //   date, zone, recordedBy, timestamp,
         //   items:[{ id, name, unit,
@@ -2430,6 +2426,3 @@ ${r.zone}`);
             }
             toast(`✅ ใช้ Template "${t.name}" แล้ว`,'#059669');
         };
-
-        // ════════════════════════════════════════
-        // GR — GOODS RECEIPT MODULE
