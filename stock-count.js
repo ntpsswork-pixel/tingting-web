@@ -1241,8 +1241,10 @@ ${r.zone}`);
                 <div style="display:flex;gap:8px;">
                     <button onclick="editBMCSummary()"
                         style="background:#f59e0b;color:white;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:bold;">✏️ แก้ไข / นับใหม่</button>
+                    <button onclick="openMonthlyHistoryView()"
+                        style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📅 ประวัติทุกเดือน</button>
                     <button onclick="printBranchMonthlyCountSummary()"
-                        style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ พิมพ์</button>
+                        style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ PDF</button>
                     <button onclick="exportBranchMonthlyCountExcel()"
                         style="background:#0891b2;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Excel</button>
                     ${isAdmin ? `<button onclick="deleteBMCSummary()" style="background:#ef4444;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">🗑️ ลบ</button>` : ''}
@@ -1263,25 +1265,34 @@ ${r.zone}`);
                 <thead><tr style="background:#1e293b;color:white;">
                     <th style="padding:12px 16px;text-align:left;font-size:12px;">สินค้า</th>
                     <th style="padding:12px;text-align:center;font-size:12px;background:#1d4ed8;">ยอดนับ</th>
-                    <th style="padding:12px;text-align:center;font-size:12px;">หน่วย</th>
+                    <th style="padding:12px;text-align:center;font-size:12px;">หน่วย Export</th>
                     <th style="padding:12px;text-align:left;font-size:12px;">หมายเหตุ</th>
                 </tr></thead>
                 <tbody>
                 ${groups.map(grp => {
                     const grpItems = (existingDoc.items||[]).filter(i=>(i.group||'ทั่วไป')===grp);
                     const header = `<tr><td colspan="4" style="padding:9px 16px;background:linear-gradient(90deg,#f0f9ff,#f8fafc);font-weight:700;font-size:11px;color:#0369a1;border-top:2px solid #bae6fd;letter-spacing:.5px;">▌ ${grp.toUpperCase()}</td></tr>`;
-                    const rows = grpItems.map((it,idx) => `
+                    const rows = grpItems.map((it,idx) => {
+                        const p = allProducts.find(x=>x.id===it.id);
+                        const tmpl = stockSheetTemplates[window._bmcCurrentTmplId] || {};
+                        const tmplItem = (tmpl.items||[]).find(x=>x.id===it.id);
+                        const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                        const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
+                        const showConvert = exportUnit && exportUnit !== it.unit && it.unit;
+                        return `
                         <tr style="border-bottom:1px solid #f1f5f9;${idx%2===1?'background:#fafafa':''}">
                             <td style="padding:11px 16px;">
                                 <div style="font-weight:700;font-size:13px;">${it.id}</div>
                                 <div style="color:#475569;font-size:12px;">${it.name}</div>
                             </td>
                             <td style="padding:11px;text-align:center;">
-                                <span style="font-size:20px;font-weight:800;color:${(it.balance||0)>0?'#1d4ed8':'#94a3b8'};">${it.balance??'-'}</span>
+                                <span style="font-size:20px;font-weight:800;color:${(converted||0)>0?'#1d4ed8':'#94a3b8'};">${converted??'-'}</span>
+                                ${showConvert?`<div style="font-size:10px;color:#94a3b8;">(นับ: ${it.balance??'-'} ${it.unit})</div>`:''}
                             </td>
-                            <td style="padding:11px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
+                            <td style="padding:11px;text-align:center;color:#0369a1;font-size:13px;font-weight:600;">${exportUnit}</td>
                             <td style="padding:11px;color:#64748b;font-size:12px;">${it.note||'—'}</td>
-                        </tr>`).join('');
+                        </tr>`;
+                    }).join('');
                     return header+rows;
                 }).join('')}
                 </tbody>
@@ -1289,8 +1300,16 @@ ${r.zone}`);
             </div>
             <div style="margin-top:16px;text-align:center;padding-bottom:20px;" class="no-print">
                 <button onclick="editBMCSummary()"
-                    style="background:#f59e0b;color:white;padding:14px 50px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;">
+                    style="background:#f59e0b;color:white;padding:14px 40px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;margin-right:10px;">
                     ✏️ แก้ไขยอดนับ
+                </button>
+                <button onclick="exportBranchMonthlyCountPDF()"
+                    style="background:#7c3aed;color:white;padding:14px 30px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;margin-right:10px;">
+                    🖨️ Export PDF
+                </button>
+                <button onclick="exportBranchMonthlyCountExcel()"
+                    style="background:#0891b2;color:white;padding:14px 30px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;">
+                    📥 Export Excel
                 </button>
             </div>`;
         };
@@ -1317,25 +1336,414 @@ ${r.zone}`);
             } catch(e) { toast('❌ ลบไม่สำเร็จ: '+e.message,'#ef4444'); }
         };
 
-        // Export Excel — ยอดนับสิ้นเดือนสาขา (จาก _bmcCurrentDoc)
+        // ======== MONTHLY COUNT HISTORY VIEW (แยกจาก stockHistory) ========
+        window.openMonthlyHistoryView = async function() {
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+            const visibleZones = getVisibleWarehouses();
+
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <h2>📅 ประวัติการนับสต๊อกสิ้นเดือน</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="exportMonthlyHistoryExcel()" style="background:var(--success);color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📥 Export Excel</button>
+                    <button onclick="exportMonthlyHistoryPDF()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">🖨️ Export PDF</button>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕</button>
+                </div>
+            </div>
+            <div class="filter-bar no-print" style="flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+                <div><label style="font-size:11px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">📦 คลัง/สาขา</label>
+                    <select id="mhZone" onchange="loadMonthlyHistory()"
+                        style="padding:9px 14px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;min-width:160px;">
+                        <option value="">— ทุกสาขา —</option>
+                        ${visibleZones.map(z=>`<option value="${z}">${z}</option>`).join('')}
+                    </select></div>
+                <div><label style="font-size:11px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">📅 เดือน</label>
+                    <input type="month" id="mhMonth" onchange="loadMonthlyHistory()"
+                        style="padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;outline:none;">
+                </div>
+                <div style="display:flex;align-items:flex-end;">
+                    <button onclick="document.getElementById('mhMonth').value='';document.getElementById('mhZone').value='';loadMonthlyHistory()"
+                        style="padding:9px 14px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;background:white;cursor:pointer;">🔄 ล้างตัวกรอง</button>
+                </div>
+            </div>
+            <div id="monthlyHistoryContainer">
+                <p style="color:#94a3b8;text-align:center;padding:40px;">กำลังโหลด...</p>
+            </div>`;
+            await loadMonthlyHistory();
+        };
+
+        window._monthlyHistoryData = [];
+
+        window.loadMonthlyHistory = async function() {
+            const zone = document.getElementById('mhZone')?.value || '';
+            const month = document.getElementById('mhMonth')?.value || '';
+            const con = document.getElementById('monthlyHistoryContainer'); if(!con) return;
+            con.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px;">กำลังโหลด...</p>';
+            try {
+                const snap = await getDocs(collection(db,'inventoryHistory'));
+                let docs = [];
+                snap.forEach(d => {
+                    const x = d.data();
+                    // เฉพาะ monthly branch count — ไม่รวม session count ทั่วไป
+                    if(x.type === 'branch' || x.isBranchTemplate) {
+                        docs.push({id: d.id, ...x});
+                    }
+                });
+                if(zone) docs = docs.filter(d => d.zone === zone);
+                if(month) docs = docs.filter(d => (d.month||'') === month);
+                docs.sort((a,b) => (b.month||'').localeCompare(a.month||'') || (a.zone||'').localeCompare(b.zone||''));
+                window._monthlyHistoryData = docs;
+
+                if(!docs.length) {
+                    con.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px;">ไม่พบข้อมูลการนับสต๊อกสิ้นเดือน</p>';
+                    return;
+                }
+
+                // จัดกลุ่มตามเดือน
+                const byMonth = {};
+                docs.forEach(d => {
+                    const mk = d.month || d.date?.slice(6) || 'unknown';
+                    if(!byMonth[mk]) byMonth[mk] = [];
+                    byMonth[mk].push(d);
+                });
+
+                con.innerHTML = Object.keys(byMonth).sort().reverse().map(mk => {
+                    const mDocs = byMonth[mk];
+                    // แสดงชื่อเดือนเป็นภาษาไทย
+                    let mLabel = mk;
+                    if(/^\d{4}-\d{2}$/.test(mk)) {
+                        const [y,m] = mk.split('-');
+                        const thMonth = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][parseInt(m)-1] || m;
+                        mLabel = `${thMonth} ${parseInt(y)+543}`;
+                    }
+                    return `
+                    <div style="margin-bottom:28px;">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                            <h3 style="margin:0;color:#1e293b;font-size:16px;">📅 ${mLabel}</h3>
+                            <span style="background:#e0f2fe;color:#0369a1;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;">${mDocs.length} สาขา</span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;">
+                        ${mDocs.map(d => {
+                            const itemCount = (d.items||[]).length;
+                            const filledCount = (d.items||[]).filter(it=>(it.balance||0)>0).length;
+                            return `
+                            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+                                    <div>
+                                        <div style="font-weight:700;font-size:14px;color:#1e293b;">🏪 ${d.zone||'—'}</div>
+                                        <div style="font-size:11px;color:#64748b;margin-top:2px;">วันที่นับ: ${d.date||'—'} • โดย: ${d.countedBy||'—'}</div>
+                                        <div style="font-size:10px;color:#94a3b8;">Template: ${d.templateName||'—'}</div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <div style="font-size:18px;font-weight:800;color:#1d4ed8;">${filledCount}</div>
+                                        <div style="font-size:10px;color:#64748b;">/ ${itemCount} รายการ</div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <button onclick="viewMonthlyDoc('${d.id}')"
+                                        style="flex:1;background:#eff6ff;color:#1d4ed8;border:none;padding:6px 10px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;">📋 ดูรายละเอียด</button>
+                                    <button onclick="exportSingleMonthlyPDF('${d.id}')"
+                                        style="background:#f5f3ff;color:#7c3aed;border:none;padding:6px 10px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;">🖨️ PDF</button>
+                                    <button onclick="exportSingleMonthlyExcel('${d.id}')"
+                                        style="background:#f0fdf4;color:#059669;border:none;padding:6px 10px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;">📥 Excel</button>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch(e) {
+                con.innerHTML = `<p style="color:var(--danger);text-align:center;padding:40px;">❌ โหลดข้อมูลไม่สำเร็จ: ${e.message}</p>`;
+            }
+        };
+
+        window.viewMonthlyDoc = function(docId) {
+            const d = window._monthlyHistoryData?.find(x=>x.id===docId);
+            if(!d) { toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+            const tmpl = Object.values(stockSheetTemplates).find(t=>t.name===d.templateName) ||
+                         stockSheetTemplates[d.templateId] || null;
+            const tmplId = d.templateId || Object.keys(stockSheetTemplates).find(k=>stockSheetTemplates[k].name===d.templateName) || '';
+            window._bmcCurrentDoc = d;
+            window._bmcCurrentTmplId = tmplId;
+            window._bmcCurrentZone = d.zone;
+            openBranchMonthlyDoneSummary(tmplId, tmpl||{name:d.templateName||'',items:d.items||[]}, d.zone, d);
+        };
+
+        window.exportSingleMonthlyPDF = function(docId) {
+            const d = window._monthlyHistoryData?.find(x=>x.id===docId);
+            if(!d) { toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+            const tmplId = d.templateId || Object.keys(stockSheetTemplates).find(k=>stockSheetTemplates[k].name===d.templateName) || '';
+            window._bmcCurrentDoc = d;
+            window._bmcCurrentTmplId = tmplId;
+            window._bmcCurrentZone = d.zone;
+            exportBranchMonthlyCountPDF();
+        };
+
+        window.exportSingleMonthlyExcel = function(docId) {
+            const d = window._monthlyHistoryData?.find(x=>x.id===docId);
+            if(!d) { toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+            window._bmcCurrentDoc = d;
+            window._bmcCurrentZone = d.zone;
+            exportBranchMonthlyCountExcel();
+        };
+
+        window.exportMonthlyHistoryExcel = function() {
+            const docs = window._monthlyHistoryData||[];
+            if(!docs.length) { toast('⚠️ ไม่มีข้อมูล','#f59e0b'); return; }
+            const rows = [['สาขา','เดือน','วันที่นับ','รหัสสินค้า','ชื่อสินค้า','หมวด','ยอดนับ','หน่วย','หมายเหตุ','ผู้นับ','Template']];
+            docs.forEach(d => {
+                (d.items||[]).forEach(it => {
+                    const p = allProducts.find(x=>x.id===it.id);
+                    const tmplItem = stockSheetTemplates[d.templateId]?.items?.find(x=>x.id===it.id);
+                    const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                    const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
+                    rows.push([d.zone||'',d.month||'',d.date||'',it.id,it.name,it.group||'',
+                        converted,exportUnit,it.note||'',d.countedBy||'',d.templateName||'']);
+                });
+            });
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [{wch:20},{wch:10},{wch:14},{wch:12},{wch:35},{wch:14},{wch:10},{wch:8},{wch:20},{wch:14},{wch:20}];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'นับสต๊อกสิ้นเดือน');
+            const zone = document.getElementById('mhZone')?.value||'ทุกสาขา';
+            const month = document.getElementById('mhMonth')?.value||'ทุกเดือน';
+            XLSX.writeFile(wb, `MonthlyCount_${zone}_${month}.xlsx`);
+            toast('📥 Export Excel เรียบร้อย','#059669');
+        };
+
+        window.exportMonthlyHistoryPDF = function() {
+            const docs = window._monthlyHistoryData||[];
+            if(!docs.length) { toast('⚠️ ไม่มีข้อมูล','#f59e0b'); return; }
+            const now = new Date();
+            const printDate = now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+            // จัดกลุ่มตามเดือน
+            const byMonth = {};
+            docs.forEach(d => { const mk = d.month||''; if(!byMonth[mk]) byMonth[mk]=[]; byMonth[mk].push(d); });
+
+            const monthSections = Object.keys(byMonth).sort().reverse().map(mk => {
+                let mLabel = mk;
+                if(/^\d{4}-\d{2}$/.test(mk)) {
+                    const [y,m] = mk.split('-');
+                    const thMonth=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][parseInt(m)-1]||m;
+                    mLabel = `${thMonth} ${parseInt(y)+543}`;
+                }
+                const mDocs = byMonth[mk];
+                const tables = mDocs.map(d => {
+                    const groups = [...new Set((d.items||[]).map(i=>i.group||'ทั่วไป'))];
+                    const tbody = groups.map(grp => {
+                        const grpItems = (d.items||[]).filter(i=>(i.group||'ทั่วไป')===grp);
+                        const hdr = `<tr><td colspan="5" style="padding:6px 10px;background:#f0f9ff;font-weight:700;font-size:10px;color:#0369a1;border-top:2px solid #bae6fd;">▌ ${grp.toUpperCase()}</td></tr>`;
+                        const rows = grpItems.map((it,idx) => {
+                            const p = allProducts.find(x=>x.id===it.id);
+                            const tmplItem = stockSheetTemplates[d.templateId]?.items?.find(x=>x.id===it.id);
+                            const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                            const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
+                            return `<tr style="${idx%2===1?'background:#f8fafc':''}">
+                                <td style="padding:7px 10px;font-weight:600;font-size:11px;">${it.id}</td>
+                                <td style="padding:7px 10px;font-size:11px;">${it.name}</td>
+                                <td style="padding:7px;text-align:center;font-weight:700;font-size:13px;color:#1d4ed8;">${converted||'—'}</td>
+                                <td style="padding:7px;text-align:center;font-size:11px;">${exportUnit}</td>
+                                <td style="padding:7px;font-size:10px;color:#64748b;">${it.note||''}</td>
+                            </tr>`;
+                        }).join('');
+                        return hdr+rows;
+                    }).join('');
+                    return `
+                    <div style="page-break-inside:avoid;margin-bottom:18px;">
+                        <div style="background:#1e293b;color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;">
+                            🏪 ${d.zone} &nbsp;|&nbsp; วันที่นับ: ${d.date||'—'} &nbsp;|&nbsp; โดย: ${d.countedBy||'—'}
+                        </div>
+                        <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;">
+                            <thead><tr style="background:#f8fafc;">
+                                <th style="padding:7px 10px;text-align:left;font-size:10px;color:#64748b;width:100px;">รหัส</th>
+                                <th style="padding:7px 10px;text-align:left;font-size:10px;color:#64748b;">ชื่อสินค้า</th>
+                                <th style="padding:7px;text-align:center;font-size:10px;color:#1d4ed8;width:80px;">ยอดนับ</th>
+                                <th style="padding:7px;text-align:center;font-size:10px;color:#64748b;width:60px;">หน่วย</th>
+                                <th style="padding:7px;text-align:left;font-size:10px;color:#64748b;width:120px;">หมายเหตุ</th>
+                            </tr></thead>
+                            <tbody>${tbody}</tbody>
+                        </table>
+                    </div>`;
+                }).join('');
+                return `<div style="page-break-before:auto;margin-bottom:30px;">
+                    <h2 style="margin:0 0 12px;color:#1e293b;font-size:16px;border-bottom:2px solid #1d4ed8;padding-bottom:8px;">📅 ${mLabel}</h2>
+                    ${tables}
+                </div>`;
+            }).join('');
+
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                @page{size:A4;margin:12mm}
+                body{font-family:'Sarabun',sans-serif;margin:0;color:#1e293b;}
+                table{width:100%;border-collapse:collapse;}
+                @media print{.no-print{display:none}}
+            </style>
+            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+            </head><body>
+            <div style="margin-bottom:20px;">
+                <h1 style="margin:0 0 4px;font-size:18px;">รายงานนับสต๊อกสิ้นเดือน</h1>
+                <div style="font-size:11px;color:#64748b;">พิมพ์โดย: ${currentUser?.name||''} | วันที่พิมพ์: ${printDate}</div>
+            </div>
+            ${monthSections}
+            </body></html>`;
+            const w = window.open('','_blank','width=900,height=700');
+            w.document.write(html); w.document.close();
+            setTimeout(()=>w.print(),800);
+        };
+
+        // ======== EXPORT UNIT CONVERSION HELPER ========
+        // แปลง amount จาก fromUnit → toUnit โดยใช้ข้อมูล units ของสินค้า
+        window._convertToExportUnit = function(amount, fromUnit, toUnit, product) {
+            if(!amount || amount === 0) return 0;
+            if(!fromUnit || !toUnit || fromUnit === toUnit) return Math.round(amount*1000)/1000;
+            const units = product?.units || [];
+            if(!units.length) return Math.round(amount*1000)/1000;
+            const fromIdx = units.findIndex(u=>u.name===fromUnit);
+            const toIdx = units.findIndex(u=>u.name===toUnit);
+            if(fromIdx < 0 || toIdx < 0) return Math.round(amount*1000)/1000;
+            let v = amount;
+            if(toIdx > fromIdx) {
+                // จาก unit ใหญ่ → unit เล็ก: คูณ rate
+                for(let i=fromIdx; i<toIdx; i++) v *= (units[i]?.rate||1);
+            } else {
+                // จาก unit เล็ก → unit ใหญ่: หาร rate
+                for(let i=toIdx; i<fromIdx; i++) v /= (units[i]?.rate||1);
+            }
+            return Math.round(v*1000)/1000;
+        };
+
+        // Export Excel — ยอดนับสิ้นเดือนสาขา (จาก _bmcCurrentDoc) — ใช้ exportUnit ที่กำหนดใน template
         window.exportBranchMonthlyCountExcel = function() {
             const d = window._bmcCurrentDoc;
             if(!d){ toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
             try {
+                const tmpl = stockSheetTemplates[d.templateId] || {};
                 const wb = XLSX.utils.book_new();
-                const header = ['รหัสสินค้า','ชื่อสินค้า','หมวด','ยอดนับ','หน่วย','หมายเหตุ'];
-                const rows = [header, ...(d.items||[]).map(it=>[it.id,it.name,it.group||'',it.balance??0,it.unit||'',it.note||''])];
+                const header = ['รหัสสินค้า','ชื่อสินค้า','หมวด','ยอดนับ','หน่วย (export)','หน่วยเดิม','หมายเหตุ'];
+                const rows = [header, ...(d.items||[]).map(it=>{
+                    const p = allProducts.find(x=>x.id===it.id);
+                    const tmplItem = (tmpl.items||[]).find(x=>x.id===it.id);
+                    const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                    const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
+                    return [it.id, it.name, it.group||'', converted, exportUnit, it.unit||'', it.note||''];
+                })];
                 const ws = XLSX.utils.aoa_to_sheet(rows);
-                ws['!cols'] = [{wch:12},{wch:30},{wch:14},{wch:10},{wch:8},{wch:20}];
-                // bold header
-                ['A1','B1','C1','D1','E1','F1'].forEach(ref=>{
+                ws['!cols'] = [{wch:12},{wch:30},{wch:14},{wch:10},{wch:12},{wch:10},{wch:20}];
+                ['A1','B1','C1','D1','E1','F1','G1'].forEach(ref=>{
                     if(ws[ref]) ws[ref].s = {font:{bold:true},alignment:{horizontal:'center'}};
                 });
-                XLSX.utils.book_append_sheet(wb, ws, (d.zone||'สาขา').slice(0,31));
+                // เพิ่ม meta rows ด้านบน
+                XLSX.utils.sheet_add_aoa(ws, [
+                    [`รายงานนับสต๊อกสิ้นเดือน — ${d.zone||''}`],
+                    [`เดือน: ${d.month||''}   วันที่นับ: ${d.date||''}   ผู้นับ: ${d.countedBy||''}   Template: ${d.templateName||''}`],
+                    []
+                ], {origin:'A1'});
+                // เลื่อน header ลงมา
+                const headerRows = [header, ...(d.items||[]).map(it=>{
+                    const p=allProducts.find(x=>x.id===it.id);
+                    const tmplItem=(tmpl.items||[]).find(x=>x.id===it.id);
+                    const exportUnit=tmplItem?.exportUnit||it.unit||'';
+                    const converted=_convertToExportUnit(it.balance||0,it.unit||'',exportUnit,p);
+                    return [it.id,it.name,it.group||'',converted,exportUnit,it.unit||'',it.note||''];
+                })];
+                const ws2 = XLSX.utils.aoa_to_sheet([
+                    [`รายงานนับสต๊อกสิ้นเดือน — ${d.zone||''}`],
+                    [`เดือน: ${d.month||''}   |   วันที่นับ: ${d.date||''}   |   ผู้นับ: ${d.countedBy||''}   |   Template: ${d.templateName||''}`],
+                    [],
+                    ...headerRows
+                ]);
+                ws2['!cols'] = [{wch:12},{wch:30},{wch:14},{wch:10},{wch:12},{wch:10},{wch:20}];
+                XLSX.utils.book_append_sheet(wb, ws2, (d.zone||'สาขา').slice(0,31));
                 const zone = (d.zone||'สาขา').replace(/[:\/?*[\]]/g,'_');
                 XLSX.writeFile(wb, 'stock_' + zone + '_' + (d.month||'') + '.xlsx');
                 toast('📥 Export Excel เรียบร้อย','#0891b2');
             } catch(e){ toast('❌ Export ไม่สำเร็จ: '+e.message,'#ef4444'); }
+        };
+
+        // Export PDF — ยอดนับสิ้นเดือนสาขา (จาก _bmcCurrentDoc)
+        window.exportBranchMonthlyCountPDF = function() {
+            const d = window._bmcCurrentDoc;
+            const zone = window._bmcCurrentZone;
+            const tmplId = window._bmcCurrentTmplId;
+            const tmpl = stockSheetTemplates[tmplId] || {};
+            if(!d){ toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+
+            const now = new Date();
+            const printDate = now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+            const groups = [...new Set((d.items||[]).map(i=>i.group||'ทั่วไป'))];
+
+            const tableBody = groups.map(grp => {
+                const grpItems = (d.items||[]).filter(i=>(i.group||'ทั่วไป')===grp);
+                const hdr = `<tr><td colspan="5" style="padding:7px 12px;background:#f0f9ff;font-weight:700;font-size:10px;color:#0369a1;border-top:2px solid #bae6fd;">▌ ${grp.toUpperCase()}</td></tr>`;
+                const rows = grpItems.map((it,idx) => {
+                    const p = allProducts.find(x=>x.id===it.id);
+                    const tmplItem = (tmpl.items||[]).find(x=>x.id===it.id);
+                    const exportUnit = tmplItem?.exportUnit || it.unit || '';
+                    const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
+                    const showConvert = exportUnit !== it.unit && it.unit;
+                    return `<tr style="${idx%2===1?'background:#f8fafc':''}">
+                        <td style="padding:8px 12px;font-weight:600;font-size:11px;border-bottom:1px solid #e2e8f0;">${it.id}</td>
+                        <td style="padding:8px 12px;font-size:11px;border-bottom:1px solid #e2e8f0;">${it.name}</td>
+                        <td style="padding:8px;text-align:center;font-weight:800;font-size:15px;color:#1d4ed8;border-bottom:1px solid #e2e8f0;">${converted||'—'}</td>
+                        <td style="padding:8px;text-align:center;font-size:11px;border-bottom:1px solid #e2e8f0;">${exportUnit}${showConvert?`<br><span style="color:#94a3b8;font-size:9px;">(จาก ${it.unit})</span>`:''}</td>
+                        <td style="padding:8px;font-size:10px;color:#64748b;border-bottom:1px solid #e2e8f0;">${it.note||''}</td>
+                    </tr>`;
+                }).join('');
+                return hdr+rows;
+            }).join('');
+
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                @page{size:A4;margin:14mm}
+                body{font-family:'Sarabun',sans-serif;margin:0;color:#1e293b;font-size:12px;}
+                .header-box{border:2px solid #1e293b;border-radius:8px;padding:14px 18px;margin-bottom:14px;}
+                table{width:100%;border-collapse:collapse;margin-top:8px;}
+                thead tr{background:#1e293b;color:white;}
+                th{padding:9px 12px;text-align:left;font-size:11px;}
+                .footer{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:40px;}
+                .sign{border-top:1px solid #334155;text-align:center;font-size:11px;color:#64748b;padding:40px 0 6px;}
+            </style>
+            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+            </head><body>
+            <div class="header-box">
+                <div style="font-size:18px;font-weight:bold;text-align:center;margin-bottom:10px;">รายงานนับสต๊อกสิ้นเดือน</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                    <div style="border:1px solid #94a3b8;border-radius:4px;padding:6px 10px;">
+                        <div style="font-size:9px;color:#64748b;font-weight:bold;">สาขา</div>
+                        <div style="font-size:13px;font-weight:bold;">${zone}</div>
+                    </div>
+                    <div style="border:1px solid #94a3b8;border-radius:4px;padding:6px 10px;">
+                        <div style="font-size:9px;color:#64748b;font-weight:bold;">เดือน / วันที่นับ</div>
+                        <div style="font-size:12px;font-weight:bold;">${d.date||d.month||'—'}</div>
+                    </div>
+                    <div style="border:1px solid #94a3b8;border-radius:4px;padding:6px 10px;">
+                        <div style="font-size:9px;color:#64748b;font-weight:bold;">ผู้นับ / Template</div>
+                        <div style="font-size:12px;font-weight:bold;">${d.countedBy||'—'} / ${d.templateName||'—'}</div>
+                    </div>
+                </div>
+            </div>
+            <table>
+                <thead><tr>
+                    <th style="width:100px;">รหัสสินค้า</th>
+                    <th>ชื่อสินค้า</th>
+                    <th style="width:80px;text-align:center;background:#1d4ed8;">ยอดนับ</th>
+                    <th style="width:80px;text-align:center;">หน่วย</th>
+                    <th style="width:130px;">หมายเหตุ</th>
+                </tr></thead>
+                <tbody>${tableBody}</tbody>
+            </table>
+            <div style="margin-top:10px;font-size:10px;color:#94a3b8;text-align:right;">พิมพ์โดย: ${currentUser?.name||''} | ${printDate}</div>
+            <div class="footer">
+                <div class="sign">ผู้นับ</div>
+                <div class="sign">ผู้ตรวจสอบ</div>
+            </div>
+            </body></html>`;
+
+            const w = window.open('','_blank','width=900,height=700');
+            w.document.write(html); w.document.close();
+            setTimeout(()=>w.print(),600);
         };
 
         // Export Excel รวมทุกสาขา — สำหรับ Admin (เลือกเดือน)
@@ -2252,16 +2660,19 @@ ${r.zone}`);
         window.renderSSTItems = function() {
             const existing = window._editingSSTExisting;
             const existingMap = {};
-            (existing?.items||[]).forEach(it=>{ existingMap[it.id]={checked:true,group:it.group||it.category||''}; });
+            (existing?.items||[]).forEach(it=>{ existingMap[it.id]={checked:true,group:it.group||it.category||'',exportUnit:it.exportUnit||''}; });
             // ใช้ allProducts ทั้งหมด (ไม่ผูก zone)
             const prods = allProducts;
             const c = document.getElementById('sstItemsList'); if(!c) return;
             c.innerHTML = prods.length ? prods.map(p=>{
-                const u = (p.units||[{name:p.unit||''}])[0]?.name||'';
+                const units = p.units||[{name:p.unit||''}];
+                const u0 = units[0]?.name||'';
                 const ex = existingMap[p.id]||{};
                 const pCat = p.category||'';
-                // default group = category ของสินค้า (ถ้ายังไม่ได้กำหนด)
                 const defaultGroup = ex.group || pCat || '';
+                const defaultExportUnit = ex.exportUnit || u0;
+                // dropdown options สำหรับหน่วย export
+                const unitOpts = units.map(u=>`<option value="${u.name}" ${u.name===defaultExportUnit?'selected':''}>${u.name}</option>`).join('');
                 return `<div class="sst-item-row" data-search="${p.id.toLowerCase()} ${p.name.toLowerCase()}" data-category="${pCat.toLowerCase()}"
                     style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid #f8fafc;background:${ex.checked?'#f0fdf4':'white'};">
                     <input type="checkbox" id="sstitem_${p.id}" ${ex.checked?'checked':''}
@@ -2270,9 +2681,17 @@ ${r.zone}`);
                     <span style="font-weight:bold;font-size:12px;min-width:80px;color:#1e293b;">${p.id}</span>
                     <span style="color:#475569;font-size:12px;flex:1;">${p.name}</span>
                     ${pCat?`<span style="background:#fef9c3;color:#a16207;font-size:10px;padding:1px 7px;border-radius:10px;white-space:nowrap;">🏷️ ${pCat}</span>`:''}
-                    <span style="color:#94a3b8;font-size:11px;min-width:35px;">${u}</span>
+                    <div style="display:flex;flex-direction:column;gap:2px;min-width:100px;">
+                        <small style="font-size:9px;color:#94a3b8;font-weight:600;">หน่วย Export</small>
+                        <select id="sstexportunit_${p.id}"
+                            style="padding:3px 6px;border:1px solid #bae6fd;border-radius:5px;font-size:11px;color:#0369a1;font-weight:600;outline:none;background:#f0f9ff;"
+                            title="หน่วยที่จะ export สิ้นเดือน (จำนวนจะถูก convert อัตโนมัติ)"
+                            onfocus="document.getElementById('sstitem_${p.id}').checked=true;this.closest('.sst-item-row').style.background='#f0fdf4'">
+                            ${unitOpts}
+                        </select>
+                    </div>
                     <input type="text" id="sstgroup_${p.id}" value="${defaultGroup}" placeholder="หมวดในใบนับ" list="sstCatDatalist"
-                        style="width:120px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;outline:none;"
+                        style="width:110px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;outline:none;"
                         onfocus="document.getElementById('sstitem_${p.id}').checked=true;this.closest('.sst-item-row').style.background='#f0fdf4'">
                 </div>`;
             }).join('') : '<p style="color:#94a3b8;padding:16px;text-align:center;">ยังไม่มีสินค้าในระบบ</p>';
@@ -2310,7 +2729,8 @@ ${r.zone}`);
                     id:p.id, name:p.name,
                     unit:(p.units||[{name:p.unit||''}])[0]?.name||'',
                     category:p.category||'',
-                    group:document.getElementById(`sstgroup_${p.id}`)?.value.trim()||p.category||''
+                    group:document.getElementById(`sstgroup_${p.id}`)?.value.trim()||p.category||'',
+                    exportUnit:document.getElementById(`sstexportunit_${p.id}`)?.value || (p.units||[{name:p.unit||''}])[0]?.name||''
                 }));
             if(!items.length){toast('⚠️ เลือกสินค้าอย่างน้อย 1 รายการ','#c2410c');return;}
             stockSheetTemplates[tid] = {name,branchType,zone:branchType,color,items};
