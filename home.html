@@ -1427,24 +1427,23 @@
         // ── Sync window globals back to local aliases on mutation ──
         // (for functions that reassign e.g. warehouseList = newVal)
         // These setters keep window.* in sync
+        // _syncGlobals: ดึงค่าจาก window.* กลับเข้า local lets ก่อน save
+        // (external scripts เขียนลง window.* โดยตรง — local lets อาจ stale)
         const _syncGlobals = () => {
-            window.currentUser        = currentUser;
-            window.warehouseList      = warehouseList;
-            window.allProducts        = allProducts;
-            window.zoneProductMap     = zoneProductMap;
-            window.countData          = countData;
-            window.roleSettings       = roleSettings;
-            window.tempCountData      = tempCountData;
-            window.selectedStaff      = selectedStaff;
-            window.selectedDate       = selectedDate;
-            window.productMinMax      = productMinMax;
-            window.reqTemplates       = reqTemplates;
-            window.monthlyCountOpen   = monthlyCountOpen;
-            window.stockSheetTemplates= stockSheetTemplates;
-            window.productCategories  = productCategories;
-            window.warehouseGroups    = warehouseGroups;
+            if(window.warehouseList      != null) warehouseList      = window.warehouseList;
+            if(window.allProducts        != null) allProducts        = window.allProducts;
+            if(window.zoneProductMap     != null) zoneProductMap     = window.zoneProductMap;
+            if(window.countData          != null) countData          = window.countData;
+            if(window.roleSettings       != null) roleSettings       = window.roleSettings;
+            if(window.tempCountData      != null) tempCountData      = window.tempCountData;
+            if(window.productMinMax      != null) productMinMax      = window.productMinMax;
+            if(window.reqTemplates       != null) reqTemplates       = window.reqTemplates;
+            if(window.monthlyCountOpen   != null) monthlyCountOpen   = window.monthlyCountOpen;
+            if(window.stockSheetTemplates!= null) stockSheetTemplates= window.stockSheetTemplates;
+            if(window.productCategories  != null) productCategories  = window.productCategories;
+            if(window.warehouseGroups    != null) warehouseGroups    = window.warehouseGroups;
         };
-        // Patch saveConfig to auto-sync before saving
+        // Patch saveConfig to pull latest window.* before saving
         const _origSaveConfig = saveConfig;
         window.saveConfig = async function() { _syncGlobals(); return _origSaveConfig(); };
         // Patch loadConfig to sync after loading

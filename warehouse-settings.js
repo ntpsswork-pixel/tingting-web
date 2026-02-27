@@ -141,38 +141,52 @@
         // ======== PARENT WAREHOUSE MANAGEMENT ========
         window.renderParentWhList = function() {
             const c = document.getElementById('parentWhContainer'); if(!c) return;
+            // อ่านจาก window.warehouseGroups เสมอ — external scripts อัปเดตตรงนี้
             const wg = window.warehouseGroups || {};
             const groups = Object.entries(wg).filter(([k])=>k!=='_whnames');
             if(!groups.length) {
-                c.innerHTML = `<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px;border:2px dashed #e2e8f0;border-radius:10px;">
-                    ยังไม่มีคลังหลัก — กด "เพิ่มคลังหลัก" เพื่อเริ่มผูก Zone ย่อยเข้าด้วยกัน
+                c.innerHTML = `<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px;border:2px dashed #e2e8f0;border-radius:12px;">
+                    <div style="font-size:28px;margin-bottom:8px;">🏭</div>
+                    ยังไม่มีคลังหลัก — กด <b style="color:#7c3aed;">+ เพิ่มคลังหลัก</b> เพื่อเริ่มผูก Zone ย่อย
                 </div>`;
                 return;
             }
-            c.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+            const colorMap = {'WHRM':'#7c3aed','WHPD':'#0891b2','BT':'#f59e0b','WH':'#059669'};
+            c.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">
             ${groups.map(([parentId, zones]) => {
-                const zoneList = (zones||[]);
-                const colors = {'WHRM':'#7c3aed','WHPD':'#0891b2','WH':'#059669'};
-                const color = Object.entries(colors).find(([k])=>parentId.toUpperCase().startsWith(k))?.[1] || '#64748b';
-                return `<div style="background:white;border-radius:12px;border:2px solid ${color}30;padding:18px;position:relative;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+                const zoneList = Array.isArray(zones) ? zones : [];
+                const color = Object.entries(colorMap).find(([k])=>parentId.toUpperCase().startsWith(k))?.[1]||'#64748b';
+                const displayName = (wg._whnames||{})[parentId]||'';
+                // นับสินค้ารวมทุก zone
+                const skuSet = new Set();
+                zoneList.forEach(z=>(window.zoneProductMap?.[z]||[]).forEach(id=>skuSet.add(id)));
+                return \`<div style="background:white;border-radius:12px;border:2px solid \${color}20;padding:18px;box-shadow:0 2px 8px \${color}10;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
                         <div>
-                            <div style="font-size:15px;font-weight:800;color:${color};">🏭 ${parentId}</div>
-                            <div style="font-size:12px;color:#475569;margin-top:1px;">${(wg._whnames||{})[parentId]||''}</div>
-                            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${zoneList.length} Zone ย่อย</div>
+                            <div style="font-size:15px;font-weight:800;color:\${color};">🏭 \${parentId}</div>
+                            \${displayName?`<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px;">\${displayName}</div>`:''}
+                            <div style="display:flex;gap:8px;margin-top:6px;">
+                                <span style="font-size:11px;background:\${color}12;color:\${color};padding:2px 9px;border-radius:10px;font-weight:700;">📦 \${zoneList.length} Zone</span>
+                                \${skuSet.size?`<span style="font-size:11px;background:#f0fdf4;color:#059669;padding:2px 9px;border-radius:10px;font-weight:700;">🍎 \${skuSet.size} SKU</span>`:''}
+                            </div>
                         </div>
-                        <div style="display:flex;gap:5px;">
-                            <button onclick="openEditParentWhForm('${parentId}')"
-                                style="background:#f1f5f9;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;">✏️</button>
-                            <button onclick="deleteParentWh('${parentId}')"
-                                style="background:#fef2f2;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#ef4444;">🗑️</button>
+                        <div style="display:flex;gap:5px;flex-shrink:0;">
+                            <button onclick="openEditParentWhForm('\${parentId}')"
+                                style="background:#f1f5f9;border:1px solid #e2e8f0;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;">✏️ แก้</button>
+                            <button onclick="deleteParentWh('\${parentId}')"
+                                style="background:#fef2f2;border:1px solid #fee2e2;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12px;color:#ef4444;">🗑️</button>
                         </div>
                     </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:5px;">
-                        ${zoneList.map(z=>`<span style="background:${color}15;color:${color};font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid ${color}30;font-weight:600;">📦 ${z}</span>`).join('')}
-                        ${!zoneList.length ? '<span style="color:#cbd5e1;font-size:11px;">ยังไม่มี Zone</span>' : ''}
+                    <div style="border-top:1px solid #f1f5f9;padding-top:10px;">
+                        <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;">Zone ที่ผูกอยู่</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                            \${zoneList.length?zoneList.map(z=>{
+                                const cnt=(window.zoneProductMap?.[z]||[]).length;
+                                return \`<span style="background:\${color}10;color:\${color};font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid \${color}25;font-weight:600;">\${z}\${cnt?` <span style="opacity:.65">(\${cnt})</span>`:''}</span>\`;
+                            }).join(''):'<span style="color:#cbd5e1;font-size:12px;font-style:italic;">ยังไม่มี Zone</span>'}
+                        </div>
                     </div>
-                </div>`;
+                </div>\`;
             }).join('')}
             </div>`;
         };
