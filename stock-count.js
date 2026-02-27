@@ -2013,7 +2013,7 @@ ${r.zone}`);
             else exportBranchMonthlyCountPDF();
         };
 
-        // PDF แบบกระชับ — พอดีหน้าเดียว A4
+        // PDF แบบกระชับ — พอดีหน้าเดียว A4 (2 คอลัมน์)
         window.exportBranchMonthlyCountPDFCompact = function() {
             const d = window._bmcCurrentDoc;
             const zone = window._bmcCurrentZone;
@@ -2022,70 +2022,99 @@ ${r.zone}`);
             if(!d){ toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
 
             const printDate = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'});
-            const groups = [...new Set((d.items||[]).map(i=>i.group||'ทั่วไป'))];
+            const items = d.items || [];
+            const totalItems = items.length;
 
-            // นับรายการทั้งหมดเพื่อปรับ font size
-            const totalItems = (d.items||[]).length + groups.length; // rows + group headers
-            const fontSize = totalItems <= 20 ? 11 : totalItems <= 35 ? 10 : totalItems <= 50 ? 9 : 8;
-            const padding  = totalItems <= 20 ? '6px 10px' : totalItems <= 35 ? '5px 8px' : '4px 6px';
+            // ปรับ font ตามจำนวน — 2 คอลัมน์บน A4 landscape รับได้ ~120 rows/col
+            const fs = totalItems <= 60 ? 10 : totalItems <= 100 ? 9 : totalItems <= 150 ? 8 : 7;
+            const pd = fs >= 9 ? '4px 6px' : '3px 5px';
 
-            const tableBody = groups.map(grp => {
-                const grpItems = (d.items||[]).filter(i=>(i.group||'ทั่วไป')===grp);
-                const hdr = `<tr><td colspan="4" style="padding:4px 8px;background:#1e293b;color:white;font-weight:700;font-size:${fontSize-1}px;letter-spacing:.3px;">▌ ${grp.toUpperCase()}</td></tr>`;
-                const rows = grpItems.map((it, idx) => {
+            // สร้าง row HTML สำหรับแต่ละสินค้า
+            const allRows = [];
+            const groups = [...new Set(items.map(i=>i.group||'ทั่วไป'))];
+            groups.forEach(grp => {
+                const grpItems = items.filter(i=>(i.group||'ทั่วไป')===grp);
+                allRows.push({ isHeader: true, grp });
+                grpItems.forEach(it => {
                     const p = allProducts.find(x=>x.id===it.id);
                     const tmplItem = (tmpl.items||[]).find(x=>x.id===it.id);
                     const exportUnit = _getExportUnit(it.id, tmplItem);
                     const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
                     const showConvert = exportUnit !== it.unit && it.unit;
-                    return `<tr style="${idx%2===1?'background:#f8fafc':''}">
-                        <td style="padding:${padding};font-size:${fontSize}px;border-bottom:1px solid #f1f5f9;color:#475569;">${it.id}</td>
-                        <td style="padding:${padding};font-size:${fontSize}px;border-bottom:1px solid #f1f5f9;">${it.name}</td>
-                        <td style="padding:${padding};text-align:center;font-weight:800;font-size:${fontSize+2}px;color:#1d4ed8;border-bottom:1px solid #f1f5f9;">${converted||'—'}</td>
-                        <td style="padding:${padding};text-align:center;font-size:${fontSize-1}px;color:#64748b;border-bottom:1px solid #f1f5f9;">${exportUnit}${showConvert?`<br><span style="color:#cbd5e1;font-size:${fontSize-2}px">${it.balance} ${it.unit}</span>`:''}</td>
-                    </tr>`;
-                }).join('');
-                return hdr+rows;
+                    allRows.push({ isHeader: false, it, converted, exportUnit, showConvert });
+                });
+            });
+
+            // แบ่งเป็น 2 คอลัมน์
+            const half = Math.ceil(allRows.length / 2);
+            const col1 = allRows.slice(0, half);
+            const col2 = allRows.slice(half);
+
+            const renderRows = (rows) => rows.map((r, idx) => {
+                if(r.isHeader) return `
+                    <tr><td colspan="3" style="padding:3px 6px;background:#1e293b;color:white;font-weight:700;font-size:${fs-1}px;">
+                        ▌ ${r.grp.toUpperCase()}
+                    </td></tr>`;
+                const bg = idx%2===1 ? 'background:#f8fafc;' : '';
+                return `<tr style="${bg}">
+                    <td style="padding:${pd};font-size:${fs}px;border-bottom:1px solid #f1f5f9;color:#334155;white-space:nowrap;">${r.it.id}</td>
+                    <td style="padding:${pd};font-size:${fs}px;border-bottom:1px solid #f1f5f9;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.it.name}</td>
+                    <td style="padding:${pd};text-align:center;font-weight:800;font-size:${fs+1}px;color:#1d4ed8;border-bottom:1px solid #f1f5f9;white-space:nowrap;">
+                        ${r.converted||'—'} <span style="font-size:${fs-1}px;font-weight:400;color:#64748b;">${r.exportUnit}</span>
+                        ${r.showConvert ? `<br><span style="font-size:${fs-2}px;color:#cbd5e1;">${r.it.balance} ${r.it.unit}</span>` : ''}
+                    </td>
+                </tr>`;
             }).join('');
+
+            const tableStyle = `width:100%;border-collapse:collapse;table-layout:fixed;`;
+            const thStyle = (w) => `padding:5px 6px;text-align:left;font-size:${fs}px;background:#1e293b;color:white;${w?`width:${w};`:''}`;
 
             const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
             <style>
-                @page{size:A4;margin:8mm}
-                body{font-family:'Sarabun',sans-serif;margin:0;color:#1e293b;}
-                table{width:100%;border-collapse:collapse;}
-                thead tr{background:#1d4ed8;color:white;}
-                th{padding:6px 8px;text-align:left;font-size:${fontSize}px;}
+                @page { size:A4 landscape; margin:6mm; }
+                body { font-family:'Sarabun',sans-serif; margin:0; color:#1e293b; }
+                * { box-sizing:border-box; }
             </style>
             <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
             </head><body>
-            <!-- Header แถบบาง -->
-            <div style="background:#1e293b;color:white;padding:8px 12px;border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <!-- Header บาง -->
+            <div style="background:#1e293b;color:white;padding:6px 10px;border-radius:5px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
                 <div>
-                    <span style="font-size:14px;font-weight:800;">รายงานนับสต๊อกสิ้นเดือน</span>
-                    <span style="font-size:12px;opacity:.8;margin-left:10px;">📦 ${zone}</span>
+                    <b style="font-size:13px;">รายงานนับสต๊อกสิ้นเดือน</b>
+                    <span style="font-size:11px;opacity:.8;margin-left:8px;">📦 ${zone}</span>
                 </div>
-                <div style="text-align:right;font-size:10px;opacity:.8;">
-                    <div>วันที่นับ: ${d.date||d.month||'—'} | ผู้นับ: ${d.countedBy||'—'}</div>
-                    <div>Template: ${d.templateName||'—'} | พิมพ์: ${printDate}</div>
+                <div style="font-size:9px;opacity:.8;text-align:right;line-height:1.5;">
+                    วันที่นับ: ${d.date||d.month||'—'} &nbsp;|&nbsp; ผู้นับ: ${d.countedBy||'—'} &nbsp;|&nbsp; Template: ${d.templateName||'—'} &nbsp;|&nbsp; พิมพ์: ${printDate} &nbsp;|&nbsp; ${totalItems} รายการ
                 </div>
             </div>
-            <table>
-                <thead><tr>
-                    <th style="width:90px;">รหัส</th>
-                    <th>ชื่อสินค้า</th>
-                    <th style="width:70px;text-align:center;background:#1d4ed8;">ยอดนับ</th>
-                    <th style="width:65px;text-align:center;">หน่วย</th>
-                </tr></thead>
-                <tbody>${tableBody}</tbody>
-            </table>
-            <div style="margin-top:6px;font-size:9px;color:#94a3b8;text-align:right;">
-                ${(d.items||[]).length} รายการ | พิมพ์โดย: ${currentUser?.name||''} | ${printDate}
+            <!-- 2-column layout -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <div>
+                    <table style="${tableStyle}">
+                        <thead><tr>
+                            <th style="${thStyle('85px')}">รหัส</th>
+                            <th style="${thStyle('')}">ชื่อสินค้า</th>
+                            <th style="${thStyle('80px')};text-align:center;background:#1d4ed8;">ยอดนับ</th>
+                        </tr></thead>
+                        <tbody>${renderRows(col1)}</tbody>
+                    </table>
+                </div>
+                <div>
+                    <table style="${tableStyle}">
+                        <thead><tr>
+                            <th style="${thStyle('85px')}">รหัส</th>
+                            <th style="${thStyle('')}">ชื่อสินค้า</th>
+                            <th style="${thStyle('80px')};text-align:center;background:#1d4ed8;">ยอดนับ</th>
+                        </tr></thead>
+                        <tbody>${renderRows(col2)}</tbody>
+                    </table>
+                </div>
             </div>
             </body></html>`;
 
-            const w = window.open('','_blank','width=900,height=700');
+            const w = window.open('','_blank','width=1100,height=750');
             w.document.write(html); w.document.close();
-            setTimeout(()=>w.print(), 600);
+            setTimeout(()=>w.print(), 700);
         };
 
         window.exportBranchMonthlyCountPDF = function() {
