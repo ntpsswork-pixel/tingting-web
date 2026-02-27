@@ -1175,6 +1175,20 @@
             'warehouse-mgr':     ()=>{ const f=window._origOpenWarehouseManager||window.openWarehouseManager; f(); },
             'user-mgmt':         ()=>{ const f=window._origOpenUserManagement||window.openUserManagement; f(); },
             'help':              ()=>{ const f=window._origOpenHelpGuide||window.openHelpGuide; f(); },
+            'monthly-count':     ()=>{
+                try {
+                    const raw = sessionStorage.getItem('_mcNav');
+                    if (!raw) { if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount(); return; }
+                    const { tmplId, zone } = JSON.parse(raw);
+                    const tmpl = (window.stockSheetTemplates || {})[tmplId];
+                    if (tmplId && tmpl && zone && window.openBranchMonthlyCount) {
+                        window.openBranchMonthlyCount(tmplId, tmpl, zone);
+                    } else {
+                        if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount();
+                    }
+                } catch(e) { if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount(); }
+            },
+            'stock-history':     ()=>{ if(window.openBranchExportModal) window.openBranchExportModal(); },
         };
 
         // pushState — บันทึกใน history stack ให้ browser back ทำงาน
@@ -1423,6 +1437,15 @@
         window.getZoneProducts      = getZoneProducts;
         window.getVisibleWarehouses = getVisibleWarehouses;
         window.hashPassword         = hashPassword;
+
+        // ── Direct mutators — ให้ external scripts แก้ local vars ได้โดยตรง ──
+        window._directUpdateZPM = function(zone, arr) {
+            if (typeof zoneProductMap === 'object' && zoneProductMap !== null) zoneProductMap[zone] = arr;
+        };
+        window._directUpdateAllProducts = function(newArr) {
+            allProducts = newArr;
+            window.allProducts = allProducts;
+        };
 
         // ── Sync window globals back to local aliases on mutation ──
         // (for functions that reassign e.g. warehouseList = newVal)

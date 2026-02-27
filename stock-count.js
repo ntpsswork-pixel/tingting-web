@@ -2626,6 +2626,9 @@ ${r.zone}`);
             const today = now.toISOString().slice(0,10);
             const timeStr = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
             const defaultZone = zone || (currentUser?.assignedZones||[])[0] || '';
+            // บันทึก params + push hash เพื่อให้ refresh แล้วกลับมาหน้าเดิมได้
+            try { sessionStorage.setItem('_mcNav', JSON.stringify({ tmplId, zone: defaultZone })); } catch(_) {}
+            if (location.hash !== '#monthly-count') history.pushState({ nav: 'monthly-count' }, '', '#monthly-count');
             const groups = [...new Set(tmpl.items.map(i=>i.group||i.category||'ทั่วไป'))];
 
             // prefill จากข้อมูลเดิม ถ้ามี

@@ -32,8 +32,18 @@
             const entry = { ...config, storageKey, timer: null };
             this._entries[key] = entry;
 
-            // เริ่ม auto-save
+            // เริ่ม auto-save ทุก 20 วิ (fallback)
             entry.timer = setInterval(() => this._autoSave(key), AUTO_SAVE_MS);
+
+            // save ทันทีทุกครั้งที่มีการพิมพ์ใน input/textarea (real-time)
+            const inputHandler = () => this._autoSave(key);
+            const container = document.getElementById('toolAppContainer');
+            if (container) {
+                container.addEventListener('input', inputHandler);
+                container.addEventListener('change', inputHandler);
+                entry._inputHandler = inputHandler;
+                entry._container = container;
+            }
 
             // attach beforeunload ครั้งเดียว
             if (!this._blAttached) {
@@ -61,6 +71,11 @@
             const e = this._entries[key];
             if (e) {
                 clearInterval(e.timer);
+                // ลบ input listener ออกด้วย
+                if (e._container && e._inputHandler) {
+                    e._container.removeEventListener('input', e._inputHandler);
+                    e._container.removeEventListener('change', e._inputHandler);
+                }
                 delete this._entries[key];
             }
         }

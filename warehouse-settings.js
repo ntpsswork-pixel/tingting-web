@@ -529,11 +529,19 @@
             const list = document.getElementById('sortList');
             if (!zone || !list) return;
             const newOrder = [...list.querySelectorAll('.sort-item')].map(el => el.dataset.id);
-            zoneProductMap[zone] = newOrder;
+
+            // อัปเดตทุก reference พร้อมกันก่อน saveConfig
+            if (window.zoneProductMap) window.zoneProductMap[zone] = newOrder;
+            if (window._directUpdateZPM) window._directUpdateZPM(zone, newOrder);
+
             saveConfig();
             toast('✅ บันทึกลำดับสินค้าเรียบร้อย', '#7c3aed');
-            // อัปเดตหมายเลขทันที
-            renderSortList();
+
+            // แค่ renumber เลขลำดับ — ไม่ re-render ทั้งหมด (re-render จะดึงข้อมูลกลับมาลำดับเดิม)
+            [...list.querySelectorAll('.sort-item')].forEach((el, i) => {
+                const numEl = el.querySelectorAll('span')[1];
+                if (numEl) numEl.textContent = i + 1;
+            });
         };
 
         window.renderMapping=function(){
