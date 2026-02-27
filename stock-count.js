@@ -1649,7 +1649,8 @@ ${r.zone}`);
 
         // ======== PARENT WAREHOUSE AGGREGATED EXPORT ========
         window.openParentWhExportModal = function() {
-            const groups = Object.entries(warehouseGroups||{}).filter(([k])=>k!=='__names__');
+            const wg = window.warehouseGroups || {};
+            const groups = Object.entries(wg).filter(([k])=>k!=='_whnames');
             if(!groups.length) {
                 toast('⚠️ ยังไม่มีคลังหลัก — ตั้งค่าที่ ⚙️ ตั้งค่าคลังและสินค้าหลัก','#f59e0b');
                 return;
@@ -1755,7 +1756,7 @@ ${r.zone}`);
             if(fmt === 'sheets') {
                 // แยก Sheet ต่อคลังหลัก
                 selectedPids.forEach(pid => {
-                    const zones = (warehouseGroups||{})[pid]||[];
+                    const zones = (window.warehouseGroups||{})[pid]||[];
                     const agg = _aggregateZones(zones);
                     const sheetData = _buildParentWhSheet(pid, zones, agg, showZone && !sumOnly);
                     const ws = XLSX.utils.aoa_to_sheet(sheetData);
@@ -1766,7 +1767,7 @@ ${r.zone}`);
                 // ทุกคลังใน Sheet เดียว
                 let allRows = [['คลังหลัก','Zone','รหัส','ชื่อสินค้า','หมวด','ยอดรวม','หน่วย']];
                 selectedPids.forEach(pid => {
-                    const zones = (warehouseGroups||{})[pid]||[];
+                    const zones = (window.warehouseGroups||{})[pid]||[];
                     const agg = _aggregateZones(zones);
                     // ยอดรวม
                     Object.entries(agg).forEach(([prodId, d]) => {
@@ -1791,7 +1792,7 @@ ${r.zone}`);
         };
 
         window._buildParentWhSheet = function(pid, zones, agg, showZoneBreakdown) {
-            const displayName = (warehouseGroups?.__names__||{})[pid] || pid;
+            const displayName = (window.warehouseGroups?._whnames||{})[pid] || pid;
             const dateStr = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
             const rows = [
                 [`รายงานยอดสต๊อกคลังหลัก: ${pid} ${displayName?'('+displayName+')':''}`],
@@ -1841,8 +1842,8 @@ ${r.zone}`);
             const printDate = now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
 
             const sections = selectedPids.map(pid => {
-                const zones = (warehouseGroups||{})[pid]||[];
-                const displayName = (warehouseGroups?.__names__||{})[pid]||'';
+                const zones = (window.warehouseGroups||{})[pid]||[];
+                const displayName = (window.warehouseGroups?._whnames||{})[pid]||'';
                 const agg = _aggregateZones(zones);
                 const entries = Object.entries(agg);
                 // จัดกลุ่มตาม category

@@ -141,7 +141,8 @@
         // ======== PARENT WAREHOUSE MANAGEMENT ========
         window.renderParentWhList = function() {
             const c = document.getElementById('parentWhContainer'); if(!c) return;
-            const groups = Object.entries(warehouseGroups||{}).filter(([k])=>k!=='__names__');
+            const wg = window.warehouseGroups || {};
+            const groups = Object.entries(wg).filter(([k])=>k!=='_whnames');
             if(!groups.length) {
                 c.innerHTML = `<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px;border:2px dashed #e2e8f0;border-radius:10px;">
                     ยังไม่มีคลังหลัก — กด "เพิ่มคลังหลัก" เพื่อเริ่มผูก Zone ย่อยเข้าด้วยกัน
@@ -157,7 +158,7 @@
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
                         <div>
                             <div style="font-size:15px;font-weight:800;color:${color};">🏭 ${parentId}</div>
-                            <div style="font-size:12px;color:#475569;margin-top:1px;">${(warehouseGroups.__names__||{})[parentId]||''}</div>
+                            <div style="font-size:12px;color:#475569;margin-top:1px;">${(wg._whnames||{})[parentId]||''}</div>
                             <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${zoneList.length} Zone ย่อย</div>
                         </div>
                         <div style="display:flex;gap:5px;">
@@ -177,7 +178,8 @@
         };
 
         window.openAddParentWhForm = function(editId) {
-            const existing = editId ? (warehouseGroups||{})[editId] : null;
+            const wg = window.warehouseGroups || {};
+            const existing = editId ? wg[editId] : null;
             const area = document.getElementById('parentWhFormArea'); if(!area) return;
             const allZones = warehouseList;
             area.innerHTML = `
@@ -191,16 +193,16 @@
                     </div>
                     <div>
                         <label style="font-size:11px;font-weight:700;color:#5b21b6;display:block;margin-bottom:4px;">ชื่อแสดง (ถ้ามี)</label>
-                        <input id="pwh_name" value="${(warehouseGroups?.__names__||{})[editId]||''}" placeholder="เช่น คลังวัตถุดิบ 1"
+                        <input id="pwh_name" value="${(wg._whnames||{})[editId]||''}" placeholder="เช่น คลังวัตถุดิบ 1"
                             style="width:100%;padding:9px 12px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;font-family:inherit;">
                     </div>
                 </div>
                 <label style="font-size:11px;font-weight:700;color:#5b21b6;display:block;margin-bottom:8px;">เลือก Zone ที่อยู่ใน${editId?editId:'คลังหลักนี้'}</label>
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;max-height:220px;overflow-y:auto;padding:8px;background:white;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;" id="pwhZoneCheckboxes">
                     ${allZones.map(z => {
-                        const checked = existing ? existing.includes(z) : false;
-                        return `<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid ${checked?'#7c3aed':'#e2e8f0'};border-radius:8px;cursor:pointer;background:${checked?'#f5f3ff':'white'};transition:.15s;" id="pwhZoneLbl_${z.replace(/\s/g,'_')}">
-                            <input type="checkbox" value="${z}" ${checked?'checked':''} style="width:16px;height:16px;accent-color:#7c3aed;"
+                        const chk = existing ? existing.includes(z) : false;
+                        return `<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid ${chk?'#7c3aed':'#e2e8f0'};border-radius:8px;cursor:pointer;background:${chk?'#f5f3ff':'white'};transition:.15s;">
+                            <input type="checkbox" value="${z}" ${chk?'checked':''} style="width:16px;height:16px;accent-color:#7c3aed;"
                                 onchange="this.closest('label').style.borderColor=this.checked?'#7c3aed':'#e2e8f0';this.closest('label').style.background=this.checked?'#f5f3ff':'white'">
                             <span style="font-size:12px;font-weight:600;color:#1e293b;">${z}</span>
                         </label>`;
@@ -223,11 +225,11 @@
             const displayName = document.getElementById('pwh_name')?.value.trim()||'';
             if(!id) { toast('⚠️ กรุณาใส่รหัสคลังหลัก','#c2410c'); return; }
             const checked = [...document.querySelectorAll('#pwhZoneCheckboxes input[type=checkbox]:checked')].map(cb=>cb.value);
-            if(!warehouseGroups) window.warehouseGroups = {};
-            warehouseGroups[id] = checked;
-            // เก็บ displayName ใน __names__ เพื่อไม่ต้องเพิ่ม config key ใหม่
-            if(!warehouseGroups.__names__) warehouseGroups.__names__ = {};
-            warehouseGroups.__names__[id] = displayName;
+            // ต้องแก้ผ่าน window.warehouseGroups โดยตรงเพื่อให้ _syncGlobals ใน home.html รับรู้
+            if(!window.warehouseGroups) window.warehouseGroups = {};
+            window.warehouseGroups[id] = checked;
+            if(!window.warehouseGroups._whnames) window.warehouseGroups._whnames = {};
+            window.warehouseGroups._whnames[id] = displayName;
             saveConfig();
             toast(`✅ บันทึกคลังหลัก "${id}" (${checked.length} Zones)`,'#7c3aed');
             document.getElementById('parentWhFormArea').innerHTML='';
@@ -236,8 +238,9 @@
 
         window.deleteParentWh = function(id) {
             if(!confirm(`ลบคลังหลัก "${id}"?\nZone ย่อยจะไม่ถูกลบ เพียงแต่เลิกผูกกัน`)) return;
-            delete warehouseGroups[id];
-            if(warehouseGroups.__names__) delete warehouseGroups.__names__[id];
+            if(!window.warehouseGroups) return;
+            delete window.warehouseGroups[id];
+            if(window.warehouseGroups._whnames) delete window.warehouseGroups._whnames[id];
             saveConfig();
             renderParentWhList();
             toast(`🗑️ ลบคลังหลัก "${id}" แล้ว`,'#64748b');
