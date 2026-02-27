@@ -88,6 +88,9 @@
         }
 
         _onBeforeUnload(e) {
+            // บันทึกลง localStorage ทันทีก่อนหน้า unload — ไม่รอ interval
+            Object.keys(this._entries).forEach(k => this._autoSaveForce(k));
+
             const hasDirty = Object.keys(this._entries).some(k => {
                 const entry = this._entries[k];
                 return entry.isDirtyFn ? entry.isDirtyFn() : true;
@@ -96,6 +99,21 @@
                 e.preventDefault();
                 e.returnValue = ''; // required for Chrome
                 return '';
+            }
+        }
+
+        // บันทึกทันทีโดยไม่เช็ค isDirtyFn (ใช้ตอน beforeunload)
+        _autoSaveForce(key) {
+            const e = this._entries[key]; if (!e) return;
+            try {
+                const data = e.readFn();
+                if (data == null) return;
+                localStorage.setItem(e.storageKey, JSON.stringify({
+                    data,
+                    savedAt: new Date().toISOString()
+                }));
+            } catch (err) {
+                console.warn('[DraftManager] force-save error', key, err);
             }
         }
 
@@ -193,27 +211,63 @@
     window._DM_startStockNormal = function(zone) {
         window._DM.start('stock_normal', {
             isDirtyFn() {
+                // dirty ถ้ามีใน tempCountData หรือมีการพิมพ์ใน input ที่ยังไม่กด +
                 const td = window.tempCountData || {};
-                return Object.keys(td).some(id =>
+                const hasTempData = Object.keys(td).some(id =>
                     Object.keys(td[id]).filter(k => k.startsWith('u')).some(k => (td[id][k] || 0) > 0)
                 );
+                if (hasTempData) return true;
+                // ตรวจ input fields ที่กรอกแต่ยังไม่กด +
+                return [...document.querySelectorAll('[id^="input_"]')]
+                    .some(el => parseFloat(el.value) > 0);
             },
             readFn() {
                 const td = window.tempCountData || {};
-                if (!Object.keys(td).length) return null;
+                // เก็บ input values ที่ยังไม่กด + ด้วย
+                const pendingInputs = {};
+                document.querySelectorAll('[id^="input_"]').forEach(el => {
+                    if (parseFloat(el.value) > 0) pendingInputs[el.id] = el.value;
+                });
+                const hasTempData = Object.keys(td).some(id =>
+                    Object.keys(td[id]).filter(k => k.startsWith('u')).some(k => (td[id][k] || 0) > 0)
+                );
+                if (!hasTempData && !Object.keys(pendingInputs).length) return null;
+                const currentZone = document.querySelector('#toolAppContainer h2')?.textContent?.replace('📦 นับสต๊อก: ', '') || zone || '';
                 return {
                     tempCountData: JSON.parse(JSON.stringify(td)),
-                    zone: document.querySelector('#toolAppContainer h2')?.textContent?.replace('📦 นับสต๊อก: ', '') || zone || '',
-                    date: window.selectedDate || '',
-                    staff: window.selectedStaff || ''
+                    pendingInputs,
+                    zone: currentZone,
+                    date: document.getElementById('countDate')?.value || window.selectedDate || '',
+                    staff: document.getElementById('staffSelect')?.value || window.selectedStaff || ''
                 };
             },
             writeFn(data) {
                 window.tempCountData = data.tempCountData || {};
                 if (data.date) window.selectedDate = data.date;
                 if (data.staff) window.selectedStaff = data.staff;
-                // re-render เพื่อแสดง pending items
-                if (window.renderStockTool) renderStockTool(data.zone || '');
+                // re-render แล้วค่อยใส่ pending inputs
+                if (window.renderStockTool) {
+                    renderStockTool(data.zone || '');
+                    setTimeout(() => {
+                        // กู้คืน input ที่ยังไม่กด +
+                        Object.entries(data.pendingInputs || {}).forEach(([id, val]) => {
+                            const el = document.getElementById(id);
+                            if (el) {
+                                el.value = val;
+                                el.style.borderColor = '#f59e0b';
+                            }
+                        });
+                        // กู้คืน date และ staff
+                        if (data.date) {
+                            const dateEl = document.getElementById('countDate');
+                            if (dateEl) dateEl.value = data.date;
+                        }
+                        if (data.staff) {
+                            const staffEl = document.getElementById('staffSelect');
+                            if (staffEl) staffEl.value = data.staff;
+                        }
+                    }, 300);
+                }
             }
         });
     };
@@ -376,4 +430,96 @@
         });
     };
 
+    // ── แสดง Badge บน Dashboard ถ้ามี Draft ค้างอยู่ ──────────────────────────
+    window._DM_checkDashboardDrafts = function() {
+        const user = window.currentUser?.username || 'anon';
+        const SCREENS = [
+            { key: 'stock_normal', label: 'นับสต๊อก',       opener: 'openCentralStock',      icon: '📦' },
+            { key: 'create_gr',    label: 'สร้าง GR',        opener: 'openCreateGR',          icon: '📝' },
+            { key: 'create_req',   label: 'สร้างใบเบิก',     opener: 'openCreateRequisition', icon: '✏️' },
+        ];
+        const monthlyDrafts = [];
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith("ttgplus_draft_monthly_") && k.endsWith("_" + user)) {
+                    const raw = localStorage.getItem(k);
+                    if (raw) { const p = JSON.parse(raw); if (p?.data) monthlyDrafts.push({ storageKey: k, data: p }); }
+                }
+            }
+        } catch(_) {}
+
+        const found = [];
+        SCREENS.forEach(s => {
+            try {
+                const raw = localStorage.getItem("ttgplus_draft_" + s.key + "_" + user);
+                if (!raw) return;
+                const p = JSON.parse(raw);
+                if (p?.data) found.push({ ...s, storageKey: "ttgplus_draft_" + s.key + "_" + user });
+            } catch(_) {}
+        });
+        monthlyDrafts.forEach(m => {
+            found.push({ key: m.storageKey, label: "นับสต๊อกสิ้นเดือน (" + (m.data.data?.zone||'') + ")", icon: '📋', opener: null, storageKey: m.storageKey, isMonthly: true });
+        });
+        if (!found.length) return;
+
+        setTimeout(() => {
+            const dash = document.getElementById('dashboardView');
+            if (!dash || !dash.offsetParent) return;
+            document.getElementById('_dm_dash_banner')?.remove();
+            const banner = document.createElement('div');
+            banner.id = '_dm_dash_banner';
+            banner.style.cssText = 'margin:0 0 16px 0;';
+            banner.innerHTML = `
+            <div style="background:linear-gradient(90deg,#fef9c3,#fef3c7);border:2px solid #f59e0b;border-radius:12px;padding:14px 18px;box-shadow:0 2px 10px rgba(245,158,11,.15);">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                    <span style="font-size:22px;">⚠️</span>
+                    <span style="font-weight:700;font-size:14px;color:#92400e;">พบข้อมูลที่กรอกค้างไว้ก่อนหน้า (${found.length} รายการ) — ยังไม่ได้บันทึก</span>
+                    <button onclick="document.getElementById('_dm_dash_banner').remove()" style="margin-left:auto;background:none;border:none;color:#a16207;cursor:pointer;font-size:18px;">✕</button>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                    ${found.map(f => `<button onclick="window._DM_resumeDraft('" + f.storageKey + "','" + (f.opener||'') + "')" style="background:white;border:1.5px solid #f59e0b;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:600;color:#92400e;">${f.icon} กลับไปกรอก: ${f.label}</button>`).join('')}
+                    <button onclick="window._DM_clearAllDrafts();document.getElementById('_dm_dash_banner').remove();" style="background:#fef3c7;border:1.5px solid #fcd34d;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;color:#a16207;">🗑️ ลบ draft ทั้งหมด</button>
+                </div>
+            </div>`;
+            const firstEl = dash.querySelector('h2, .stats-row, [class*="card"], div');
+            if (firstEl) firstEl.before(banner); else dash.prepend(banner);
+        }, 600);
+    };
+
+    window._DM_resumeDraft = function(storageKey, opener) {
+        document.getElementById('_dm_dash_banner')?.remove();
+        if (opener && window[opener]) window[opener]();
+    };
+
+    window._DM_clearAllDrafts = function() {
+        const user = window.currentUser?.username || 'anon';
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('ttgplus_draft_') && k.endsWith('_' + user)) keys.push(k);
+        }
+        keys.forEach(k => { try { localStorage.removeItem(k); } catch(_) {} });
+    };
+
 })();
+
+// ── Hook goToDashboard หลัง page load ────────────────────────────────────────
+// รอให้ home.html โหลด goToDashboard ก่อน แล้วค่อย wrap
+window.addEventListener('load', () => {
+    // 1. ตรวจ draft ทันทีที่ page โหลด (กรณีรีเฟรช)
+    setTimeout(() => {
+        if (window._DM_checkDashboardDrafts) _DM_checkDashboardDrafts();
+    }, 1200);
+
+    // 2. wrap goToDashboard เพื่อตรวจ draft ทุกครั้งที่กลับ Dashboard
+    const _origGTD = window.goToDashboard;
+    if (_origGTD) {
+        window.goToDashboard = function() {
+            _origGTD();
+            setTimeout(() => {
+                if (window._DM_checkDashboardDrafts) _DM_checkDashboardDrafts();
+            }, 400);
+        };
+    }
+});
