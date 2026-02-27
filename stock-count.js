@@ -1330,7 +1330,7 @@ ${r.zone}`);
                     style="background:#f59e0b;color:white;padding:14px 40px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;margin-right:10px;">
                     ✏️ แก้ไขยอดนับ
                 </button>
-                <button onclick="exportBranchMonthlyCountPDF()"
+                <button onclick="openPDFFormatModal()"
                     style="background:#7c3aed;color:white;padding:14px 30px;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;margin-right:10px;">
                     🖨️ Export PDF
                 </button>
@@ -1505,7 +1505,7 @@ ${r.zone}`);
             window._bmcCurrentDoc = d;
             window._bmcCurrentTmplId = tmplId;
             window._bmcCurrentZone = d.zone;
-            exportBranchMonthlyCountPDF();
+            openPDFFormatModal();
         };
 
         window.exportSingleMonthlyExcel = function(docId) {
@@ -1959,6 +1959,135 @@ ${r.zone}`);
         };
 
         // Export PDF — ยอดนับสิ้นเดือนสาขา (จาก _bmcCurrentDoc)
+        // Modal เลือกรูปแบบ PDF
+        window.openPDFFormatModal = function() {
+            const ex = document.getElementById('pdfFmtModal'); if(ex) ex.remove();
+            const m = document.createElement('div');
+            m.className = 'modal-overlay'; m.id = 'pdfFmtModal';
+            m.innerHTML = `<div class="modal-box" style="max-width:440px;width:95vw;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 style="margin:0;">🖨️ เลือกรูปแบบ PDF</h3>
+                    <button onclick="document.getElementById('pdfFmtModal').remove()"
+                        style="background:#f1f5f9;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+                    <label id="pdfFmt1" onclick="selectPdfFmt('standard')"
+                        style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:2px solid #7c3aed;border-radius:12px;cursor:pointer;background:#f5f3ff;">
+                        <input type="radio" name="pdfFmt" value="standard" checked style="margin-top:3px;width:16px;height:16px;accent-color:#7c3aed;">
+                        <div>
+                            <div style="font-weight:700;font-size:14px;color:#5b21b6;">📋 รูปแบบปกติ</div>
+                            <div style="font-size:12px;color:#64748b;margin-top:3px;">Header ใหญ่ แบ่งกลุ่มสินค้า มีส่วนเซ็นชื่อ เหมาะสำหรับเก็บเอกสาร</div>
+                        </div>
+                    </label>
+                    <label id="pdfFmt2" onclick="selectPdfFmt('compact')"
+                        style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;background:white;">
+                        <input type="radio" name="pdfFmt" value="compact" style="margin-top:3px;width:16px;height:16px;accent-color:#7c3aed;">
+                        <div>
+                            <div style="font-weight:700;font-size:14px;color:#1e293b;">⚡ รวมแผ่นเดียว (หน้าร้าน)</div>
+                            <div style="font-size:12px;color:#64748b;margin-top:3px;">ตารางแน่น font เล็กลง ไม่มีส่วนเซ็นชื่อ พอดี A4 ใบเดียว</div>
+                        </div>
+                    </label>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="document.getElementById('pdfFmtModal').remove()"
+                        style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:11px;border-radius:10px;cursor:pointer;font-weight:600;">ยกเลิก</button>
+                    <button onclick="confirmPdfExport()"
+                        style="flex:2;background:#7c3aed;color:white;border:none;padding:11px;border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;">🖨️ Export PDF</button>
+                </div>
+            </div>`;
+            document.body.appendChild(m);
+        };
+
+        window.selectPdfFmt = function(val) {
+            document.querySelectorAll('input[name="pdfFmt"]').forEach(r => r.checked = r.value === val);
+            document.getElementById('pdfFmt1').style.borderColor = val==='standard' ? '#7c3aed' : '#e2e8f0';
+            document.getElementById('pdfFmt1').style.background  = val==='standard' ? '#f5f3ff' : 'white';
+            document.getElementById('pdfFmt2').style.borderColor = val==='compact'  ? '#7c3aed' : '#e2e8f0';
+            document.getElementById('pdfFmt2').style.background  = val==='compact'  ? '#f5f3ff' : 'white';
+        };
+
+        window.confirmPdfExport = function() {
+            const fmt = document.querySelector('input[name="pdfFmt"]:checked')?.value || 'standard';
+            document.getElementById('pdfFmtModal').remove();
+            if(fmt === 'compact') exportBranchMonthlyCountPDFCompact();
+            else exportBranchMonthlyCountPDF();
+        };
+
+        // PDF แบบกระชับ — พอดีหน้าเดียว A4
+        window.exportBranchMonthlyCountPDFCompact = function() {
+            const d = window._bmcCurrentDoc;
+            const zone = window._bmcCurrentZone;
+            const tmplId = window._bmcCurrentTmplId;
+            const tmpl = stockSheetTemplates[tmplId] || {};
+            if(!d){ toast('⚠️ ไม่พบข้อมูล','#c2410c'); return; }
+
+            const printDate = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'});
+            const groups = [...new Set((d.items||[]).map(i=>i.group||'ทั่วไป'))];
+
+            // นับรายการทั้งหมดเพื่อปรับ font size
+            const totalItems = (d.items||[]).length + groups.length; // rows + group headers
+            const fontSize = totalItems <= 20 ? 11 : totalItems <= 35 ? 10 : totalItems <= 50 ? 9 : 8;
+            const padding  = totalItems <= 20 ? '6px 10px' : totalItems <= 35 ? '5px 8px' : '4px 6px';
+
+            const tableBody = groups.map(grp => {
+                const grpItems = (d.items||[]).filter(i=>(i.group||'ทั่วไป')===grp);
+                const hdr = `<tr><td colspan="4" style="padding:4px 8px;background:#1e293b;color:white;font-weight:700;font-size:${fontSize-1}px;letter-spacing:.3px;">▌ ${grp.toUpperCase()}</td></tr>`;
+                const rows = grpItems.map((it, idx) => {
+                    const p = allProducts.find(x=>x.id===it.id);
+                    const tmplItem = (tmpl.items||[]).find(x=>x.id===it.id);
+                    const exportUnit = _getExportUnit(it.id, tmplItem);
+                    const converted = _convertToExportUnit(it.balance||0, it.unit||'', exportUnit, p);
+                    const showConvert = exportUnit !== it.unit && it.unit;
+                    return `<tr style="${idx%2===1?'background:#f8fafc':''}">
+                        <td style="padding:${padding};font-size:${fontSize}px;border-bottom:1px solid #f1f5f9;color:#475569;">${it.id}</td>
+                        <td style="padding:${padding};font-size:${fontSize}px;border-bottom:1px solid #f1f5f9;">${it.name}</td>
+                        <td style="padding:${padding};text-align:center;font-weight:800;font-size:${fontSize+2}px;color:#1d4ed8;border-bottom:1px solid #f1f5f9;">${converted||'—'}</td>
+                        <td style="padding:${padding};text-align:center;font-size:${fontSize-1}px;color:#64748b;border-bottom:1px solid #f1f5f9;">${exportUnit}${showConvert?`<br><span style="color:#cbd5e1;font-size:${fontSize-2}px">${it.balance} ${it.unit}</span>`:''}</td>
+                    </tr>`;
+                }).join('');
+                return hdr+rows;
+            }).join('');
+
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                @page{size:A4;margin:8mm}
+                body{font-family:'Sarabun',sans-serif;margin:0;color:#1e293b;}
+                table{width:100%;border-collapse:collapse;}
+                thead tr{background:#1d4ed8;color:white;}
+                th{padding:6px 8px;text-align:left;font-size:${fontSize}px;}
+            </style>
+            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+            </head><body>
+            <!-- Header แถบบาง -->
+            <div style="background:#1e293b;color:white;padding:8px 12px;border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <span style="font-size:14px;font-weight:800;">รายงานนับสต๊อกสิ้นเดือน</span>
+                    <span style="font-size:12px;opacity:.8;margin-left:10px;">📦 ${zone}</span>
+                </div>
+                <div style="text-align:right;font-size:10px;opacity:.8;">
+                    <div>วันที่นับ: ${d.date||d.month||'—'} | ผู้นับ: ${d.countedBy||'—'}</div>
+                    <div>Template: ${d.templateName||'—'} | พิมพ์: ${printDate}</div>
+                </div>
+            </div>
+            <table>
+                <thead><tr>
+                    <th style="width:90px;">รหัส</th>
+                    <th>ชื่อสินค้า</th>
+                    <th style="width:70px;text-align:center;background:#1d4ed8;">ยอดนับ</th>
+                    <th style="width:65px;text-align:center;">หน่วย</th>
+                </tr></thead>
+                <tbody>${tableBody}</tbody>
+            </table>
+            <div style="margin-top:6px;font-size:9px;color:#94a3b8;text-align:right;">
+                ${(d.items||[]).length} รายการ | พิมพ์โดย: ${currentUser?.name||''} | ${printDate}
+            </div>
+            </body></html>`;
+
+            const w = window.open('','_blank','width=900,height=700');
+            w.document.write(html); w.document.close();
+            setTimeout(()=>w.print(), 600);
+        };
+
         window.exportBranchMonthlyCountPDF = function() {
             const d = window._bmcCurrentDoc;
             const zone = window._bmcCurrentZone;
