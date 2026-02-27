@@ -88,6 +88,8 @@
 
             window._grItems = [];
             renderGRProductSearch();
+            // ลงทะเบียน draft protection
+            if(window._DM_startCreateGR) setTimeout(()=>_DM_startCreateGR(), 400);
         };
 
         window.renderGRProductSearch = function() {
@@ -190,6 +192,8 @@
                 items:grItems, status:'draft'
             });
             toast(`📝 บันทึกแบบร่าง ${grNumber} สำเร็จ`,'#059669');
+            // clear draft หลัง save สำเร็จ
+            if(window._DM) _DM.clear('create_gr');
             setTimeout(()=>openGRHistory(), 600);
         };
 

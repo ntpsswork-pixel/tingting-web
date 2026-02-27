@@ -4,9 +4,12 @@
         window.openCentralStock=function(){
             document.getElementById('dashboardView').classList.add('hidden');
             document.getElementById('toolAppContainer').classList.remove('hidden');
-            tempCountData={};
             const visibleZones=getVisibleWarehouses();
-            renderStockTool(visibleZones[0]||warehouseList[0]);
+            const defaultZone = visibleZones[0]||warehouseList[0];
+            if(!tempCountData||!Object.keys(tempCountData).length) tempCountData={};
+            renderStockTool(defaultZone);
+            // ลงทะเบียน draft protection
+            if(window._DM_startStockNormal) setTimeout(()=>_DM_startStockNormal(defaultZone), 400);
         };
 
         window.renderStockTool=async function(zone){
@@ -163,6 +166,8 @@
 
             tempCountData={};
             toast('✅ บันทึกสำเร็จ! ตัวเลขรีเซ็ตแล้ว','#059669');
+            // clear draft หลัง save สำเร็จ
+            if(window._DM) _DM.clear('stock_normal');
             renderStockTool(zone);
         };
 
@@ -2555,6 +2560,8 @@ ${r.zone}`);
                     💾 บันทึกผลการนับสต๊อกสิ้นเดือน
                 </button>
             </div>`;
+            // ลงทะเบียน draft protection หลัง DOM render
+            if(window._DM_startMonthlyCount) setTimeout(()=>_DM_startMonthlyCount(tmplId, tmpl, defaultZone), 400);
         };
 
         window.filterBMCRows = function(q) {
@@ -2612,6 +2619,11 @@ ${r.zone}`);
                     items
                 });
                 toast('✅ บันทึกผลการนับเรียบร้อย','#059669');
+                // clear draft หลัง save สำเร็จ
+                if(window._DM){
+                    const key=`monthly_${tmplId}_${(zone||'').replace(/\s/g,'_')}`;
+                    _DM.clear(key);
+                }
                 goToDashboard();
             } catch(e){toast('❌ บันทึกไม่สำเร็จ: '+e.message,'#ef4444');}
         };

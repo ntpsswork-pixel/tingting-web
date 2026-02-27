@@ -102,6 +102,8 @@
             </div>`;
 
             renderMRItems();
+            // ลงทะเบียน draft protection
+            if(window._DM_startCreateReq) setTimeout(()=>_DM_startCreateReq(), 400);
         };
 
         window.renderMRItems = function() {
@@ -198,6 +200,8 @@
             });
 
             toast(`✅ ส่งใบเบิก ${mrNumber} เรียบร้อยแล้ว`,'#059669');
+            // clear draft หลัง save สำเร็จ
+            if(window._DM) _DM.clear('create_req');
             loadReqBadge();
             openMyRequisitions();
         };
