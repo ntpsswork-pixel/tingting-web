@@ -1650,7 +1650,9 @@ ${r.zone}`);
         // ======== PARENT WAREHOUSE AGGREGATED EXPORT ========
         window.openParentWhExportModal = function() {
             const wg = window.warehouseGroups || {};
-            const groups = Object.entries(wg).filter(([k])=>k!=='_whnames');
+            const groups = Object.entries(wg)
+                .filter(([k])=>k!=='_whnames')
+                .map(([pid, val]) => [pid, Array.isArray(val) ? val : []]);  // normalize
             if(!groups.length) {
                 toast('⚠️ ยังไม่มีคลังหลัก — ตั้งค่าที่ ⚙️ ตั้งค่าคลังและสินค้าหลัก','#f59e0b');
                 return;
@@ -1722,8 +1724,9 @@ ${r.zone}`);
 
         // รวมยอดสินค้าจาก zones ย่อย → object { productId: { name, unit, totalInExportUnit, byZone:{zone: amount} } }
         window._aggregateZones = function(zones) {
-            const result = {}; // { pid: {name, exportUnit, totalConverted, byZone:{}} }
-            zones.forEach(zone => {
+            const safeZones = Array.isArray(zones) ? zones : [];
+            const result = {};
+            safeZones.forEach(zone => {
                 const prods = getZoneProducts(zone);
                 prods.forEach(p => {
                     const cd = countData[p.id] || {total:0};
@@ -1756,7 +1759,7 @@ ${r.zone}`);
             if(fmt === 'sheets') {
                 // แยก Sheet ต่อคลังหลัก
                 selectedPids.forEach(pid => {
-                    const zones = (window.warehouseGroups||{})[pid]||[];
+                    const _rawZ = (window.warehouseGroups||{})[pid]; const zones = Array.isArray(_rawZ) ? _rawZ : [];
                     const agg = _aggregateZones(zones);
                     const sheetData = _buildParentWhSheet(pid, zones, agg, showZone && !sumOnly);
                     const ws = XLSX.utils.aoa_to_sheet(sheetData);
@@ -1767,7 +1770,7 @@ ${r.zone}`);
                 // ทุกคลังใน Sheet เดียว
                 let allRows = [['คลังหลัก','Zone','รหัส','ชื่อสินค้า','หมวด','ยอดรวม','หน่วย']];
                 selectedPids.forEach(pid => {
-                    const zones = (window.warehouseGroups||{})[pid]||[];
+                    const _rawZ = (window.warehouseGroups||{})[pid]; const zones = Array.isArray(_rawZ) ? _rawZ : [];
                     const agg = _aggregateZones(zones);
                     // ยอดรวม
                     Object.entries(agg).forEach(([prodId, d]) => {
@@ -1842,7 +1845,7 @@ ${r.zone}`);
             const printDate = now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
 
             const sections = selectedPids.map(pid => {
-                const zones = (window.warehouseGroups||{})[pid]||[];
+                const _rawZ = (window.warehouseGroups||{})[pid]; const zones = Array.isArray(_rawZ) ? _rawZ : [];
                 const displayName = (window.warehouseGroups?._whnames||{})[pid]||'';
                 const agg = _aggregateZones(zones);
                 const entries = Object.entries(agg);
