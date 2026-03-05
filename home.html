@@ -261,6 +261,7 @@
                 <div id="subTools" class="submenu">
                     <div onclick="tryOpenMonthlyCount()" id="monthlyCountMenuBtn">● นับสต๊อกสิ้นเดือน <span id="monthlyCountBadge" style="font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;"></span></div>
                     <div onclick="openDailyStockCard()" style="color:#06b6d4;">● Daily Stock Card</div>
+                    <div onclick="tryOpenBranchMonthlyCount()" id="branchMonthlyMenuBtn" class="hidden" style="color:#f59e0b;">● 🏪 นับสิ้นเดือนสาขา (BT)</div>
                 </div>
             </div>
             <div id="grMenu" class="hidden">
@@ -1505,11 +1506,13 @@
 
 // ===== BULK CATEGORY EDITOR =====
 let tempCategoryMap = {};
+let _bulkFilterMode = 'all'; // 'all' | 'uncat' | cat name
 
 window.openBulkCategoryEditor = function() {
     document.getElementById('dashboardView').classList.add('hidden');
     const c = document.getElementById('toolAppContainer');
     c.classList.remove('hidden');
+    _bulkFilterMode = 'all';
     _renderBulkCategoryEditor();
 };
 
@@ -1526,26 +1529,34 @@ window._renderBulkCategoryEditor = function() {
         return;
     }
 
-    // chip ของหมวดหมู่ที่มีอยู่
+    const uncatCount = allProducts.filter(p=>!p.category).length;
+
+    // chips หมวดหมู่
     const chips = productCategories.length
         ? productCategories.map((cat, i) => `
-            <span style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#a16207;border:1px solid #fde68a;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;">
+            <span style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#a16207;border:1px solid #fde68a;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;"
+                onclick="_bulkFilterByCat('${cat}')" title="กรองดูเฉพาะหมวดนี้">
                 🏷️ ${cat}
-                <button onclick="_bulkDeleteCategory(${i})" style="background:none;border:none;cursor:pointer;color:#d97706;font-size:12px;padding:0;line-height:1;" title="ลบ">✕</button>
+                <span style="background:rgba(0,0,0,0.08);border-radius:10px;padding:1px 5px;font-size:10px;">${allProducts.filter(p=>p.category===cat).length}</span>
+                <button onclick="event.stopPropagation();_bulkDeleteCategory(${i})" style="background:none;border:none;cursor:pointer;color:#d97706;font-size:12px;padding:0 0 0 2px;line-height:1;" title="ลบหมวด">✕</button>
             </span>`).join('')
         : `<span style="color:#94a3b8;font-size:12px;">ยังไม่มีหมวดหมู่ กรุณาเพิ่มด้านล่าง</span>`;
 
-    // แถวสินค้า
-    const catOptions = productCategories.map(cat => `<option value="${cat}">`).join('');
+    // สร้าง rows ทั้งหมด (filter จะใช้ JS)
     const rows = allProducts.map(p => {
         const currentCat = p.category || '';
-        return `<tr style="border-bottom:1px solid #f1f5f9;">
+        const rowStyle = currentCat ? '' : 'background:#fffbeb;';
+        return `<tr class="bulk-row" data-id="${p.id}" data-name="${p.name.toLowerCase()}" data-cat="${currentCat.toLowerCase()}" data-has="${currentCat?'1':'0'}"
+            style="border-bottom:1px solid #f1f5f9;${rowStyle}">
+            <td style="padding:4px 8px;">
+                <input type="checkbox" class="bulk-cb" data-id="${p.id}" style="width:15px;height:15px;accent-color:#8b5cf6;cursor:pointer;">
+            </td>
             <td style="padding:10px 8px;font-size:12px;color:#64748b;white-space:nowrap;">${p.id}</td>
             <td style="padding:10px 8px;font-size:13px;">${p.name}</td>
             <td style="padding:10px 8px;">
                 ${productCategories.length
                     ? `<select onchange="updateTempCategory('${p.id}', this.value)"
-                        style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-family:inherit;outline:none;min-width:130px;">
+                        style="padding:6px 10px;border:1.5px solid ${currentCat?'#fde68a':'#e2e8f0'};border-radius:8px;font-size:12px;font-family:inherit;outline:none;min-width:130px;background:${currentCat?'#fefce8':'white'};">
                         <option value="" ${!currentCat?'selected':''}>— ไม่ระบุ —</option>
                         ${productCategories.map(cat => `<option value="${cat}" ${currentCat===cat?'selected':''}>${cat}</option>`).join('')}
                       </select>`
@@ -1558,12 +1569,18 @@ window._renderBulkCategoryEditor = function() {
     c.innerHTML = `
         <div class="tool-header">
             <h2>🗂️ แก้ไขหมวดหมู่สินค้า (Bulk Edit)</h2>
-            <button onclick="closeTool()">✕ ปิด</button>
+            <div style="display:flex;gap:8px;">
+                <button onclick="saveBulkCategory()"
+                    style="background:#10b981;color:white;border:none;padding:9px 20px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;">
+                    💾 บันทึกทั้งหมด
+                </button>
+                <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:9px 16px;border-radius:10px;cursor:pointer;">✕ ปิด</button>
+            </div>
         </div>
 
         <!-- จัดการหมวดหมู่ -->
-        <div style="background:white;padding:18px 20px;border-radius:14px;border:1px solid #e8ecf0;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
-            <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">🏷️ จัดการหมวดหมู่</div>
+        <div style="background:white;padding:18px 20px;border-radius:14px;border:1px solid #e8ecf0;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+            <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">🏷️ หมวดหมู่ที่มีอยู่ <span style="color:#94a3b8;font-weight:400;">(กดชื่อหมวดเพื่อกรอง)</span></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="_bulkCatChips">${chips}</div>
             <div style="display:flex;gap:8px;">
                 <input type="text" id="_bulkNewCatInput" placeholder="พิมพ์ชื่อหมวดหมู่ใหม่..." maxlength="30"
@@ -1576,29 +1593,130 @@ window._renderBulkCategoryEditor = function() {
             </div>
         </div>
 
+        <!-- Bulk Assign Bar -->
+        <div style="background:#faf5ff;border:1.5px solid #e9d5ff;padding:12px 16px;border-radius:12px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:700;color:#7c3aed;">⚡ Bulk Assign:</span>
+            <input type="checkbox" id="bulkSelectAll" onchange="_bulkToggleAll(this.checked)" style="width:15px;height:15px;accent-color:#8b5cf6;cursor:pointer;">
+            <label for="bulkSelectAll" style="font-size:12px;color:#6d28d9;cursor:pointer;">เลือกทั้งหมดที่เห็น</label>
+            <span style="color:#e9d5ff;">|</span>
+            <span style="font-size:12px;color:#64748b;">กำหนดเป็น:</span>
+            <select id="bulkAssignCat" style="padding:5px 10px;border:1.5px solid #e9d5ff;border-radius:8px;font-size:12px;outline:none;font-family:inherit;background:white;">
+                <option value="">— เลือกหมวดหมู่ —</option>
+                <option value="">— ล้างหมวดหมู่ —</option>
+                ${productCategories.map(cat=>`<option value="${cat}">${cat}</option>`).join('')}
+            </select>
+            <button onclick="_bulkAssignSelected()"
+                style="background:#7c3aed;color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">
+                ✅ Assign ที่เลือก
+            </button>
+            <span id="bulkSelectedCount" style="font-size:11px;color:#8b5cf6;font-weight:600;"></span>
+        </div>
+
         <!-- ตารางสินค้า -->
         <div style="background:white;padding:20px;border-radius:14px;border:1px solid #e8ecf0;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-                <span style="font-size:13px;color:#64748b;">${allProducts.length} รายการ</span>
-                <button onclick="saveBulkCategory()"
-                    style="background:#10b981;color:white;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">
-                    💾 บันทึกทั้งหมด
+            <!-- Search + Filter bar -->
+            <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+                <input type="text" id="bulkSearchInput" placeholder="🔍 ค้นหารหัส / ชื่อสินค้า..."
+                    oninput="_bulkFilter()"
+                    style="flex:1;min-width:160px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;">
+                <button onclick="_bulkShowAll()" id="filterBtnAll"
+                    style="padding:7px 14px;border:2px solid #1e40af;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:#1e40af;color:white;">
+                    ทั้งหมด (${allProducts.length})
                 </button>
+                <button onclick="_bulkShowUncat()" id="filterBtnUncat"
+                    style="padding:7px 14px;border:2px solid ${uncatCount>0?'#f59e0b':'#e2e8f0'};border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:white;color:${uncatCount>0?'#d97706':'#94a3b8'};">
+                    ⚠️ ยังไม่มีหมวด (${uncatCount})
+                </button>
+                <span id="bulkRowCount" style="font-size:12px;color:#94a3b8;"></span>
             </div>
-            <div style="overflow:auto;max-height:60vh;">
+            <div style="overflow:auto;max-height:55vh;">
                 <table style="width:100%;border-collapse:collapse;">
                     <thead style="position:sticky;top:0;background:#f8fafc;z-index:1;">
                         <tr>
+                            <th style="padding:10px 8px;width:32px;border-bottom:2px solid #e8ecf0;"></th>
                             <th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e8ecf0;">รหัส</th>
                             <th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e8ecf0;">ชื่อสินค้า</th>
                             <th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e8ecf0;">หมวดหมู่</th>
                         </tr>
                     </thead>
-                    <tbody>${rows}</tbody>
+                    <tbody id="bulkTbody">${rows}</tbody>
                 </table>
             </div>
         </div>
     `;
+    _bulkUpdateCount();
+};
+
+window._bulkFilter = function() {
+    const q = (document.getElementById('bulkSearchInput')?.value||'').toLowerCase().trim();
+    document.querySelectorAll('.bulk-row').forEach(r=>{
+        const matchSearch = !q || r.dataset.name.includes(q) || r.dataset.id.includes(q);
+        let matchFilter = true;
+        if(_bulkFilterMode==='uncat') matchFilter = r.dataset.has==='0';
+        else if(_bulkFilterMode!=='all') matchFilter = r.dataset.cat===_bulkFilterMode.toLowerCase();
+        r.style.display = (matchSearch && matchFilter) ? '' : 'none';
+    });
+    _bulkUpdateCount();
+};
+window._bulkShowAll = function() {
+    _bulkFilterMode='all';
+    document.getElementById('bulkSearchInput').value='';
+    _bulkFilter();
+    _setFilterBtn('filterBtnAll');
+};
+window._bulkShowUncat = function() {
+    _bulkFilterMode='uncat';
+    document.getElementById('bulkSearchInput').value='';
+    _bulkFilter();
+    _setFilterBtn('filterBtnUncat');
+};
+window._bulkFilterByCat = function(cat) {
+    _bulkFilterMode=cat;
+    document.getElementById('bulkSearchInput').value='';
+    _bulkFilter();
+};
+window._setFilterBtn = function(activeId) {
+    ['filterBtnAll','filterBtnUncat'].forEach(id=>{
+        const btn=document.getElementById(id); if(!btn)return;
+        const isActive=id===activeId;
+        btn.style.background=isActive?'#1e40af':'white';
+        btn.style.color=isActive?'white':(id==='filterBtnUncat'&&(window._productCategories||[]).length?'#d97706':'#94a3b8');
+        btn.style.borderColor=isActive?'#1e40af':(id==='filterBtnUncat'?'#f59e0b':'#e2e8f0');
+    });
+};
+window._bulkUpdateCount = function() {
+    const visible = [...document.querySelectorAll('.bulk-row')].filter(r=>r.style.display!=='none').length;
+    const el=document.getElementById('bulkRowCount'); if(el) el.textContent=`แสดง ${visible} รายการ`;
+    const checked=[...document.querySelectorAll('.bulk-cb:checked')].length;
+    const el2=document.getElementById('bulkSelectedCount'); if(el2) el2.textContent=checked?`เลือกไว้ ${checked} รายการ`:'';
+};
+window._bulkToggleAll = function(checked) {
+    document.querySelectorAll('.bulk-row').forEach(r=>{
+        if(r.style.display==='none') return;
+        const cb=r.querySelector('.bulk-cb'); if(cb) cb.checked=checked;
+    });
+    _bulkUpdateCount();
+};
+window._bulkAssignSelected = function() {
+    const cat=document.getElementById('bulkAssignCat')?.value||'';
+    const selected=[...document.querySelectorAll('.bulk-cb:checked')].map(cb=>cb.dataset.id);
+    if(!selected.length){toast('⚠️ กรุณาเลือกสินค้าก่อน','#c2410c');return;}
+    selected.forEach(id=>{ tempCategoryMap[id]=cat; });
+    // อัพเดต dropdown ใน table ทันที
+    selected.forEach(id=>{
+        const row=document.querySelector(`.bulk-row[data-id="${id}"]`);
+        if(!row)return;
+        const sel=row.querySelector('select'); if(sel){ sel.value=cat; }
+        row.dataset.cat=cat.toLowerCase();
+        row.dataset.has=cat?'1':'0';
+        row.style.background=cat?'':'#fffbeb';
+        if(sel){ sel.style.borderColor=cat?'#fde68a':'#e2e8f0'; sel.style.background=cat?'#fefce8':'white'; }
+    });
+    // uncheck all
+    document.querySelectorAll('.bulk-cb').forEach(cb=>cb.checked=false);
+    document.getElementById('bulkSelectAll').checked=false;
+    _bulkUpdateCount();
+    toast(`✅ กำหนดหมวด "${cat||'(ล้าง)'}" ให้ ${selected.length} รายการแล้ว — อย่าลืมกด บันทึก`,'#8b5cf6');
 };
 
 window._bulkAddCategory = async function() {
@@ -1627,21 +1745,96 @@ window._bulkDeleteCategory = async function(i) {
 
 window.updateTempCategory = function(productId, category) {
     tempCategoryMap[productId] = category;
-}
+    // อัปเดต style ของ select ในแถวนั้น
+    const sel = document.querySelector(`select[onchange*="'${productId}'"]`);
+    if(sel){ sel.style.borderColor=category?'#a78bfa':'#e2e8f0'; sel.style.background=category?'#faf5ff':'white'; }
+};
+
+// ── Bulk helper functions ──
+window._bulkFilterRows = function() {
+    const q   = (document.getElementById('_bulkSearch')?.value||'').toLowerCase().trim();
+    const cat = (document.getElementById('_bulkFilterCat')?.value||'');
+    let visible = 0;
+    document.querySelectorAll('._bulkRow').forEach(r=>{
+        const matchSearch = !q || r.dataset.search.includes(q);
+        const matchCat    = !cat
+            ? true
+            : cat==='__none__'
+                ? r.dataset.hascat==='0'
+                : (tempCategoryMap[r.querySelector('._bulkChk')?.dataset.id] || r.querySelector('select')?.value || '') === cat;
+        const show = matchSearch && matchCat;
+        r.style.display = show ? '' : 'none';
+        if(show) visible++;
+    });
+    document.getElementById('_bulkTotalLabel') && (document.getElementById('_bulkTotalLabel').textContent = `${visible} รายการ`);
+    _bulkUpdateAssignBar();
+};
+
+window._bulkSelectAll = function(checked) {
+    document.querySelectorAll('._bulkRow').forEach(r=>{
+        if(r.style.display==='none') return;
+        const cb = r.querySelector('._bulkChk');
+        if(cb) cb.checked = checked;
+    });
+    const allCb = document.getElementById('_bulkChkAll');
+    if(allCb) allCb.checked = checked;
+    _bulkUpdateAssignBar();
+};
+
+window._bulkToggleRow = function(cb) {
+    _bulkUpdateAssignBar();
+    const allCbs = [...document.querySelectorAll('._bulkChk:not(#_bulkChkAll)')].filter(c=>c.closest('._bulkRow')?.style.display!=='none');
+    const allChecked = allCbs.every(c=>c.checked);
+    const hdrCb = document.getElementById('_bulkChkAll');
+    if(hdrCb) hdrCb.checked = allChecked;
+};
+
+window._bulkUpdateAssignBar = function() {
+    const checked = [...document.querySelectorAll('._bulkChk:not(#_bulkChkAll)')].filter(c=>c.checked);
+    const bar = document.getElementById('_bulkAssignBar');
+    const lbl = document.getElementById('_bulkSelectedCount');
+    if(!bar) return;
+    if(checked.length > 0){
+        bar.style.display = 'flex';
+        if(lbl) lbl.textContent = `${checked.length} รายการที่เลือก`;
+    } else {
+        bar.style.display = 'none';
+    }
+};
+
+window._bulkAssignSelected = function() {
+    const cat = document.getElementById('_bulkAssignSelect')?.value;
+    if(cat === undefined || cat === '') { toast('⚠️ กรุณาเลือกหมวดหมู่', '#c2410c'); return; }
+    const finalCat = cat === '__clear__' ? '' : cat;
+    const checked = [...document.querySelectorAll('._bulkChk:not(#_bulkChkAll)')].filter(c=>c.checked);
+    checked.forEach(cb=>{
+        const id = cb.dataset.id;
+        tempCategoryMap[id] = finalCat;
+        // อัปเดต dropdown ในแถว
+        const sel = document.querySelector(`._bulkRow[data-search*="${id.toLowerCase()}"] select`);
+        if(sel){ sel.value = finalCat; sel.style.borderColor=finalCat?'#a78bfa':'#e2e8f0'; sel.style.background=finalCat?'#faf5ff':'white'; }
+        // อัปเดต data-hascat
+        const row = cb.closest('._bulkRow');
+        if(row) row.dataset.hascat = finalCat ? '1' : '0';
+        cb.checked = false;
+    });
+    const allCb = document.getElementById('_bulkChkAll');
+    if(allCb) allCb.checked = false;
+    _bulkUpdateAssignBar();
+    toast(`✅ กำหนดหมวด${finalCat?` "${finalCat}"`:' (ล้าง)'} ให้ ${checked.length} รายการแล้ว`, '#059669');
+};
 
 window.saveBulkCategory = async function() {
     const allProducts = window._allProducts || [];
     Object.keys(tempCategoryMap).forEach(id => {
         const product = allProducts.find(p => p.id === id);
-        if(product){
-            product.category = tempCategoryMap[id];
-        }
+        if(product) product.category = tempCategoryMap[id];
     });
-
     await window._saveConfig();
     tempCategoryMap = {};
     toast('✅ บันทึกหมวดหมู่เรียบร้อยแล้ว', '#059669');
-}
+    _renderBulkCategoryEditor();
+};
 
 // เพิ่มปุ่มเข้าเมนูใน Admin (ถ้ามี)
 setTimeout(() => {
@@ -1659,6 +1852,86 @@ setTimeout(() => {
 // ===== END BULK CATEGORY EDITOR =====
 
 
+
+// ===== BRANCH MONTHLY COUNT SHORTCUT =====
+window.tryOpenBranchMonthlyCount = function() {
+    const isBTUser = currentUser?.username?.toUpperCase().startsWith('BT') &&
+                     !currentUser?.username?.toUpperCase().startsWith('BT000');
+    const isAdmin  = currentUser?.role === 'admin';
+    if(!isBTUser && !isAdmin){ toast('⛔ เฉพาะสาขา BT และ Admin เท่านั้น','#c2410c'); return; }
+    if(!monthlyCountOpen){
+        const m=document.createElement('div'); m.className='modal-overlay'; m.id='lockedModal2';
+        m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:center;">
+            <div style="font-size:48px;margin-bottom:12px;">🔒</div>
+            <h3 style="margin:0 0 8px;">ระบบนับสต๊อกสิ้นเดือนปิดอยู่</h3>
+            <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Admin ยังไม่ได้เปิดระบบ<br>กรุณาติดต่อผู้ดูแลระบบ</p>
+            <button onclick="document.getElementById('lockedModal2').remove()" style="background:#1e293b;color:white;border:none;padding:10px 30px;border-radius:10px;cursor:pointer;font-weight:bold;">ตกลง</button>
+        </div>`;
+        document.body.appendChild(m); return;
+    }
+    // admin ที่กดเอง — เลือก template จาก modal
+    if(isAdmin && !isBTUser) {
+        _openBranchMonthlyPickModal(); return;
+    }
+    // BT user — ใช้ tryOpenMonthlyCount ที่มีอยู่แล้ว (จะ detect BT และโหลด template อัตโนมัติ)
+    if(typeof tryOpenMonthlyCount === 'function') tryOpenMonthlyCount();
+};
+
+// Admin เลือก template + zone แล้วเปิด
+window._openBranchMonthlyPickModal = function() {
+    const tmpls = Object.entries(stockSheetTemplates||{});
+    if(!tmpls.length){ toast('⚠️ ยังไม่มี Template สาขา — ไปสร้างที่ ตั้งค่าใบเบิก & ใบนับ ก่อนนะครับ','#c2410c'); return; }
+    const existing = document.getElementById('bmPickModal'); if(existing) existing.remove();
+    const m = document.createElement('div'); m.className='modal-overlay'; m.id='bmPickModal';
+    m.innerHTML=`<div class="modal-box" style="max-width:480px;">
+        <h3 style="margin:0 0 16px;">🏪 นับสต๊อกสิ้นเดือนสาขา (Admin)</h3>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Template</label>
+            <select id="bmPickTmpl" onchange="_bmPickUpdateZones()" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;font-family:inherit;">
+                ${tmpls.map(([id,t])=>`<option value="${id}">${t.name} (${t.branchType||t.zone||'—'})</option>`).join('')}
+            </select>
+        </div>
+        <div style="margin-bottom:20px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">สาขา/คลัง</label>
+            <select id="bmPickZone" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;font-family:inherit;">
+                ${warehouseList.map(z=>`<option value="${z}">${z}</option>`).join('')}
+            </select>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="document.getElementById('bmPickModal').remove()" style="background:#f1f5f9;color:#475569;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:600;font-family:inherit;">ยกเลิก</button>
+            <button onclick="_bmPickConfirm()" style="background:#f59e0b;color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:700;font-family:inherit;">📋 เปิดใบนับ</button>
+        </div>
+    </div>`;
+    document.body.appendChild(m);
+};
+window._bmPickUpdateZones = function() {
+    const tmplId = document.getElementById('bmPickTmpl')?.value;
+    const tmpl   = stockSheetTemplates[tmplId];
+    const bt     = (tmpl?.branchType||tmpl?.zone||'').toUpperCase();
+    const sel    = document.getElementById('bmPickZone'); if(!sel)return;
+    const zones  = bt ? warehouseList.filter(z=>z.toUpperCase().startsWith(bt)) : warehouseList;
+    sel.innerHTML = (zones.length?zones:warehouseList).map(z=>`<option value="${z}">${z}</option>`).join('');
+};
+window._bmPickConfirm = function() {
+    const tmplId = document.getElementById('bmPickTmpl')?.value;
+    const zone   = document.getElementById('bmPickZone')?.value;
+    if(!tmplId||!zone){ toast('⚠️ กรุณาเลือก Template และสาขา','#c2410c'); return; }
+    document.getElementById('bmPickModal')?.remove();
+    const tmpl = stockSheetTemplates[tmplId];
+    if(window.openBranchMonthlyCount) window.openBranchMonthlyCount(tmplId, tmpl, zone);
+    else toast('⚠️ ยังโหลด stock-count.js ไม่เสร็จ ลองใหม่อีกครั้ง','#c2410c');
+};
+
+// แสดง/ซ่อน branchMonthlyMenuBtn ตามสิทธิ์
+setTimeout(()=>{
+    const btn = document.getElementById('branchMonthlyMenuBtn');
+    if(!btn||!currentUser) return;
+    const isBT    = currentUser.username?.toUpperCase().startsWith('BT') &&
+                    !currentUser.username?.toUpperCase().startsWith('BT000');
+    const isAdmin = currentUser.role==='admin';
+    if(isBT||isAdmin) btn.classList.remove('hidden');
+}, 1800);
+// ===== END BRANCH MONTHLY COUNT SHORTCUT =====
 
 // ===== CENTRAL KITCHEN STOCK SYSTEM =====
 

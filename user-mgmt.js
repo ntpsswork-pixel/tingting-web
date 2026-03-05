@@ -24,6 +24,14 @@
                 badge.style.background = monthlyCountOpen ? '#dcfce7' : '#fee2e2';
                 badge.style.color = monthlyCountOpen ? '#059669' : '#ef4444';
             }
+            // นับสต๊อกสิ้นเดือนสาขา — เฉพาะ BT user (ไม่ใช่ BT000) + admin
+            const branchBtn = document.getElementById('branchMonthlyMenuBtn');
+            if(branchBtn) {
+                const uname  = (currentUser.username||'').toUpperCase();
+                const isBTBranch = uname.startsWith('BT') && !uname.startsWith('BT000');
+                const isAdm  = role === 'admin';
+                branchBtn.style.display = (isBTBranch || isAdm) ? '' : 'none';
+            }
             // approve/all sub-items only for warehouse/admin
             const canApprove = ['admin','warehouse'].includes(role);
             const reqApprove = document.getElementById('reqApproveMenu');

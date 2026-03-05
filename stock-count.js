@@ -3313,3 +3313,126 @@ ${r.zone}`);
             }
             toast(`✅ ใช้ Template "${t.name}" แล้ว`,'#059669');
         };
+
+        // ======== BRANCH MONTHLY MENU (เครื่องมือใช้งาน) ========
+        // เข้าได้เฉพาะ BT user (ไม่ใช่ BT000) + admin
+        window.openBranchMonthlyMenu = async function() {
+            const role   = currentUser?.role || 'guest';
+            const uname  = (currentUser?.username||'').toUpperCase();
+            const isAdm  = role === 'admin';
+            const isBTBranch = uname.startsWith('BT') && !uname.startsWith('BT000');
+
+            if(!isAdm && !isBTBranch) {
+                toast('⛔ เฉพาะสาขาและ Admin เท่านั้น','#c2410c'); return;
+            }
+
+            document.getElementById('dashboardView').classList.add('hidden');
+            const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
+
+            // หา templates ทั้งหมดที่เป็น branchType
+            const tmplEntries = Object.entries(stockSheetTemplates).filter(([id,t])=>t.branchType||t.zone);
+
+            if(tmplEntries.length === 0) {
+                c.innerHTML = `
+                <div class="tool-header">
+                    <h2>🏪 นับสต๊อกสิ้นเดือนสาขา</h2>
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+                <div style="text-align:center;padding:60px 20px;">
+                    <div style="font-size:48px;margin-bottom:16px;">📋</div>
+                    <h3 style="color:#475569;">ยังไม่มี Template สาขา</h3>
+                    <p style="color:#94a3b8;">Admin กรุณาสร้าง Template ใบนับสต๊อกสาขาใน ⚙️ ตั้งค่า Template ก่อนนะครับ</p>
+                </div>`;
+                return;
+            }
+
+            // ถ้า BT user → หา template ที่ตรงกับตัวเอง
+            let userZone = '';
+            if(isBTBranch) {
+                userZone = (currentUser?.assignedZones||[])[0] || '';
+            }
+
+            // โหลด inventoryHistory เดือนปัจจุบัน เช็คว่านับแล้วหรือยัง
+            const now      = new Date();
+            const monthKey = now.toISOString().slice(0,7);
+            let doneMap    = {}; // { zone: doc }
+            try {
+                const snap = await getDocs(collection(db,'inventoryHistory'));
+                snap.forEach(d => {
+                    const x = d.data();
+                    if(x.month === monthKey && x.type === 'branch') {
+                        doneMap[x.zone] = {id: d.id, ...x};
+                    }
+                });
+            } catch(e) { console.error(e); }
+
+            // สร้างการ์ดสาขาจาก templates
+            const cards = tmplEntries.map(([tmplId, t]) => {
+                const bt = (t.branchType||t.zone||'').toUpperCase();
+                // ถ้า BT user เฉพาะ template ที่ตรงกับ zone ตัวเอง
+                if(isBTBranch && userZone && !userZone.toUpperCase().startsWith(bt)) return '';
+
+                // หาสาขาที่ใช้ template นี้
+                const matchedZones = isAdm
+                    ? warehouseList.filter(z => z.toUpperCase().startsWith(bt))
+                    : userZone ? [userZone] : [];
+
+                if(!matchedZones.length && !isAdm) return '';
+
+                // ถ้า BT user แสดงแค่ zone ตัวเอง
+                const zonesHtml = matchedZones.length ? matchedZones.map(zone => {
+                    const done = doneMap[zone];
+                    const statusBadge = done
+                        ? `<span style="background:#dcfce7;color:#059669;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;">✅ นับแล้ว ${done.date||''}</span>`
+                        : `<span style="background:#fef9c3;color:#a16207;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;">⏳ ยังไม่ได้นับ</span>`;
+                    const btnFn = done
+                        ? `openBranchMonthlyCountForAdmin('${tmplId}','${zone}')`
+                        : `openBranchMonthlyCount('${tmplId}',stockSheetTemplates['${tmplId}'],'${zone}')`;
+                    const btnLabel = done ? '📋 ดูผล / แก้ไข' : '▶ เริ่มนับ';
+                    const btnColor = done ? '#0891b2' : '#059669';
+                    return `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${done?'#f0fdf4':'#fffbeb'};border-radius:10px;border:1px solid ${done?'#bbf7d0':'#fde68a'};margin-bottom:8px;">
+                        <div>
+                            <span style="font-weight:700;font-size:13px;color:#1e293b;">📍 ${zone}</span>
+                            <span style="margin-left:8px;">${statusBadge}</span>
+                        </div>
+                        <button onclick="${btnFn}"
+                            style="background:${btnColor};color:white;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">
+                            ${btnLabel}
+                        </button>
+                    </div>`;
+                }).join('') : `<div style="color:#94a3b8;font-size:12px;padding:8px 0;">ไม่พบสาขาที่ขึ้นต้นด้วย "${bt}"</div>`;
+
+                return `
+                <div style="background:white;border-radius:14px;border:3px solid ${t.color||'#8b5cf6'};padding:20px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                        <div style="width:12px;height:12px;border-radius:50%;background:${t.color||'#8b5cf6'};flex-shrink:0;"></div>
+                        <div>
+                            <div style="font-size:16px;font-weight:800;color:${t.color||'#8b5cf6'};">${t.name}</div>
+                            <div style="font-size:11px;color:#64748b;">branchType: <b>${bt}</b> • ${(t.items||[]).length} รายการสินค้า • ${[...new Set((t.items||[]).map(i=>i.group||i.category).filter(Boolean))].length} หมวด</div>
+                        </div>
+                    </div>
+                    ${zonesHtml}
+                </div>`;
+            }).filter(Boolean).join('');
+
+            const thMonth = now.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
+
+            c.innerHTML = `
+            <div class="tool-header no-print">
+                <h2>🏪 นับสต๊อกสิ้นเดือนสาขา</h2>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button>
+                    <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
+                </div>
+            </div>
+
+            <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;padding:14px 18px;margin-bottom:20px;">
+                <div style="font-size:13px;font-weight:700;color:#7c3aed;">📅 เดือน: ${thMonth}</div>
+                <div style="font-size:12px;color:#6d28d9;margin-top:4px;">เลือกสาขาที่ต้องการนับสต๊อก หรือดูผลที่นับแล้ว</div>
+            </div>
+
+            ${cards || '<div style="text-align:center;padding:40px;color:#94a3b8;">ไม่พบสาขาที่ตรงกับ Template ที่ตั้งค่าไว้</div>'}
+            `;
+        };
