@@ -241,55 +241,55 @@
             <div id="warehouseMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subWH')">📦 คลังสินค้า ▾</div>
                 <div id="subWH" class="submenu">
-                    <div onclick="openStockSummary()" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
-                    <div onclick="openInventoryCheck()" style="color:#10b981;">📋 ใบนับสต๊อกคงเหลือ</div>
-                    <div onclick="openPurchaseOrder()" style="color:#ef4444;">🛒 สรุปยอดสั่งซื้อ</div>
-                    <div onclick="openImportProducts()" style="color:#8b5cf6;">📥 Import สินค้าจาก Excel</div>
+                    <div onclick="openStockSummary()" data-tool="stock-summary" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=stock-summary','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=stock-summary','_blank');" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
+                    <div onclick="openInventoryCheck()" data-tool="inventory-check" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=inventory-check','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=inventory-check','_blank');" style="color:#10b981;">📋 ใบนับสต๊อกคงเหลือ</div>
+                    <div onclick="openPurchaseOrder()" data-tool="purchase-order" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=purchase-order','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=purchase-order','_blank');" style="color:#ef4444;">🛒 สรุปยอดสั่งซื้อ</div>
+                    <div onclick="openImportProducts()" data-tool="import-products" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=import-products','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=import-products','_blank');" style="color:#8b5cf6;">📥 Import สินค้าจาก Excel</div>
                 </div>
             </div>
             <div id="requisitionMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subReq')" style="color:#f59e0b;">📋 ระบบเบิกสินค้า ▾</div>
                 <div id="subReq" class="submenu">
-                    <div onclick="openCreateRequisition()" style="color:#f59e0b;">✏️ สร้างใบเบิกใหม่</div>
-                    <div onclick="openMyRequisitions()">📄 ใบเบิกของฉัน</div>
-                    <div id="reqApproveMenu" class="hidden" onclick="openPendingRequisitions()" style="color:#ef4444;">🔔 รออนุมัติ <span id="reqBadge" style="background:#ef4444;color:white;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;"></span></div>
-                    <div id="reqAllMenu" class="hidden" onclick="openAllRequisitions()">📊 ใบเบิกทั้งหมด</div>
+                    <div onclick="openCreateRequisition()" data-tool="requisition" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=requisition','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=requisition','_blank');" style="color:#f59e0b;">✏️ สร้างใบเบิกใหม่</div>
+                    <div onclick="openMyRequisitions()" data-tool="my-req" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=my-req','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=my-req','_blank');">📄 ใบเบิกของฉัน</div>
+                    <div id="reqApproveMenu" class="hidden" onclick="openPendingRequisitions()" data-tool="pending-req" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=pending-req','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=pending-req','_blank');" style="color:#ef4444;">🔔 รออนุมัติ <span id="reqBadge" style="background:#ef4444;color:white;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;"></span></div>
+                    <div id="reqAllMenu" class="hidden" onclick="openAllRequisitions()" data-tool="all-req" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=all-req','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=all-req','_blank');">📊 ใบเบิกทั้งหมด</div>
                 </div>
             </div>
             <div id="toolsMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subTools')" style="color:var(--success);">🛠️ เครื่องมือใช้งาน ▾</div>
                 <div id="subTools" class="submenu">
-                    <div onclick="tryOpenMonthlyCount()" id="monthlyCountMenuBtn">● นับสต๊อกสิ้นเดือน <span id="monthlyCountBadge" style="font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;"></span></div>
-                    <div onclick="openDailyStockCard()" style="color:#06b6d4;">● Daily Stock Card</div>
+                    <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" id="monthlyCountMenuBtn">● นับสต๊อกสิ้นเดือน <span id="monthlyCountBadge" style="font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;"></span></div>
+                    <div onclick="openDailyStockCard()" data-tool="daily-stock" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=daily-stock','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=daily-stock','_blank');" style="color:#06b6d4;">● Daily Stock Card</div>
                     <div onclick="tryOpenBranchMonthlyCount()" id="branchMonthlyMenuBtn" class="hidden" style="color:#f59e0b;">● 🏪 นับสิ้นเดือนสาขา (BT)</div>
                 </div>
             </div>
             <div id="grMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subGR')" style="color:#06b6d4;">🚚 รับสินค้าเข้าคลัง ▾</div>
                 <div id="subGR" class="submenu">
-                    <div onclick="openCreateGR()" style="color:#06b6d4;">✏️ สร้างใบรับสินค้า (GR)</div>
-                    <div onclick="openGRHistory()">📄 ประวัติการรับสินค้า</div>
-                    <div onclick="openLotRegister()" style="color:#f59e0b;">🏷️ ทะเบียน Lot สินค้า</div>
+                    <div onclick="openCreateGR()" data-tool="gr" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=gr','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=gr','_blank');" style="color:#06b6d4;">✏️ สร้างใบรับสินค้า (GR)</div>
+                    <div onclick="openGRHistory()" data-tool="gr-history" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=gr-history','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=gr-history','_blank');">📄 ประวัติการรับสินค้า</div>
+                    <div onclick="openLotRegister()" data-tool="lot-register" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=lot-register','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=lot-register','_blank');" style="color:#f59e0b;">🏷️ ทะเบียน Lot สินค้า</div>
                 </div>
             </div>
             <div id="qcMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subQC')" style="color:#a855f7;">🔍 QC ตรวจ FIFO ▾</div>
                 <div id="subQC" class="submenu">
-                    <div onclick="openQCCheck()" style="color:#a855f7;">📋 เริ่ม Spot Check</div>
-                    <div onclick="openQCHistory()">📊 ประวัติ QC Report</div>
+                    <div onclick="openQCCheck()" data-tool="qc" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=qc','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=qc','_blank');" style="color:#a855f7;">📋 เริ่ม Spot Check</div>
+                    <div onclick="openQCHistory()" data-tool="qc-history" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=qc-history','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=qc-history','_blank');">📊 ประวัติ QC Report</div>
                 </div>
             </div>
             <div id="adminMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subAdmin')" style="color:var(--accent-gold);">👤 จัดการระบบ ▾</div>
                 <div id="subAdmin" class="submenu">
-                    <div onclick="openUserManagement()">● จัดการพนักงาน & สิทธิ์</div>
-                    <div onclick="openWarehouseManager()" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
-                    <div onclick="openRequisitionSettings()" style="color:#f59e0b;">● ตั้งค่าใบเบิก & ใบนับ</div>
+                    <div onclick="openUserManagement()" data-tool="user-mgmt" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');">● จัดการพนักงาน & สิทธิ์</div>
+                    <div onclick="openWarehouseManager()" data-tool="warehouse-mgr" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
+                    <div onclick="openRequisitionSettings()" data-tool="req-settings" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=req-settings','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=req-settings','_blank');" style="color:#f59e0b;">● ตั้งค่าใบเบิก & ใบนับ</div>
                     <div onclick="toggleMonthlyCount()" id="monthlyCountToggleBtn" style="color:#06b6d4;">● เปิด/ปิด นับสต๊อกสิ้นเดือน</div>
                 </div>
             </div>
             <div class="nav-item" onclick="window.open('delivery.html','_blank')" style="color:#00c9ff;border-top:1px solid rgba(255,255,255,0.05);">🚛 ระบบขนส่ง (Delivery)</div>
-            <div class="nav-item" onclick="openHelpGuide()" style="color:#7c3aed;">📖 คู่มือการใช้งาน</div>
+            <div class="nav-item" onclick="openHelpGuide()" data-tool="help" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=help','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=help','_blank');" style="color:#7c3aed;">📖 คู่มือการใช้งาน</div>
         </div>
         <div onclick="logout()" style="margin:8px 10px 12px;padding:11px 14px;border-radius:9px;cursor:pointer;color:#ef4444;font-size:13px;font-weight:500;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);text-align:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.12)'" onmouseout="this.style.background='rgba(239,68,68,0.06)'">🚪 ออกจากระบบ</div>
     </div>  <!-- end sidebar -->
@@ -554,17 +554,17 @@
 
             // ── Action buttons: compact pill style ──
             const actions = [
-                {icon:'📅', label:'นับสิ้นเดือน', fn:'tryOpenMonthlyCount()',      color:'#1e40af', show:true},
-                {icon:'📋', label:'Stock Card',    fn:'openDailyStockCard()',       color:'#0891b2', show:true},
-                {icon:'🎲', label:'ทดลองนับ',      fn:'openRandomSKUCount()',       color:'#7c3aed', show:true},
-                {icon:'📊', label:'ผลทดลองนับ',    fn:'openPilotHistory()',         color:'#5b21b6', show:true},
-                {icon:'🚚', label:'รับสินค้า GR',  fn:'openCreateGR()',            color:'#059669', show:!isBT},
-                {icon:'📝', label:'ใบเบิกสินค้า',  fn:'openPendingRequisitions()', color:'#d97706', show:!isBT},
-                {icon:'🔍', label:'QC Check',      fn:'openQCCheck()',             color:'#7c3aed', show:!isBT},
-                {icon:'🏷️', label:'ทะเบียน Lot',   fn:'openLotRegister()',         color:'#dc2626', show:!isBT},
-                {icon:'📦', label:'นับสต๊อก',      fn:'openCentralStock()',        color:'#334155', show:isAdmin},
-                {icon:'📈', label:'รายงาน',        fn:'openStockSummary()',        color:'#0369a1', show:isAdmin},
-                {icon:'⚙️', label:'ตั้งค่า',        fn:'openWarehouseManager()',    color:'#475569', show:isAdmin},
+                {icon:'📅', label:'นับสิ้นเดือน', fn:'tryOpenMonthlyCount()',      tool:'monthly-count', color:'#1e40af', show:true},
+                {icon:'📋', label:'Stock Card',    fn:'openDailyStockCard()',       tool:'daily-stock',   color:'#0891b2', show:true},
+                {icon:'🎲', label:'ทดลองนับ',      fn:'openRandomSKUCount()',       tool:'',              color:'#7c3aed', show:true},
+                {icon:'📊', label:'ผลทดลองนับ',    fn:'openPilotHistory()',         tool:'',              color:'#5b21b6', show:true},
+                {icon:'🚚', label:'รับสินค้า GR',  fn:'openCreateGR()',             tool:'gr',            color:'#059669', show:!isBT},
+                {icon:'📝', label:'ใบเบิกสินค้า',  fn:'openPendingRequisitions()',  tool:'pending-req',   color:'#d97706', show:!isBT},
+                {icon:'🔍', label:'QC Check',      fn:'openQCCheck()',              tool:'qc',            color:'#7c3aed', show:!isBT},
+                {icon:'🏷️', label:'ทะเบียน Lot',   fn:'openLotRegister()',          tool:'lot-register',  color:'#dc2626', show:!isBT},
+                {icon:'📦', label:'นับสต๊อก',      fn:'openCentralStock()',         tool:'stock',         color:'#334155', show:isAdmin},
+                {icon:'📈', label:'รายงาน',        fn:'openStockSummary()',         tool:'stock-summary', color:'#0369a1', show:isAdmin},
+                {icon:'⚙️', label:'ตั้งค่า',        fn:'openWarehouseManager()',     tool:'warehouse-mgr', color:'#475569', show:isAdmin},
             ];
             const ar = document.getElementById('dashActionRow');
             if(ar) {
@@ -572,7 +572,10 @@
                 // BT: 2 col, others: 3 col
                 ar.style.gridTemplateColumns = isBT ? 'repeat(2,1fr)' : 'repeat(3,1fr)';
                 ar.innerHTML = visible.map(a=>`
-                    <button onclick="${a.fn}" style="background:${a.color};color:white;border:none;border-radius:10px;padding:11px 4px 9px;cursor:pointer;font-family:inherit;text-align:center;transition:filter .15s;" onmouseover="this.style.filter='brightness(1.12)'" onmouseout="this.style.filter=''">
+                    <button onclick="${a.fn}" data-tool="${a.tool||''}"
+                        onauxclick="if(event.button===1&&this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
+                        oncontextmenu="if(this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
+                        style="background:${a.color};color:white;border:none;border-radius:10px;padding:11px 4px 9px;cursor:pointer;font-family:inherit;text-align:center;transition:filter .15s;" onmouseover="this.style.filter='brightness(1.12)'" onmouseout="this.style.filter=''">
                         <div style="font-size:18px;margin-bottom:3px;">${a.icon}</div>
                         <div style="font-size:10px;font-weight:700;line-height:1.2;">${a.label}</div>
                     </button>`).join('');
@@ -698,7 +701,7 @@
             } catch(e){}
 
             row.innerHTML = `
-                <div onclick="tryOpenMonthlyCount()" class="dash-kpi-card" style="border-left-color:${monthlyDone?'#10b981':'#f59e0b'};background:${monthlyDone?'#f0fdf4':'#fffbeb'};">
+                <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" class="dash-kpi-card" style="border-left-color:${monthlyDone?'#10b981':'#f59e0b'};background:${monthlyDone?'#f0fdf4':'#fffbeb'};">
                     <div class="dash-kpi-icon">${monthlyDone?'✅':'📅'}</div>
                     <div style="flex:1;min-width:0;">
                         <div class="dash-kpi-label">นับสต๊อกสิ้นเดือน</div>
@@ -806,42 +809,31 @@
 
         // ---- ONLINE PRESENCE ----
         // ── SESSION KICK SYSTEM ──────────────────────────────
-        // sessionId แชร์ข้ามแท็บในเครื่องเดียวกันผ่าน localStorage
-        // ถ้าเปิดแท็บใหม่จากเครื่องเดิม → ใช้ sessionId เดิม ไม่ kick กัน
-        // ถ้า login จากเครื่องอื่น → sessionId ใน Firestore เปลี่ยน → kick ทุกแท็บ
-        const _SESSION_KEY = 'ttg_sessionId';
-        let _mySessionId = localStorage.getItem(_SESSION_KEY);
-        if (!_mySessionId) {
-            // แท็บแรก / login ใหม่ → สร้าง sessionId ใหม่และเก็บใน localStorage
-            _mySessionId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
-            localStorage.setItem(_SESSION_KEY, _mySessionId);
-        }
+        // sessionId = unique id ต่อ tab/login ครั้งนี้
+        const _mySessionId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
 
         async function registerSession() {
             if(!currentUser) return;
             try {
-                // บันทึก sessionId ลง Firestore (แชร์ทุกแท็บในเครื่องเดียวกัน)
+                // บันทึก sessionId ปัจจุบันลง Firestore
                 await setDoc(doc(db,'activeSessions',currentUser.username), {
                     sessionId: _mySessionId,
                     name: currentUser.name,
                     loginAt: Date.now(),
                     device: navigator.userAgent.slice(0,60)
-                }, {merge:false});
+                }, {merge:false}); // merge:false = เขียนทับเสมอ
             } catch(e) { console.warn('registerSession:', e); }
         }
 
         async function checkSessionValid() {
             if(!currentUser) return;
             try {
-                // อ่าน sessionId ล่าสุดจาก localStorage (sync ทุกแท็บในเครื่องเดียวกัน)
-                const localId = localStorage.getItem(_SESSION_KEY);
                 const snap = await getDoc(doc(db,'activeSessions',currentUser.username));
-                if(snap.exists() && snap.data().sessionId !== localId) {
-                    // sessionId ใน Firestore ไม่ตรงกับเครื่องนี้ → ถูก kick จากอุปกรณ์อื่น
+                if(snap.exists() && snap.data().sessionId !== _mySessionId) {
+                    // session นี้ถูก kick
                     clearTimeout(window._sessionTimer);
                     clearTimeout(window._sessionWarnTimer);
                     clearInterval(window._sessionCheckInterval);
-                    localStorage.removeItem(_SESSION_KEY);
                     alert('⚠️ มีการเข้าสู่ระบบจากอุปกรณ์อื่น\nSession นี้ถูกยกเลิกอัตโนมัติ กรุณา Login ใหม่');
                     localStorage.removeItem('currentUser');
                     window.location.href = 'login.html';
