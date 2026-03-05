@@ -826,26 +826,17 @@
 
         async function registerSession() {
             if(!currentUser) return;
+            // เฉพาะแท็บแรก/login ใหม่เท่านั้นที่ register (เขียน Firestore)
+            // แท็บที่เปิดเพิ่มในเครื่องเดิมจะข้ามขั้นตอนนี้
+            if(!_isNewSession) return;
             try {
-                const ref = doc(db,'activeSessions',currentUser.username);
-                const snap = await getDoc(ref);
-
-                // ถ้ามี session เดิมและเป็น session เดียวกับเครื่องนี้ → ไม่ต้องเขียนทับ (กันหลาย tab)
-                if(snap.exists() && snap.data().sessionId === _mySessionId){
-                    return;
-                }
-
-                // ถ้าไม่มี session เลย → register ปกติ
-                if(!snap.exists()){
-                    await setDoc(ref,{
-                        sessionId:_mySessionId,
-                        name:currentUser.name,
-                        loginAt:Date.now(),
-                        device:navigator.userAgent.slice(0,60)
-                    },{merge:false});
-                }
-
-            } catch(e){ console.warn('registerSession:',e); }
+                await setDoc(doc(db,'activeSessions',currentUser.username), {
+                    sessionId: _mySessionId,
+                    name: currentUser.name,
+                    loginAt: Date.now(),
+                    device: navigator.userAgent.slice(0,60)
+                }, {merge:false});
+            } catch(e) { console.warn('registerSession:', e); }
         }
 
         async function checkSessionValid() {
@@ -927,14 +918,49 @@
                     <td style="padding:7px 10px;text-align:center;">${r.unit}</td>
                 </tr>`;
             }).join('');
-            const html = `<html><head><meta charset="UTF-8"></head><body>
-            <table border="1" cellspacing="0" cellpadding="4">
-            ${itemRows}
-            </table></body></html>`;
-            const w = window.open('', '_blank');
-            w.document.write(html);
-            w.document.close();
-        };
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+                *{box-sizing:border-box;margin:0;padding:0;}
+                body{font-family:'Sarabun',sans-serif;font-size:11px;color:#1e293b;padding:20px 28px;}
+                h1{font-size:15px;font-weight:800;margin-bottom:4px;}
+                table{width:100%;border-collapse:collapse;margin-top:14px;}
+                thead tr{background:#0f172a;color:white;}
+                th{padding:7px 10px;font-size:10px;font-weight:700;text-align:center;}
+                th:nth-child(1),th:nth-child(2),th:nth-child(3),th:nth-child(4){text-align:left;}
+                td{border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+                @media print{body{padding:10px;}}
+            </style></head><body>
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                <div>
+                    <h1>📊 Daily Stock Card</h1>
+                    <div style="font-size:11px;color:#64748b;">บริษัท ทีทีจี ฟู้ด จำกัด &nbsp;|&nbsp; พิมพ์วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
+                </div>
+            </div>
+            <table>
+                <thead><tr>
+                    <th style="text-align:left;">วันที่</th><th style="text-align:left;">คลัง</th>
+                    <th style="text-align:left;">รหัส</th><th style="text-align:left;">ชื่อสินค้า</th>
+                    <th>ยกมา</th><th>รับเข้า</th><th>จ่ายออก</th>
+                    <th>คงเหลือเย็น</th><th>ผลต่าง</th><th>หน่วย</th>
+                </tr></thead>
+                <tbody>${itemRows}</tbody>
+            </table>
+            <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
+                    <div style="height:40px;"></div>
+                    <div style="font-size:11px;color:#64748b;">ผู้บันทึก</div>
+                </div>
+                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
+                    <div style="height:40px;"></div>
+                    <div style="font-size:11px;color:#64748b;">ผู้ตรวจสอบ</div>
+                </div>
+                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
+                    <div style="height:40px;"></div>
+                    <div style="font-size:11px;color:#64748b;">ผู้อนุมัติ</div>
+                </div>
+            </div>
+            
 </script>
 <!-- TTGPlus Session System (auto inserted) -->
 <script src="ttg_session_guard.js"></script>
@@ -969,42 +995,6 @@
     }
 
 })()
-</script>
-
-
-<script>
-/* TTGPlus tab-sync improvement (safe patch)
-   - sync logout between tabs
-   - prevent duplicate session checks in background tabs
-*/
-(function(){
-
-  const SESSION_KEY = 'ttg_sessionId';
-
-  // sync logout across tabs
-  window.addEventListener("storage", function(e){
-      if(e.key === SESSION_KEY && !e.newValue){
-          location.href = "login.html";
-      }
-  });
-
-  // broadcast logout immediately (faster than storage)
-  try{
-      const bc = new BroadcastChannel("ttg_session");
-      bc.onmessage = (ev)=>{
-          if(ev.data === "logout"){
-              location.href = "login.html";
-          }
-      };
-
-      const oldLogout = window.logout;
-      window.logout = function(){
-          try{ bc.postMessage("logout"); }catch(e){}
-          if(oldLogout) oldLogout();
-      };
-  }catch(e){}
-
-})();
 </script>
 
 </body></html>`;
@@ -1101,42 +1091,6 @@
     }
 
 })()
-</script>
-
-
-<script>
-/* TTGPlus tab-sync improvement (safe patch)
-   - sync logout between tabs
-   - prevent duplicate session checks in background tabs
-*/
-(function(){
-
-  const SESSION_KEY = 'ttg_sessionId';
-
-  // sync logout across tabs
-  window.addEventListener("storage", function(e){
-      if(e.key === SESSION_KEY && !e.newValue){
-          location.href = "login.html";
-      }
-  });
-
-  // broadcast logout immediately (faster than storage)
-  try{
-      const bc = new BroadcastChannel("ttg_session");
-      bc.onmessage = (ev)=>{
-          if(ev.data === "logout"){
-              location.href = "login.html";
-          }
-      };
-
-      const oldLogout = window.logout;
-      window.logout = function(){
-          try{ bc.postMessage("logout"); }catch(e){}
-          if(oldLogout) oldLogout();
-      };
-  }catch(e){}
-
-})();
 </script>
 
 </body></html>`;
@@ -2158,42 +2112,6 @@ window.saveCentralStock = async function(){
     }
 
 })()
-</script>
-
-
-<script>
-/* TTGPlus tab-sync improvement (safe patch)
-   - sync logout between tabs
-   - prevent duplicate session checks in background tabs
-*/
-(function(){
-
-  const SESSION_KEY = 'ttg_sessionId';
-
-  // sync logout across tabs
-  window.addEventListener("storage", function(e){
-      if(e.key === SESSION_KEY && !e.newValue){
-          location.href = "login.html";
-      }
-  });
-
-  // broadcast logout immediately (faster than storage)
-  try{
-      const bc = new BroadcastChannel("ttg_session");
-      bc.onmessage = (ev)=>{
-          if(ev.data === "logout"){
-              location.href = "login.html";
-          }
-      };
-
-      const oldLogout = window.logout;
-      window.logout = function(){
-          try{ bc.postMessage("logout"); }catch(e){}
-          if(oldLogout) oldLogout();
-      };
-  }catch(e){}
-
-})();
 </script>
 
 </body>
