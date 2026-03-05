@@ -961,8 +961,6 @@
                 </div>
             </div>
             
-<!--  -->
-<script src=""></script>
 <script>
 (async function(){
 
@@ -980,12 +978,12 @@
     await waitUser()
 
     try{
-        await (currentUser.username)
+        await TTGSession.register(currentUser.username)
     }catch(e){
         console.warn("session register skipped",e)
     }
 
-    (currentUser.username)
+    TTGSession.startGuard(currentUser.username)
 
     const oldLogout = window.logout
     window.logout = function(){
@@ -1057,8 +1055,6 @@
                 </div>
             </div>
             
-<!--  -->
-<script src=""></script>
 <script>
 (async function(){
 
@@ -1076,12 +1072,12 @@
     await waitUser()
 
     try{
-        await (currentUser.username)
+        await TTGSession.register(currentUser.username)
     }catch(e){
         console.warn("session register skipped",e)
     }
 
-    (currentUser.username)
+    TTGSession.startGuard(currentUser.username)
 
     const oldLogout = window.logout
     window.logout = function(){
@@ -2078,8 +2074,6 @@ window.saveCentralStock = async function(){
     <script src="lot-register.js" defer></script>
     <script src="qc.js" defer></script>
 
-<!--  -->
-<script src=""></script>
 <script>
 (async function(){
 
@@ -2097,12 +2091,12 @@ window.saveCentralStock = async function(){
     await waitUser()
 
     try{
-        await (currentUser.username)
+        await TTGSession.register(currentUser.username)
     }catch(e){
         console.warn("session register skipped",e)
     }
 
-    (currentUser.username)
+    TTGSession.startGuard(currentUser.username)
 
     const oldLogout = window.logout
     window.logout = function(){
