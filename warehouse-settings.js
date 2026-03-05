@@ -171,7 +171,7 @@ function _renderTabParents(c) {
 function _renderTabMapping(c) {
     c.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-        <div><div style="font-size:15px;font-weight:700;">🔗 จับคู่สินค้าเข้าสู่ Zone</div><div style="font-size:12px;color:#94a3b8;margin-top:2px;">เลือก Zone → เลือกสินค้า → บันทึกอัตโนมัติ</div></div>
+        <div><div style="font-size:15px;font-weight:700;">🔗 จับคู่สินค้าเข้าสู่ Zone</div><div style="font-size:12px;color:#94a3b8;margin-top:2px;">ค้นหาสินค้า → เลือกผูก → บันทึกอัตโนมัติ | แสดงเฉพาะสินค้าที่ผูกแล้ว</div></div>
         <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
             <select id="selectZoneMap" onchange="renderMapping();renderMinMaxTable()" style="padding:8px 12px;border-radius:8px;min-width:160px;border:2px solid #0f172a;font-weight:700;font-size:12px;outline:none;cursor:pointer;"></select>
             <button onclick="selectAllMapping(true)" style="background:#10b981;color:white;border:none;padding:8px 12px;border-radius:7px;cursor:pointer;font-weight:700;font-size:11px;">✅ ทั้งหมด</button>
@@ -179,8 +179,13 @@ function _renderTabMapping(c) {
             <button onclick="selectAllMapping(false)" style="background:#ef4444;color:white;border:none;padding:8px 12px;border-radius:7px;cursor:pointer;font-weight:700;font-size:11px;">❌ ล้าง</button>
         </div>
     </div>
-    <input type="text" id="mappingSearch" placeholder="🔍 ค้นหาสินค้า..." oninput="filterMapping(this.value)"
-        style="width:100%;padding:9px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;margin-bottom:12px;font-family:inherit;" onfocus="this.style.borderColor='#0f172a'" onblur="this.style.borderColor='#e2e8f0'">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <input type="text" id="mappingSearch" placeholder="🔍 ค้นหาเพื่อเพิ่มสินค้าเข้า Zone..." oninput="filterMapping(this.value)"
+            style="flex:1;padding:9px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#0f172a'" onblur="this.style.borderColor='#e2e8f0'">
+        <button onclick="clearMappingSearch()" id="btnClearSearch" style="display:none;background:#f1f5f9;color:#64748b;border:none;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:12px;">✕ ปิด</button>
+    </div>
+    <div id="mappingSearchResults" style="display:none;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:10px;max-height:260px;overflow-y:auto;"></div>
+    <div id="mappedHeader" style="font-size:11px;font-weight:700;color:#059669;margin-bottom:8px;">✅ สินค้าที่ผูกแล้ว: <span id="mappedCount">0</span> รายการ</div>
     <div id="mappingContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;max-height:420px;overflow-y:auto;"></div>
     <div id="sortContainer" style="display:none;margin-top:12px;">
         <div style="font-size:12px;color:#7c3aed;font-weight:700;margin-bottom:8px;">↕️ ลากเพื่อเรียงลำดับ</div>
@@ -613,18 +618,53 @@ window.onSortDragEnd=function(e){e.currentTarget.style.opacity='1';_dragSrcEl=nu
 window.saveSortOrder=function(){ const zone=document.getElementById('selectZoneMap')?.value||''; const newOrder=[...document.querySelectorAll('#sortList [data-sort-id]')].map(el=>el.dataset.sortId); zoneProductMap[zone]=newOrder; saveConfig(); toast('✅ บันทึกลำดับเรียบร้อย','#059669'); toggleSortMode(); };
 
 window.renderMapping=function(){
-    const zone=document.getElementById('selectZoneMap')?.value||''; const mapped=new Set(zoneProductMap[zone]||[]); const c=document.getElementById('mappingContainer'); if(!c) return;
-    c.innerHTML=allProducts.map(p=>{ const chk=mapped.has(p.id); return `<label style="display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;border:1.5px solid ${chk?'#059669':'#e2e8f0'};background:${chk?'#f0fdf4':'white'};cursor:pointer;transition:all .15s;"
-        onclick="togglePdMapping('${zone}','${p.id}');this.style.borderColor=document.getElementById('map_${p.id}').checked?'#059669':'#e2e8f0';this.style.background=document.getElementById('map_${p.id}').checked?'#f0fdf4':'white'">
-        <input type="checkbox" id="map_${p.id}" ${chk?'checked':''} style="width:15px;height:15px;accent-color:#059669;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();togglePdMapping('${zone}','${p.id}')">
+    const zone=document.getElementById('selectZoneMap')?.value||'';
+    const mapped=new Set(zoneProductMap[zone]||[]);
+    const c=document.getElementById('mappingContainer'); if(!c) return;
+    const mappedProducts=allProducts.filter(p=>mapped.has(p.id));
+    const cnt=document.getElementById('mappedCount'); if(cnt) cnt.textContent=mappedProducts.length;
+    if(mappedProducts.length===0){
+        c.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:32px;color:#94a3b8;font-size:12px;">ยังไม่มีสินค้าที่ผูกกับ Zone นี้<br>ค้นหาสินค้าด้านบนเพื่อเพิ่ม</div>';
+        return;
+    }
+    c.innerHTML=mappedProducts.map(p=>`<label style="display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;border:1.5px solid #059669;background:#f0fdf4;cursor:pointer;transition:all .15s;"
+        onclick="togglePdMapping('${zone}','${p.id}');renderMapping();filterMapping(document.getElementById('mappingSearch').value)">
+        <input type="checkbox" id="map_${p.id}" checked style="width:15px;height:15px;accent-color:#059669;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();togglePdMapping('${zone}','${p.id}');renderMapping();filterMapping(document.getElementById('mappingSearch').value)">
         <div style="min-width:0;"><div style="font-weight:700;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.id}</div>
             <div style="font-size:10px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-            ${p.category?`<span style="font-size:8px;color:#a16207;background:#fef9c3;padding:1px 4px;border-radius:4px;">🏷️ ${p.category}</span>`:''}
-        </div></label>`; }).join('');
-};
+            ${p.category?`<span style="font-size:8px;color:#a16207;background:#fef9c3;padding:1px 4px;border-radius:4px;">🏷️ ${p.category}</span>`:''}        </div></label>`).join('');
+}
 window.togglePdMapping=function(z,id){ if(!zoneProductMap[z])zoneProductMap[z]=[]; const i=zoneProductMap[z].indexOf(id); if(i>-1)zoneProductMap[z].splice(i,1); else zoneProductMap[z].push(id); saveConfig(); };
 window.selectAllMapping=function(checked){ const zone=document.getElementById('selectZoneMap')?.value||''; zoneProductMap[zone]=checked?allProducts.map(p=>p.id):[]; saveConfig(); renderMapping(); };
-window.filterMapping=function(q){ q=(q||'').toLowerCase(); document.querySelectorAll('#mappingContainer label').forEach(el=>{ el.style.display=(!q||el.innerText.toLowerCase().includes(q))?'':'none'; }); };
+window.filterMapping=function(q){
+    q=(q||'').toLowerCase();
+    const searchPanel=document.getElementById('mappingSearchResults');
+    const clearBtn=document.getElementById('btnClearSearch');
+    if(!q){
+        if(searchPanel){searchPanel.style.display='none';searchPanel.innerHTML='';}
+        if(clearBtn) clearBtn.style.display='none';
+        return;
+    }
+    if(clearBtn) clearBtn.style.display='';
+    const zone=document.getElementById('selectZoneMap')?.value||'';
+    const mapped=new Set(zoneProductMap[zone]||[]);
+    const results=allProducts.filter(p=>(p.id+' '+p.name+' '+(p.category||'')).toLowerCase().includes(q));
+    if(!searchPanel) return;
+    searchPanel.style.display='';
+    if(results.length===0){searchPanel.innerHTML='<div style="text-align:center;color:#94a3b8;font-size:12px;padding:12px;">ไม่พบสินค้า</div>';return;}
+    searchPanel.innerHTML='<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:8px;">ผลการค้นหา ' + results.length + ' รายการ — คลิกเพื่อผูก/ยกเลิก</div>'
+        +results.map(p=>{const chk=mapped.has(p.id);return `<label style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;border:1.5px solid ${chk?'#059669':'#e2e8f0'};background:${chk?'#f0fdf4':'white'};cursor:pointer;margin-bottom:5px;"
+        onclick="togglePdMapping('${zone}','${p.id}');renderMapping();filterMapping(document.getElementById('mappingSearch').value)">
+        <input type="checkbox" ${chk?'checked':''} style="width:14px;height:14px;accent-color:#059669;flex-shrink:0;" onclick="event.stopPropagation();togglePdMapping('${zone}','${p.id}');renderMapping();filterMapping(document.getElementById('mappingSearch').value)">
+        <div style="min-width:0;flex:1;"><span style="font-weight:700;font-size:10px;">${p.id}</span> <span style="font-size:10px;color:#475569;">${p.name}</span>
+            ${p.category?`<span style="font-size:8px;color:#a16207;background:#fef9c3;padding:1px 4px;border-radius:4px;margin-left:4px;">🏷️ ${p.category}</span>`:''}
+        </div>${chk?'<span style="font-size:9px;color:#059669;font-weight:700;flex-shrink:0;">✅ ผูกแล้ว</span>':'<span style="font-size:9px;color:#94a3b8;flex-shrink:0;">+ ผูก</span>'}
+        </label>`}).join('');
+};
+window.clearMappingSearch=function(){
+    const el=document.getElementById('mappingSearch'); if(el) el.value='';
+    filterMapping('');
+};
 
 window.addWh=function(){ const n=document.getElementById('newWhName')?.value.trim(); if(!n) return; if(warehouseList.includes(n)){toast('⚠️ ชื่อ Zone นี้มีอยู่แล้ว','#c2410c');return;} warehouseList.push(n); document.getElementById('newWhName').value=''; saveConfig(); renderWhList(); toast(`✅ เพิ่ม Zone "${n}"`,'#059669'); };
 window.deleteWh=function(i){ if(!confirm(`ยืนยันลบ Zone "${warehouseList[i]}"?`)) return; warehouseList.splice(i,1); saveConfig(); renderWhList(); };
