@@ -960,42 +960,6 @@
                     <div style="font-size:11px;color:#64748b;">ผู้อนุมัติ</div>
                 </div>
             </div>
-            
-</script>
-<!-- TTGPlus Session System (auto inserted) -->
-<script src="ttg_session_guard.js"></script>
-<script>
-(async function(){
-
-    function waitUser(){
-        return new Promise(resolve=>{
-            const t=setInterval(()=>{
-                if(window.currentUser && currentUser.username){
-                    clearInterval(t)
-                    resolve()
-                }
-            },200)
-        })
-    }
-
-    await waitUser()
-
-    try{
-        await TTGSession.register(currentUser.username)
-    }catch(e){
-        console.warn("session register skipped",e)
-    }
-
-    TTGSession.startGuard(currentUser.username)
-
-    const oldLogout = window.logout
-    window.logout = function(){
-        try{ TTGSession.logout() }catch(e){}
-        if(oldLogout) oldLogout()
-    }
-
-})()
-</script>
 
 </body></html>`;
             const w = window.open('','_blank');
@@ -1057,41 +1021,6 @@
                     <div style="height:40px;"></div><div style="font-size:11px;color:#64748b;">ผู้อนุมัติ</div>
                 </div>
             </div>
-            
-<!-- TTGPlus Session System (auto inserted) -->
-<script src="ttg_session_guard.js"></script>
-<script>
-(async function(){
-
-    function waitUser(){
-        return new Promise(resolve=>{
-            const t=setInterval(()=>{
-                if(window.currentUser && currentUser.username){
-                    clearInterval(t)
-                    resolve()
-                }
-            },200)
-        })
-    }
-
-    await waitUser()
-
-    try{
-        await TTGSession.register(currentUser.username)
-    }catch(e){
-        console.warn("session register skipped",e)
-    }
-
-    TTGSession.startGuard(currentUser.username)
-
-    const oldLogout = window.logout
-    window.logout = function(){
-        try{ TTGSession.logout() }catch(e){}
-        if(oldLogout) oldLogout()
-    }
-
-})()
-</script>
 
 </body></html>`;
             const w = window.open('','_blank');
@@ -2078,41 +2007,6 @@ window.saveCentralStock = async function(){
     <script src="goods-receipt.js" defer></script>
     <script src="lot-register.js" defer></script>
     <script src="qc.js" defer></script>
-
-<!-- TTGPlus Session System (auto inserted) -->
-<script src="ttg_session_guard.js"></script>
-<script>
-(async function(){
-
-    function waitUser(){
-        return new Promise(resolve=>{
-            const t=setInterval(()=>{
-                if(window.currentUser && currentUser.username){
-                    clearInterval(t)
-                    resolve()
-                }
-            },200)
-        })
-    }
-
-    await waitUser()
-
-    try{
-        await TTGSession.register(currentUser.username)
-    }catch(e){
-        console.warn("session register skipped",e)
-    }
-
-    TTGSession.startGuard(currentUser.username)
-
-    const oldLogout = window.logout
-    window.logout = function(){
-        try{ TTGSession.logout() }catch(e){}
-        if(oldLogout) oldLogout()
-    }
-
-})()
-</script>
 
 </body>
 </html>
