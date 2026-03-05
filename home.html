@@ -908,96 +908,33 @@
         }
 
         // ── DAILY STOCK CARD PDF ──────────────────────────
-        window.exportDSCPDF = function(){
-    const rows = window._dscExportRows || [];
-    if(!rows.length){ toast('❌ ไม่มีข้อมูล','#c2410c'); return; }
-
-    const itemRows = rows.map((r,i)=>{
-        const vc = r.variance>0 ? '#3b82f6' : r.variance<0 ? '#ef4444' : '#10b981';
-        const vt = r.variance===0 ? '0' : (r.variance>0 ? '+'+r.variance : r.variance);
-        return `<tr style="${i%2?'background:#f8fafc':''}">
-            <td style="padding:7px 10px;">${r.date||''}</td>
-            <td style="padding:7px 10px;">${r.zone||''}</td>
-            <td style="padding:7px 10px;font-weight:700;">${r.id||''}</td>
-            <td style="padding:7px 10px;">${r.name||''}</td>
-            <td style="padding:7px 10px;text-align:center;">${r.openingBalance ?? '-'}</td>
-            <td style="padding:7px 10px;text-align:center;color:#10b981;font-weight:700;">${r.received||0}</td>
-            <td style="padding:7px 10px;text-align:center;color:#ef4444;font-weight:700;">${(r.issuedAuto||0)+(r.issuedManual||0)}</td>
-            <td style="padding:7px 10px;text-align:center;color:#3b82f6;font-weight:700;">${r.closingBalance ?? '-'}</td>
-            <td style="padding:7px 10px;text-align:center;color:${vc};font-weight:700;">${vt}</td>
-            <td style="padding:7px 10px;text-align:center;">${r.unit||''}</td>
-        </tr>`;
-    }).join('');
-
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>Daily Stock Card</title>
-    <style>
-        body{font-family:sans-serif;font-size:12px;padding:20px}
-        table{border-collapse:collapse;width:100%}
-        th,td{border:1px solid #ccc;padding:6px}
-        thead{background:#0f172a;color:white}
-    </style>
-    </head><body>
-    <h2>Daily Stock Card</h2>
-    <table>
-    <thead>
-    <tr>
-        <th>Date</th><th>Zone</th><th>SKU</th><th>Name</th>
-        <th>Opening</th><th>Received</th><th>Issued</th>
-        <th>Closing</th><th>Variance</th><th>Unit</th>
-    </tr>
-    </thead>
-    <tbody>${itemRows}</tbody>
-    </table>
-    </body></html>`;
-
-    const w = window.open('', '_blank');
-    w.document.write(html);
-    w.document.close();
-};}).join('');
-            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-            <style>
-                @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
-                *{box-sizing:border-box;margin:0;padding:0;}
-                body{font-family:'Sarabun',sans-serif;font-size:11px;color:#1e293b;padding:20px 28px;}
-                h1{font-size:15px;font-weight:800;margin-bottom:4px;}
-                table{width:100%;border-collapse:collapse;margin-top:14px;}
-                thead tr{background:#0f172a;color:white;}
-                th{padding:7px 10px;font-size:10px;font-weight:700;text-align:center;}
-                th:nth-child(1),th:nth-child(2),th:nth-child(3),th:nth-child(4){text-align:left;}
-                td{border-bottom:1px solid #f1f5f9;vertical-align:middle;}
-                @media print{body{padding:10px;}}
-            </style></head><body>
-            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
-                <div>
-                    <h1>📊 Daily Stock Card</h1>
-                    <div style="font-size:11px;color:#64748b;">บริษัท ทีทีจี ฟู้ด จำกัด &nbsp;|&nbsp; พิมพ์วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
-                </div>
-            </div>
-            <table>
-                <thead><tr>
-                    <th style="text-align:left;">วันที่</th><th style="text-align:left;">คลัง</th>
-                    <th style="text-align:left;">รหัส</th><th style="text-align:left;">ชื่อสินค้า</th>
-                    <th>ยกมา</th><th>รับเข้า</th><th>จ่ายออก</th>
-                    <th>คงเหลือเย็น</th><th>ผลต่าง</th><th>หน่วย</th>
-                </tr></thead>
-                <tbody>${itemRows}</tbody>
-            </table>
-            <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
-                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
-                    <div style="height:40px;"></div>
-                    <div style="font-size:11px;color:#64748b;">ผู้บันทึก</div>
-                </div>
-                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
-                    <div style="height:40px;"></div>
-                    <div style="font-size:11px;color:#64748b;">ผู้ตรวจสอบ</div>
-                </div>
-                <div style="border-top:1px solid #cbd5e1;padding-top:6px;text-align:center;">
-                    <div style="height:40px;"></div>
-                    <div style="font-size:11px;color:#64748b;">ผู้อนุมัติ</div>
-                </div>
-            </div>
-            
+        window.exportDSCPDF = function() {
+            const rows = window._dscExportRows||[];
+            if(!rows.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
+            const itemRows = rows.map((r,i)=>{
+                const vc=r.variance>0?'#3b82f6':r.variance<0?'#ef4444':'#10b981';
+                const vt=r.variance===0?'✅':r.variance>0?`+${r.variance}`:`${r.variance}`;
+                return `<tr style="${i%2?'background:#f8fafc':''}">
+                    <td style="padding:7px 10px;">${r.date}</td>
+                    <td style="padding:7px 10px;">${r.zone}</td>
+                    <td style="padding:7px 10px;font-weight:700;">${r.id}</td>
+                    <td style="padding:7px 10px;">${r.name}</td>
+                    <td style="padding:7px 10px;text-align:center;">${r.openingBalance??'-'}</td>
+                    <td style="padding:7px 10px;text-align:center;color:#10b981;font-weight:700;">${r.received||0}</td>
+                    <td style="padding:7px 10px;text-align:center;color:#ef4444;font-weight:700;">${(r.issuedAuto||0)+(r.issuedManual||0)}</td>
+                    <td style="padding:7px 10px;text-align:center;color:#3b82f6;font-weight:700;">${r.closingBalance??'-'}</td>
+                    <td style="padding:7px 10px;text-align:center;color:${vc};font-weight:700;">${vt}</td>
+                    <td style="padding:7px 10px;text-align:center;">${r.unit}</td>
+                </tr>`;
+            }).join('');
+            const html = `<html><head><meta charset="UTF-8"></head><body>
+            <table border="1" cellspacing="0" cellpadding="4">
+            ${itemRows}
+            </table></body></html>`;
+            const w = window.open('', '_blank');
+            w.document.write(html);
+            w.document.close();
+        };
 <!-- TTGPlus Session System (auto inserted) -->
 <script src="ttg_session_guard.js"></script>
 <script>
