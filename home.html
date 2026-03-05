@@ -927,6 +927,14 @@
                     <td style="padding:7px 10px;text-align:center;">${r.unit}</td>
                 </tr>`;
             }).join('');
+            const html = `<html><head><meta charset="UTF-8"></head><body>
+            <table border="1" cellspacing="0" cellpadding="4">
+            ${itemRows}
+            </table></body></html>`;
+            const w = window.open('', '_blank');
+            w.document.write(html);
+            w.document.close();
+        }).join('');
             const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
