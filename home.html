@@ -826,17 +826,26 @@
 
         async function registerSession() {
             if(!currentUser) return;
-            // เฉพาะแท็บแรก/login ใหม่เท่านั้นที่ register (เขียน Firestore)
-            // แท็บที่เปิดเพิ่มในเครื่องเดิมจะข้ามขั้นตอนนี้
-            if(!_isNewSession) return;
             try {
-                await setDoc(doc(db,'activeSessions',currentUser.username), {
-                    sessionId: _mySessionId,
-                    name: currentUser.name,
-                    loginAt: Date.now(),
-                    device: navigator.userAgent.slice(0,60)
-                }, {merge:false});
-            } catch(e) { console.warn('registerSession:', e); }
+                const ref = doc(db,'activeSessions',currentUser.username);
+                const snap = await getDoc(ref);
+
+                // ถ้ามี session เดิมและเป็น session เดียวกับเครื่องนี้ → ไม่ต้องเขียนทับ (กันหลาย tab)
+                if(snap.exists() && snap.data().sessionId === _mySessionId){
+                    return;
+                }
+
+                // ถ้าไม่มี session เลย → register ปกติ
+                if(!snap.exists()){
+                    await setDoc(ref,{
+                        sessionId:_mySessionId,
+                        name:currentUser.name,
+                        loginAt:Date.now(),
+                        device:navigator.userAgent.slice(0,60)
+                    },{merge:false});
+                }
+
+            } catch(e){ console.warn('registerSession:',e); }
         }
 
         async function checkSessionValid() {
@@ -960,6 +969,77 @@
                     <div style="font-size:11px;color:#64748b;">ผู้อนุมัติ</div>
                 </div>
             </div>
+            
+<!-- TTGPlus Session System (auto inserted) -->
+<script src="ttg_session_guard.js"></script>
+<script>
+(async function(){
+
+    function waitUser(){
+        return new Promise(resolve=>{
+            const t=setInterval(()=>{
+                if(window.currentUser && currentUser.username){
+                    clearInterval(t)
+                    resolve()
+                }
+            },200)
+        })
+    }
+
+    await waitUser()
+
+    try{
+        await TTGSession.register(currentUser.username)
+    }catch(e){
+        console.warn("session register skipped",e)
+    }
+
+    TTGSession.startGuard(currentUser.username)
+
+    const oldLogout = window.logout
+    window.logout = function(){
+        try{ TTGSession.logout() }catch(e){}
+        if(oldLogout) oldLogout()
+    }
+
+})()
+</script>
+
+
+<script>
+/* TTGPlus tab-sync improvement (safe patch)
+   - sync logout between tabs
+   - prevent duplicate session checks in background tabs
+*/
+(function(){
+
+  const SESSION_KEY = 'ttg_sessionId';
+
+  // sync logout across tabs
+  window.addEventListener("storage", function(e){
+      if(e.key === SESSION_KEY && !e.newValue){
+          location.href = "login.html";
+      }
+  });
+
+  // broadcast logout immediately (faster than storage)
+  try{
+      const bc = new BroadcastChannel("ttg_session");
+      bc.onmessage = (ev)=>{
+          if(ev.data === "logout"){
+              location.href = "login.html";
+          }
+      };
+
+      const oldLogout = window.logout;
+      window.logout = function(){
+          try{ bc.postMessage("logout"); }catch(e){}
+          if(oldLogout) oldLogout();
+      };
+  }catch(e){}
+
+})();
+</script>
 
 </body></html>`;
             const w = window.open('','_blank');
@@ -1021,6 +1101,77 @@
                     <div style="height:40px;"></div><div style="font-size:11px;color:#64748b;">ผู้อนุมัติ</div>
                 </div>
             </div>
+            
+<!-- TTGPlus Session System (auto inserted) -->
+<script src="ttg_session_guard.js"></script>
+<script>
+(async function(){
+
+    function waitUser(){
+        return new Promise(resolve=>{
+            const t=setInterval(()=>{
+                if(window.currentUser && currentUser.username){
+                    clearInterval(t)
+                    resolve()
+                }
+            },200)
+        })
+    }
+
+    await waitUser()
+
+    try{
+        await TTGSession.register(currentUser.username)
+    }catch(e){
+        console.warn("session register skipped",e)
+    }
+
+    TTGSession.startGuard(currentUser.username)
+
+    const oldLogout = window.logout
+    window.logout = function(){
+        try{ TTGSession.logout() }catch(e){}
+        if(oldLogout) oldLogout()
+    }
+
+})()
+</script>
+
+
+<script>
+/* TTGPlus tab-sync improvement (safe patch)
+   - sync logout between tabs
+   - prevent duplicate session checks in background tabs
+*/
+(function(){
+
+  const SESSION_KEY = 'ttg_sessionId';
+
+  // sync logout across tabs
+  window.addEventListener("storage", function(e){
+      if(e.key === SESSION_KEY && !e.newValue){
+          location.href = "login.html";
+      }
+  });
+
+  // broadcast logout immediately (faster than storage)
+  try{
+      const bc = new BroadcastChannel("ttg_session");
+      bc.onmessage = (ev)=>{
+          if(ev.data === "logout"){
+              location.href = "login.html";
+          }
+      };
+
+      const oldLogout = window.logout;
+      window.logout = function(){
+          try{ bc.postMessage("logout"); }catch(e){}
+          if(oldLogout) oldLogout();
+      };
+  }catch(e){}
+
+})();
+</script>
 
 </body></html>`;
             const w = window.open('','_blank');
@@ -2007,6 +2158,77 @@ window.saveCentralStock = async function(){
     <script src="goods-receipt.js" defer></script>
     <script src="lot-register.js" defer></script>
     <script src="qc.js" defer></script>
+
+<!-- TTGPlus Session System (auto inserted) -->
+<script src="ttg_session_guard.js"></script>
+<script>
+(async function(){
+
+    function waitUser(){
+        return new Promise(resolve=>{
+            const t=setInterval(()=>{
+                if(window.currentUser && currentUser.username){
+                    clearInterval(t)
+                    resolve()
+                }
+            },200)
+        })
+    }
+
+    await waitUser()
+
+    try{
+        await TTGSession.register(currentUser.username)
+    }catch(e){
+        console.warn("session register skipped",e)
+    }
+
+    TTGSession.startGuard(currentUser.username)
+
+    const oldLogout = window.logout
+    window.logout = function(){
+        try{ TTGSession.logout() }catch(e){}
+        if(oldLogout) oldLogout()
+    }
+
+})()
+</script>
+
+
+<script>
+/* TTGPlus tab-sync improvement (safe patch)
+   - sync logout between tabs
+   - prevent duplicate session checks in background tabs
+*/
+(function(){
+
+  const SESSION_KEY = 'ttg_sessionId';
+
+  // sync logout across tabs
+  window.addEventListener("storage", function(e){
+      if(e.key === SESSION_KEY && !e.newValue){
+          location.href = "login.html";
+      }
+  });
+
+  // broadcast logout immediately (faster than storage)
+  try{
+      const bc = new BroadcastChannel("ttg_session");
+      bc.onmessage = (ev)=>{
+          if(ev.data === "logout"){
+              location.href = "login.html";
+          }
+      };
+
+      const oldLogout = window.logout;
+      window.logout = function(){
+          try{ bc.postMessage("logout"); }catch(e){}
+          if(oldLogout) oldLogout();
+      };
+  }catch(e){}
+
+})();
+</script>
 
 </body>
 </html>
