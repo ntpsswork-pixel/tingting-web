@@ -809,31 +809,38 @@
 
         // ---- ONLINE PRESENCE ----
         // ── SESSION KICK SYSTEM ──────────────────────────────
-        // sessionId = unique id ต่อ tab/login ครั้งนี้
-        const _mySessionId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
+        // sessionId แชร์ข้ามแท็บในเครื่องเดียวกันผ่าน localStorage
+        // เปิดหลายแท็บในเครื่องเดิม → ไม่ kick กัน
+        // login จากเครื่องอื่น → sessionId ใน Firestore เปลี่ยน → kick ทุกแท็บ
+        const _SESSION_KEY = 'ttg_sessionId';
+        let _mySessionId = localStorage.getItem(_SESSION_KEY);
+        if (!_mySessionId) {
+            _mySessionId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
+            localStorage.setItem(_SESSION_KEY, _mySessionId);
+        }
 
         async function registerSession() {
             if(!currentUser) return;
             try {
-                // บันทึก sessionId ปัจจุบันลง Firestore
                 await setDoc(doc(db,'activeSessions',currentUser.username), {
                     sessionId: _mySessionId,
                     name: currentUser.name,
                     loginAt: Date.now(),
                     device: navigator.userAgent.slice(0,60)
-                }, {merge:false}); // merge:false = เขียนทับเสมอ
+                }, {merge:false});
             } catch(e) { console.warn('registerSession:', e); }
         }
 
         async function checkSessionValid() {
             if(!currentUser) return;
             try {
+                const localId = localStorage.getItem(_SESSION_KEY);
                 const snap = await getDoc(doc(db,'activeSessions',currentUser.username));
-                if(snap.exists() && snap.data().sessionId !== _mySessionId) {
-                    // session นี้ถูก kick
+                if(snap.exists() && snap.data().sessionId !== localId) {
                     clearTimeout(window._sessionTimer);
                     clearTimeout(window._sessionWarnTimer);
                     clearInterval(window._sessionCheckInterval);
+                    localStorage.removeItem(_SESSION_KEY);
                     alert('⚠️ มีการเข้าสู่ระบบจากอุปกรณ์อื่น\nSession นี้ถูกยกเลิกอัตโนมัติ กรุณา Login ใหม่');
                     localStorage.removeItem('currentUser');
                     window.location.href = 'login.html';
