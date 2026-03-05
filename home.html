@@ -809,18 +809,26 @@
 
         // ---- ONLINE PRESENCE ----
         // ── SESSION KICK SYSTEM ──────────────────────────────
-        // sessionId แชร์ข้ามแท็บในเครื่องเดียวกันผ่าน localStorage
-        // เปิดหลายแท็บในเครื่องเดิม → ไม่ kick กัน
-        // login จากเครื่องอื่น → sessionId ใน Firestore เปลี่ยน → kick ทุกแท็บ
+        // sessionId เก็บใน localStorage → แชร์ข้ามทุกแท็บในเครื่องเดียวกัน
+        // - แท็บแรก / login ใหม่ → สร้าง sessionId ใหม่ + register ลง Firestore
+        // - แท็บที่ 2, 3, ... → ใช้ sessionId เดิม ไม่ register ใหม่ (ไม่เขียนทับ)
+        // - login จากเครื่องอื่น → sessionId ใน Firestore เปลี่ยน → kick ทุกแท็บ
         const _SESSION_KEY = 'ttg_sessionId';
+        const _SESSION_NEW_KEY = 'ttg_sessionNew'; // flag ว่าแท็บนี้เป็นแท็บแรก/login ใหม่
+
+        // ถ้าไม่มี sessionId ใน localStorage = login ใหม่ → สร้างใหม่และ mark ว่า register
         let _mySessionId = localStorage.getItem(_SESSION_KEY);
-        if (!_mySessionId) {
+        const _isNewSession = !_mySessionId;
+        if (_isNewSession) {
             _mySessionId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
             localStorage.setItem(_SESSION_KEY, _mySessionId);
         }
 
         async function registerSession() {
             if(!currentUser) return;
+            // เฉพาะแท็บแรก/login ใหม่เท่านั้นที่ register (เขียน Firestore)
+            // แท็บที่เปิดเพิ่มในเครื่องเดิมจะข้ามขั้นตอนนี้
+            if(!_isNewSession) return;
             try {
                 await setDoc(doc(db,'activeSessions',currentUser.username), {
                     sessionId: _mySessionId,
@@ -834,9 +842,11 @@
         async function checkSessionValid() {
             if(!currentUser) return;
             try {
+                // เทียบกับ sessionId ที่อยู่ใน localStorage (sync ทุกแท็บเครื่องเดิม)
                 const localId = localStorage.getItem(_SESSION_KEY);
                 const snap = await getDoc(doc(db,'activeSessions',currentUser.username));
                 if(snap.exists() && snap.data().sessionId !== localId) {
+                    // sessionId ใน Firestore ไม่ตรง = มีคนล็อกอินจากเครื่องอื่น → kick
                     clearTimeout(window._sessionTimer);
                     clearTimeout(window._sessionWarnTimer);
                     clearInterval(window._sessionCheckInterval);
