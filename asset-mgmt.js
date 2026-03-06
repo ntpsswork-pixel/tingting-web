@@ -21,9 +21,6 @@ let _assetActiveTab = 'registry';
 let _fsImported = false;
 let _addDoc, _setDoc, _getDoc, _getDocs, _updateDoc, _deleteDoc,
     _collection, _query, _where, _orderBy, _doc, _serverTimestamp;
-let _storageImported = false;
-let _getStorage, _ref, _uploadBytes, _getDownloadURL, _deleteObject;
-
 async function _importFS() {
     if (_fsImported) return;
     const fs = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
@@ -34,23 +31,34 @@ async function _importFS() {
     _fsImported = true;
 }
 
-async function _importStorage() {
-    if (_storageImported) return;
-    const st = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
-    _getStorage = st.getStorage; _ref = st.ref;
-    _uploadBytes = st.uploadBytes; _getDownloadURL = st.getDownloadURL;
-    _deleteObject = st.deleteObject;
-    _storageImported = true;
-}
-
-async function _uploadImage(file, path) {
-    await _importStorage();
-    const app = window.firebaseApp;
-    if (!app) throw new Error('Firebase app ไม่พร้อม — รีเฟรชหน้าแล้วลองใหม่');
-    const storage = _getStorage(app);
-    const storageRef = _ref(storage, path);
-    await _uploadBytes(storageRef, file);
-    return await _getDownloadURL(storageRef);
+// ── Image: compress to Base64 JPEG, store in Firestore (no Firebase Storage needed) ──
+async function _uploadImage(file, _path) {
+    return new Promise((resolve, reject) => {
+        if (!file) return reject(new Error('ไม่พบไฟล์'));
+        if (file.size > 10 * 1024 * 1024) return reject(new Error('ไฟล์ใหญ่เกิน 10MB'));
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('อ่านไฟล์ไม่ได้'));
+        reader.onload = e => {
+            const img = new Image();
+            img.onerror = () => reject(new Error('ไฟล์ไม่ใช่รูปภาพ'));
+            img.onload = () => {
+                const MAX = 800;
+                let w = img.width, h = img.height;
+                if (w > MAX || h > MAX) {
+                    if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                    else       { w = Math.round(w * MAX / h); h = MAX; }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                const bytes = Math.round((dataUrl.length * 3) / 4);
+                resolve(bytes > 900 * 1024 ? canvas.toDataURL('image/jpeg', 0.5) : dataUrl);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────
