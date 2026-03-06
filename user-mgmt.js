@@ -10,6 +10,8 @@
             document.getElementById('warehouseMenu').classList.toggle('hidden', !effectivePerms.includes('warehouse'));
             document.getElementById('toolsMenu').classList.toggle('hidden', !effectivePerms.includes('tools'));
             document.getElementById('adminMenu').classList.toggle('hidden', !effectivePerms.includes('admin'));
+            const assetMenu = document.getElementById('assetMenu');
+            if(assetMenu) assetMenu.classList.toggle('hidden', !effectivePerms.includes('asset'));
             // requisition menu
             const reqMenu = document.getElementById('requisitionMenu');
             if(reqMenu) reqMenu.classList.toggle('hidden', !effectivePerms.includes('requisition'));
@@ -368,6 +370,8 @@
                             <input type="checkbox" ${perms.includes('qc')?'checked':''} onchange="togglePerm('${role}','qc')" style="accent-color:#7c3aed;"> 🔍 QC</label>
                         <label style="display:flex;align-items:center;gap:4px;background:#fef9f0;border:1px solid #fde68a;padding:4px 10px;border-radius:20px;cursor:pointer;">
                             <input type="checkbox" ${perms.includes('admin')?'checked':''} onchange="togglePerm('${role}','admin')" style="accent-color:#d97706;"> ⚙️ แอดมิน</label>
+                        <label style="display:flex;align-items:center;gap:4px;background:#fffbeb;border:1px solid #fde68a;padding:4px 10px;border-radius:20px;cursor:pointer;">
+                            <input type="checkbox" ${perms.includes('asset')?'checked':''} onchange="togglePerm('${role}','asset')" style="accent-color:#f59e0b;"> 🏷️ ทรัพย์สิน</label>
                         <label style="display:flex;align-items:center;gap:4px;background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:20px;cursor:pointer;color:#1d4ed8;font-weight:bold;">
                             <input type="checkbox" ${vo?'checked':''} onchange="toggleViewOnly('${role}')" style="accent-color:#3b82f6;"> 👁️ ดูอย่างเดียว</label>
                     </div></div>`;

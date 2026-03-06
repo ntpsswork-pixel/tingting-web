@@ -288,6 +288,15 @@
                     <div onclick="toggleMonthlyCount()" id="monthlyCountToggleBtn" style="color:#06b6d4;">● เปิด/ปิด นับสต๊อกสิ้นเดือน</div>
                 </div>
             </div>
+            <div id="assetMenu" class="hidden">
+                <div class="nav-item" onclick="toggleSub('subAsset')" style="color:#f59e0b;">🏷️ ทรัพย์สิน ▾</div>
+                <div id="subAsset" class="submenu">
+                    <div onclick="openAssetManagement('registry')" data-tool="asset-registry" style="color:#f59e0b;">● ทะเบียนทรัพย์สิน</div>
+                    <div onclick="openAssetManagement('audit')" data-tool="asset-audit" style="color:#f59e0b;">● ตรวจนับรายรอบ</div>
+                    <div onclick="openAssetManagement('repair')" data-tool="asset-repair" style="color:#f59e0b;">● แจ้งซ่อม</div>
+                    <div onclick="openAssetManagement('dashboard')" data-tool="asset-dashboard" style="color:#f59e0b;">● Dashboard</div>
+                </div>
+            </div>
             <div class="nav-item" onclick="window.open('delivery.html','_blank')" style="color:#00c9ff;border-top:1px solid rgba(255,255,255,0.05);">🚛 ระบบขนส่ง (Delivery)</div>
             <div class="nav-item" onclick="openHelpGuide()" data-tool="help" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=help','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=help','_blank');" style="color:#7c3aed;">📖 คู่มือการใช้งาน</div>
         </div>
@@ -565,6 +574,7 @@
                 {icon:'📦', label:'นับสต๊อก',      fn:'openCentralStock()',         tool:'stock',         color:'#334155', show:isAdmin},
                 {icon:'📈', label:'รายงาน',        fn:'openStockSummary()',         tool:'stock-summary', color:'#0369a1', show:isAdmin},
                 {icon:'⚙️', label:'ตั้งค่า',        fn:'openWarehouseManager()',     tool:'warehouse-mgr', color:'#475569', show:isAdmin},
+                {icon:'🏷️', label:'ทรัพย์สิน',     fn:'openAssetManagement()',      tool:'asset-registry',color:'#d97706', show:true},
             ];
             const ar = document.getElementById('dashActionRow');
             if(ar) {
@@ -1196,6 +1206,10 @@
             'req-settings':      ()=>{ const f=window._origOpenRequisitionSettings||window.openRequisitionSettings; f(); },
             'daily-stock':       ()=>{ const f=window._origOpenDailyStockCard||window.openDailyStockCard; f(); },
             'warehouse-mgr':     ()=>{ const f=window._origOpenWarehouseManager||window.openWarehouseManager; f(); },
+            'asset-registry':    ()=>{ if(window.openAssetManagement) window.openAssetManagement('registry'); },
+            'asset-audit':       ()=>{ if(window.openAssetManagement) window.openAssetManagement('audit'); },
+            'asset-repair':      ()=>{ if(window.openAssetManagement) window.openAssetManagement('repair'); },
+            'asset-dashboard':   ()=>{ if(window.openAssetManagement) window.openAssetManagement('dashboard'); },
             'user-mgmt':         ()=>{ const f=window._origOpenUserManagement||window.openUserManagement; f(); },
             'help':              ()=>{ const f=window._origOpenHelpGuide||window.openHelpGuide; f(); },
             'monthly-count':     ()=>{
@@ -2007,6 +2021,7 @@ window.saveCentralStock = async function(){
     <script src="goods-receipt.js" defer></script>
     <script src="lot-register.js" defer></script>
     <script src="qc.js" defer></script>
+    <script src="asset-mgmt.js" defer></script>
 
 </body>
 </html>
