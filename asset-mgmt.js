@@ -194,7 +194,8 @@ function _renderRegistry(c) {
             <button onclick="_openAddAssetForm()" style="background:#0f172a;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">+ เพิ่มทรัพย์สิน</button>
             <button onclick="_importAssetsExcel()" style="background:#059669;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📥 Import Excel</button>
             ` : ''}
-            <button onclick="_exportAssetsExcel()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📤 Export</button>
+            <button onclick="_exportAssetsExcel()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📊 Excel</button>
+            <button onclick="_exportAssetsPDF()" style="background:#dc2626;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📄 PDF</button>
         </div>
     </div>
     <!-- Filters -->
@@ -617,17 +618,108 @@ window._printAssetQR = function(assetId) {
 // ─── Export / Import Excel ────────────────────────────────────────────
 window._exportAssetsExcel = function() {
     if (!_assetsCache.length) { toast('⚠️ ไม่มีข้อมูลทรัพย์สิน', '#c2410c'); return; }
-    const rows = [['รหัส','ชื่อ','หมวด','ยี่ห้อ/รุ่น','Serial/ทะเบียน','Zone','สถานะ','วันที่ซื้อ','ราคาซื้อ','อายุใช้งาน(ปี)','มูลค่าคงเหลือ','หมายเหตุ']];
+    const rows = [['รหัส','ชื่อ','หมวด','ยี่ห้อ/รุ่น','Serial/ทะเบียน','Zone','สถานะ','วันที่ซื้อ','ราคาซื้อ','อายุใช้งาน(ปี)','มูลค่าคงเหลือ','หมายเหตุ','มีรูปภาพ']];
     _assetsCache.forEach(a => {
         const dep = _calcDepreciation(a.price, a.lifeYears, a.purchaseDate);
-        rows.push([a._id, a.name, a.category||'', a.brand||'', a.serial||'', a.zone||'', a.status||'', a.purchaseDate||'', a.price||'', a.lifeYears||'', dep.remaining||'', a.note||'']);
+        rows.push([a._id, a.name, a.category||'', a.brand||'', a.serial||'', a.zone||'', a.status||'', a.purchaseDate||'', a.price||'', a.lifeYears||'', dep.remaining||'', a.note||'', a.imageUrl ? '✅ มีรูป' : '—']);
     });
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:12},{wch:30},{wch:14},{wch:16},{wch:14},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:12},{wch:20}];
+    ws['!cols'] = [{wch:12},{wch:30},{wch:14},{wch:16},{wch:14},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:12},{wch:20},{wch:10}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Assets');
     XLSX.writeFile(wb, `TingTing_Assets_${new Date().toISOString().slice(0,10)}.xlsx`);
     toast('✅ Export เรียบร้อย', '#059669');
+};
+
+// ─── Export PDF (client-side print) ──────────────────────────────────
+window._exportAssetsPDF = function(assetsToExport) {
+    const assets = assetsToExport || _assetsCache;
+    if (!assets.length) { toast('⚠️ ไม่มีข้อมูล', '#c2410c'); return; }
+    const now = _todayTH();
+    const rows = assets.map(a => {
+        const st = ASSET_STATUS_MAP[a.status] || ASSET_STATUS_MAP['ปกติ'];
+        const dep = _calcDepreciation(a.price, a.lifeYears, a.purchaseDate);
+        const imgHtml = a.imageUrl
+            ? `<img src="${a.imageUrl}" style="width:44px;height:44px;object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;">`
+            : `<div style="width:44px;height:44px;border-radius:5px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:20px;">📦</div>`;
+        return `<tr>
+            <td style="padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;">${imgHtml}</td>
+            <td style="padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;">
+                <div style="font-weight:800;font-size:11px;">${a._id}</div>
+                <div style="font-size:10px;color:#475569;">${a.name}</div>
+                ${a.serial ? `<div style="font-size:9px;color:#94a3b8;">S/N: ${a.serial}</div>` : ''}
+            </td>
+            <td style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:10px;vertical-align:middle;">${a.category||'—'}</td>
+            <td style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:10px;vertical-align:middle;">${a.zone||'—'}</td>
+            <td style="padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;text-align:center;">
+                <span style="background:${st.bg};color:${st.color};border:1px solid ${st.border};padding:2px 8px;border-radius:12px;font-size:9px;font-weight:700;white-space:nowrap;">${st.icon} ${a.status||'ปกติ'}</span>
+            </td>
+            <td style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:10px;vertical-align:middle;text-align:right;">${a.purchaseDate||'—'}</td>
+            <td style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:10px;font-weight:700;vertical-align:middle;text-align:right;">${a.price ? '฿'+_fmt(a.price) : '—'}</td>
+            <td style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:10px;font-weight:700;color:#059669;vertical-align:middle;text-align:right;">${a.price ? '฿'+_fmt(dep.remaining) : '—'}</td>
+        </tr>`;
+    }).join('');
+    const totalValue = assets.reduce((s,a)=>s+(a.price||0),0);
+    const totalRemaining = assets.reduce((s,a)=>{ const d=_calcDepreciation(a.price,a.lifeYears,a.purchaseDate); return s+d.remaining; },0);
+    const win = window.open('','_blank');
+    win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <title>TingTing — รายงานทรัพย์สิน</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:'Prompt',sans-serif;background:white;color:#0f172a;font-size:11px;padding:24px;}
+        .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #0f172a;}
+        .logo{font-size:22px;font-weight:900;}.logo span{color:#f59e0b;}
+        .title{font-size:15px;font-weight:800;color:#0f172a;margin-top:4px;}
+        .subtitle{font-size:10px;color:#64748b;margin-top:2px;}
+        .meta{text-align:right;font-size:10px;color:#64748b;}
+        .kpi{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
+        .kpi-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;flex:1;min-width:120px;}
+        .kpi-val{font-size:16px;font-weight:900;}
+        .kpi-lbl{font-size:9px;color:#94a3b8;text-transform:uppercase;margin-top:2px;}
+        table{width:100%;border-collapse:collapse;}
+        thead{background:#0f172a;color:white;}
+        th{padding:9px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+        th:last-child,th:nth-last-child(2),th:nth-last-child(3){text-align:right;}
+        tbody tr:hover{background:#f8fafc;}
+        .footer{margin-top:16px;padding-top:10px;border-top:1px solid #e2e8f0;text-align:center;font-size:9px;color:#94a3b8;}
+        @media print{
+            body{padding:12px;}
+            @page{margin:12mm;size:A4 landscape;}
+            thead{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#0f172a!important;color:white!important;}
+            .kpi-box{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+        }
+    </style></head><body>
+    <div class="header">
+        <div><div class="logo">Ting<span>Ting</span></div>
+        <div class="title">รายงานทะเบียนทรัพย์สิน</div>
+        <div class="subtitle">พิมพ์โดย: ${currentUser?.name||''}</div></div>
+        <div class="meta"><div>วันที่พิมพ์: ${now}</div><div>รวม ${assets.length} รายการ</div></div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-box"><div class="kpi-val">${assets.length}</div><div class="kpi-lbl">ทรัพย์สินทั้งหมด</div></div>
+        <div class="kpi-box"><div class="kpi-val" style="color:#1d4ed8;">฿${_fmt(totalValue)}</div><div class="kpi-lbl">มูลค่ารวม</div></div>
+        <div class="kpi-box"><div class="kpi-val" style="color:#059669;">฿${_fmt(Math.round(totalRemaining))}</div><div class="kpi-lbl">มูลค่าคงเหลือรวม</div></div>
+        <div class="kpi-box"><div class="kpi-val" style="color:#dc2626;">฿${_fmt(Math.round(totalValue-totalRemaining))}</div><div class="kpi-lbl">ค่าเสื่อมสะสม</div></div>
+    </div>
+    <table>
+        <thead><tr>
+            <th style="width:52px;">รูป</th>
+            <th>รหัส / ชื่อ</th>
+            <th>หมวด</th>
+            <th>Zone</th>
+            <th style="text-align:center;">สถานะ</th>
+            <th style="text-align:right;">วันที่ซื้อ</th>
+            <th style="text-align:right;">ราคาซื้อ</th>
+            <th style="text-align:right;">มูลค่าคงเหลือ</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+    </table>
+    <div class="footer">TingTing Asset Management — สร้างเมื่อ ${now}</div>
+    <script>window.onload=()=>setTimeout(()=>window.print(),600);<\/script>
+    </body></html>`);
+    win.document.close();
 };
 
 window._importAssetsExcel = function() {
@@ -717,6 +809,7 @@ async function _loadAuditRounds() {
                     ${canCount ? `<button onclick="_openAuditCount('${r._id}')" style="background:#059669;color:white;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">📋 เริ่มตรวจนับ</button>` : ''}
                     <button onclick="_viewAuditResults('${r._id}')" style="background:#f1f5f9;color:#475569;border:none;padding:7px 12px;border-radius:7px;cursor:pointer;font-size:11px;">📊 ดูผล</button>
                     ${isAdmin && isOpen ? `<button onclick="_closeAuditRound('${r._id}')" style="background:#fee2e2;color:#ef4444;border:none;padding:7px 12px;border-radius:7px;cursor:pointer;font-size:11px;">🔒 ปิดรอบ</button>` : ''}
+                    ${isAdmin ? `<button onclick="_confirmDeleteAuditRound('${r._id}','${r.name||''}',${isOpen})" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;padding:7px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">🗑️ ลบ</button>` : ''}
                 </div>
             </div>
         </div>`;
@@ -776,6 +869,71 @@ window._closeAuditRound = async function(roundId) {
     await _updateDoc(_doc(db, 'assetAuditRounds', roundId), { status:'closed', closedAt: Date.now(), closedBy: currentUser.name });
     toast('🔒 ปิดรอบแล้ว', '#64748b');
     _loadAuditRounds();
+};
+
+window._confirmDeleteAuditRound = function(roundId, roundName, isOpen) {
+    // Step 1: show inline confirm panel
+    const existing = document.getElementById('auditDeleteConfirm');
+    if (existing) existing.remove();
+    const panel = document.createElement('div');
+    panel.id = 'auditDeleteConfirm';
+    panel.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    panel.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:28px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+            <div style="text-align:center;margin-bottom:18px;">
+                <div style="font-size:40px;margin-bottom:8px;">🗑️</div>
+                <div style="font-size:16px;font-weight:900;color:#0f172a;">ลบรอบตรวจนับ?</div>
+                <div style="font-size:12px;color:#64748b;margin-top:6px;">"${roundName || roundId}"</div>
+                ${isOpen ? `<div style="margin-top:8px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 12px;font-size:11px;color:#c2410c;font-weight:700;">⚠️ รอบนี้ยังเปิดอยู่ — ลบจะปิดรอบด้วย</div>` : ''}
+            </div>
+            <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:14px;margin-bottom:18px;">
+                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:6px;">⚠️ การลบจะ:</div>
+                <div style="font-size:11px;color:#475569;line-height:1.7;">
+                    • ลบข้อมูลรอบตรวจนับนี้ถาวร<br>
+                    • ลบผลการตรวจนับทั้งหมดในรอบนี้ถาวร<br>
+                    • ไม่สามารถกู้คืนได้
+                </div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:11px;font-weight:700;color:#dc2626;display:block;margin-bottom:6px;">พิมพ์ "ลบ" เพื่อยืนยัน</label>
+                <input type="text" id="auditDeleteInput" placeholder='พิมพ์ "ลบ" ที่นี่'
+                    style="width:100%;padding:10px 12px;border:2px solid #fecaca;border-radius:8px;font-size:13px;font-family:inherit;outline:none;text-align:center;box-sizing:border-box;"
+                    onfocus="this.style.borderColor='#ef4444'" onblur="this.style.borderColor='#fecaca'">
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="document.getElementById('auditDeleteConfirm').remove()"
+                    style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:11px;border-radius:9px;cursor:pointer;font-weight:700;font-size:13px;">ยกเลิก</button>
+                <button onclick="_executeDeleteAuditRound('${roundId}')"
+                    style="flex:1;background:#dc2626;color:white;border:none;padding:11px;border-radius:9px;cursor:pointer;font-weight:700;font-size:13px;">🗑️ ยืนยันลบ</button>
+            </div>
+        </div>`;
+    document.body.appendChild(panel);
+    document.getElementById('auditDeleteInput')?.focus();
+};
+
+window._executeDeleteAuditRound = async function(roundId) {
+    const input = document.getElementById('auditDeleteInput')?.value.trim();
+    if (input !== 'ลบ') {
+        const inp = document.getElementById('auditDeleteInput');
+        if (inp) { inp.style.borderColor='#ef4444'; inp.style.background='#fef2f2'; inp.placeholder='กรุณาพิมพ์ "ลบ" ให้ถูกต้อง'; }
+        toast('⚠️ กรุณาพิมพ์ "ลบ" เพื่อยืนยัน', '#c2410c');
+        return;
+    }
+    await _importFS();
+    toast('⏳ กำลังลบ...', '#64748b');
+    try {
+        // ลบผลตรวจนับทั้งหมดในรอบนี้ก่อน
+        const resultsSnap = await _getDocs(_query(_collection(db,'assetAuditResults'), _where('roundId','==',roundId)));
+        const delPromises = resultsSnap.docs.map(d => _deleteDoc(_doc(db,'assetAuditResults',d.id)));
+        await Promise.all(delPromises);
+        // ลบ round document
+        await _deleteDoc(_doc(db,'assetAuditRounds',roundId));
+        document.getElementById('auditDeleteConfirm')?.remove();
+        toast(`✅ ลบรอบตรวจนับแล้ว (${resultsSnap.docs.length} ผลลัพธ์ถูกลบด้วย)`, '#059669');
+        _loadAuditRounds();
+    } catch(e) {
+        toast('❌ ลบไม่สำเร็จ: ' + e.message, '#ef4444');
+    }
 };
 
 window._openAuditCount = async function(roundId) {
