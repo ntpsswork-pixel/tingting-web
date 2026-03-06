@@ -366,7 +366,8 @@
 
 
         // ── Firebase instances exposed globally ──
-        window.db   = getFirestore(initializeApp(firebaseConfig));
+        window.firebaseApp = initializeApp(firebaseConfig);
+        window.db   = getFirestore(window.firebaseApp);
         window.rtdb = getDatabase();
         // Re-assign for local use too
         const db   = window.db;

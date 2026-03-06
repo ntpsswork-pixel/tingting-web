@@ -45,7 +45,9 @@ async function _importStorage() {
 
 async function _uploadImage(file, path) {
     await _importStorage();
-    const storage = _getStorage();
+    const app = window.firebaseApp;
+    if (!app) throw new Error('Firebase app ไม่พร้อม — รีเฟรชหน้าแล้วลองใหม่');
+    const storage = _getStorage(app);
     const storageRef = _ref(storage, path);
     await _uploadBytes(storageRef, file);
     return await _getDownloadURL(storageRef);
@@ -479,7 +481,12 @@ window._saveAsset = async function(editId) {
             toast('⏳ กำลังอัปโหลดรูป...', '#0891b2');
             const url = await _uploadImage(imgFile, `assets/${finalId}/main/${Date.now()}_${imgFile.name}`);
             data.imageUrl = url;
-        } catch(e) { toast('⚠️ อัปโหลดรูปไม่สำเร็จ: ' + e.message, '#c2410c'); }
+            toast('✅ อัปโหลดรูปสำเร็จ', '#059669');
+        } catch(e) {
+            toast('❌ อัปโหลดรูปไม่สำเร็จ: ' + e.message, '#c2410c');
+            console.error('Upload error:', e);
+            return;
+        }
     } else if (window._assetClearImg) {
         data.imageUrl = '';
         window._assetClearImg = false;
@@ -827,8 +834,10 @@ window._submitAuditItem = async function(roundId, assetId) {
     const imgFile= document.getElementById(`auditImg_${assetId}`)?.files[0];
     let imageUrl = '';
     if (imgFile) {
-        try { imageUrl = await _uploadImage(imgFile, `assets/${assetId}/audit/${Date.now()}_${imgFile.name}`); }
-        catch(e) { toast('⚠️ อัปโหลดรูปไม่สำเร็จ', '#c2410c'); }
+        try {
+            toast('⏳ กำลังอัปโหลดรูป...', '#0891b2');
+            imageUrl = await _uploadImage(imgFile, `assets/${assetId}/audit/${Date.now()}_${imgFile.name}`);
+        } catch(e) { toast('❌ อัปโหลดรูปไม่สำเร็จ: ' + e.message, '#c2410c'); console.error(e); return; }
     }
     const data = { roundId, assetId, result, auditNote: note, imageUrl, countedBy: currentUser.name, countedAt: Date.now(), dateLabel: _todayTH() };
     // upsert
@@ -1011,8 +1020,10 @@ window._submitRepair = async function() {
     let imageUrl = '';
     const imgFile = document.getElementById('repairImgInput')?.files[0];
     if (imgFile) {
-        try { imageUrl = await _uploadImage(imgFile, `assets/${assetId}/repair/${Date.now()}_${imgFile.name}`); }
-        catch(e) {}
+        try {
+            toast('⏳ กำลังอัปโหลดรูป...', '#0891b2');
+            imageUrl = await _uploadImage(imgFile, `assets/${assetId}/repair/${Date.now()}_${imgFile.name}`);
+        } catch(e) { toast('❌ อัปโหลดรูปไม่สำเร็จ: ' + e.message, '#c2410c'); console.error(e); return; }
     }
     const data = {
         assetId, assetName: asset?.name || '', zone: document.getElementById('rep_zone')?.value || asset?.zone || '',
@@ -1086,8 +1097,10 @@ window._saveRepairUpdate = async function(repairId, assetId) {
     let afterImageUrl = '';
     const afterFile = document.getElementById('repairAfterImg')?.files[0];
     if (afterFile) {
-        try { afterImageUrl = await _uploadImage(afterFile, `assets/${assetId}/repair/after_${Date.now()}_${afterFile.name}`); }
-        catch(e) {}
+        try {
+            toast('⏳ กำลังอัปโหลดรูป...', '#0891b2');
+            afterImageUrl = await _uploadImage(afterFile, `assets/${assetId}/repair/after_${Date.now()}_${afterFile.name}`);
+        } catch(e) { toast('❌ อัปโหลดรูปไม่สำเร็จ: ' + e.message, '#c2410c'); console.error(e); return; }
     }
     const upd = { status, repairCost: cost, repairNote: note, updatedAt: Date.now(), updatedBy: currentUser.name };
     if (afterImageUrl) upd.afterImageUrl = afterImageUrl;
