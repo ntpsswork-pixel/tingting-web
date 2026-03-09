@@ -2964,6 +2964,7 @@ ${r.zone}`);
             const action = monthlyCountOpen ? 'ปิด' : 'เปิด';
             if(!confirm(`ยืนยัน${action}ระบบนับสต๊อกสิ้นเดือน?\n${monthlyCountOpen?'พนักงานจะไม่สามารถนับสต๊อกได้จนกว่า Admin จะเปิดอีกครั้ง':'พนักงานทุกคนจะสามารถเข้าระบบนับสต๊อกได้'}`)) return;
             monthlyCountOpen = !monthlyCountOpen;
+            window.monthlyCountOpen = monthlyCountOpen; // sync กลับ window scope ก่อน saveConfig
             saveConfig();
             applyPermissions();
             toast(`${monthlyCountOpen?'🟢 เปิด':'🔴 ปิด'}ระบบนับสต๊อกสิ้นเดือนแล้ว`, monthlyCountOpen?'#059669':'#c2410c');
