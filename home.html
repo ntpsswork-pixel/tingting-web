@@ -1117,9 +1117,7 @@
                     notifs.push({
                         type:'critical', icon:'📉', bg:'rgba(239,68,68,0.15)',
                         title:`สินค้า ${stockLowItems.length} รายการ ต่ำกว่า Min`,
-                        sub: stockLowItems.slice(0,3).map(i=>`${i.name} (${i.zone}): ${i.balance}/${i.min}`).join('
-') + (stockLowItems.length>3?`
-...และอีก ${stockLowItems.length-3} รายการ`:''),
+                        sub: stockLowItems.slice(0,3).map(i=>i.name+' ('+i.zone+'): '+i.balance+'/'+i.min).join('\n') + (stockLowItems.length>3?('\n...และอีก '+(stockLowItems.length-3)+' รายการ'):''),
                         badge:'⚠️ ด่วน', badgeColor:'#ef4444', badgeBg:'rgba(239,68,68,0.2)',
                         action: ()=>{ closeNotifPanel(); openPurchaseOrder(); }
                     });
@@ -1142,9 +1140,7 @@
                     notifs.push({
                         type:'warning', icon:'⏰', bg:'rgba(245,158,11,0.15)',
                         title:`Lot ใกล้หมดอายุ ${expItems.length} รายการ`,
-                        sub: expItems.slice(0,3).map(i=>`${i.name}: เหลือ ${i.days} วัน (qty: ${i.qty})`).join('
-') + (expItems.length>3?`
-...และอีก ${expItems.length-3} รายการ`:''),
+                        sub: expItems.slice(0,3).map(i=>i.name+': เหลือ '+i.days+' วัน (qty: '+i.qty+')').join('\n') + (expItems.length>3?('\n...และอีก '+(expItems.length-3)+' รายการ'):''),
                         badge:'⏰ EXP', badgeColor:'#f59e0b', badgeBg:'rgba(245,158,11,0.2)',
                         action: ()=>{ closeNotifPanel(); openLotRegister(); }
                     });
@@ -1189,8 +1185,7 @@
                     notifs.push({
                         type:'info', icon:'📋', bg:'rgba(59,130,246,0.15)',
                         title:`รอบตรวจนับ ${openRounds.length} รอบ กำลังเปิดอยู่`,
-                        sub: openRounds.slice(0,2).map(r=>`${r.name||'รอบ'} — ${r.zone||'ทุกสาขา'}`).join('
-'),
+                        sub: openRounds.slice(0,2).map(r=>(r.name||'รอบ')+' — '+(r.zone||'ทุกสาขา')).join('\n'),
                         badge:'📋 ตรวจนับ', badgeColor:'#3b82f6', badgeBg:'rgba(59,130,246,0.2)',
                         action: ()=>{ closeNotifPanel(); if(window._renderAssetTool) window._renderAssetTool('audit'); }
                     });
