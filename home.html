@@ -48,6 +48,9 @@
 
         /* ── MAIN ── */
         .main-content { margin-left:var(--sidebar-width); width:calc(100% - var(--sidebar-width)); flex:1; }
+        /* Dashboard dark bg only inside #dashboardView */
+        body { background: #080d14; }
+        .app-container { background: var(--bg-light) !important; color: #1e293b; }
         .app-container { padding:28px 32px; animation:fadeIn 0.35s ease; }
         @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
@@ -149,64 +152,183 @@
         .date-display { position:absolute; top:50%; left:10px; transform:translateY(-50%); pointer-events:none; font-weight:bold; font-size:14px; color:#1e293b; }
     </style>
     <style>
-        /* ── DASHBOARD REDESIGN ── */
-        .dash-wrap { padding: 24px 28px; max-width: 1100px; }
-        @media (max-width: 768px) { .dash-wrap { padding: 56px 14px 20px; } }
+        /* ══ DASHBOARD — DARK PREMIUM ══════════════════════════════════ */
+        #dashboardView {
+            background: #080d14;
+            min-height: 100vh;
+        }
+        .dash-wrap {
+            padding: 28px 32px;
+            max-width: 1140px;
+            position: relative;
+        }
+        @media (max-width: 768px) { .dash-wrap { padding: 60px 14px 24px; } }
 
-        /* Greeting */
-        .dash-greeting { margin-bottom: 22px; }
-        .dash-greeting h2 { margin: 0 0 2px; font-size: 22px; font-weight: 800; color: #0f172a; font-family: 'Prompt', sans-serif; }
-        .dash-greeting p  { margin: 0; font-size: 12px; color: #94a3b8; }
+        /* Ambient glow background */
+        .dash-wrap::before {
+            content: '';
+            position: fixed;
+            top: -200px; left: 50%;
+            transform: translateX(-20%);
+            width: 700px; height: 700px;
+            background: radial-gradient(ellipse, rgba(240,180,41,0.06) 0%, transparent 70%);
+            pointer-events: none; z-index: 0;
+        }
+        .dash-wrap > * { position: relative; z-index: 1; }
 
-        /* KPI + Actions top row */
+        /* ── Greeting ── */
+        .dash-greeting { margin-bottom: 26px; }
+        .dash-greeting h2 {
+            margin: 0 0 4px;
+            font-size: 24px; font-weight: 800;
+            font-family: 'Prompt', sans-serif;
+            color: #f1f5f9;
+            letter-spacing: -0.3px;
+        }
+        .dash-greeting p { margin: 0; font-size: 12px; color: #475569; }
+
+        /* ── Notification bar ── */
+        .dash-notif-bar {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 12px; padding: 10px 16px;
+            margin-bottom: 20px; cursor: pointer;
+            transition: background .2s;
+        }
+        .dash-notif-bar:hover { background: rgba(239,68,68,0.13); }
+        .dash-notif-dot { width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0;box-shadow:0 0 0 3px rgba(239,68,68,0.25);animation:pulse-red 2s infinite; }
+        @keyframes pulse-red { 0%,100%{box-shadow:0 0 0 3px rgba(239,68,68,0.25)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0.08)} }
+        .dash-notif-text { font-size:12px;font-weight:700;color:#fca5a5;flex:1; }
+        .dash-notif-arrow { font-size:11px;color:#475569; }
+
+        /* ── KPI Grid (top) ── */
         .dash-top { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
         @media (max-width: 700px) { .dash-top { grid-template-columns: 1fr; } }
 
-        /* KPI cards */
         .dash-kpi-list { display: flex; flex-direction: column; gap: 8px; }
         .dash-kpi-card {
-            background: white; border-radius: 12px; padding: 12px 16px;
-            border: 1px solid #e8ecf0; border-left: 3px solid var(--info);
-            cursor: pointer; display: flex; align-items: center; gap: 12px;
-            transition: box-shadow .2s, transform .15s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-left: 3px solid var(--info);
+            border-radius: 14px; padding: 14px 16px;
+            cursor: pointer; display: flex; align-items: center; gap: 14px;
+            transition: background .2s, transform .15s, box-shadow .2s;
+            backdrop-filter: blur(12px);
         }
-        .dash-kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
-        .dash-kpi-icon { font-size: 22px; width: 38px; text-align: center; flex-shrink: 0; }
-        .dash-kpi-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
-        .dash-kpi-val { font-size: 22px; font-weight: 800; line-height: 1; margin-bottom: 2px; }
-        .dash-kpi-sub { font-size: 10px; color: #cbd5e1; }
-
-        /* Action grid */
-        .dash-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        @media (max-width: 480px) { .dash-actions { grid-template-columns: repeat(3, 1fr); gap: 6px; } }
-        .dash-btn {
-            background: white; border: 1.5px solid #e8ecf0; border-radius: 12px;
-            padding: 14px 6px 12px; cursor: pointer; text-align: center;
-            transition: all .15s; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 5px;
-            min-height: 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-            touch-action: manipulation;
+        .dash-kpi-card:hover {
+            background: rgba(255,255,255,0.07);
+            transform: translateX(3px);
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.1), -4px 0 20px rgba(0,0,0,0.3);
         }
-        .dash-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
-        .dash-btn:active { transform: translateY(0); box-shadow: none; }
-        .dash-btn .d-icon { font-size: 22px; line-height: 1; }
-        .dash-btn .d-label { font-size: 10px; font-weight: 700; color: #334155; line-height: 1.2; font-family: 'IBM Plex Sans Thai', sans-serif; }
-        .dash-btn.primary { background: #1e40af; border-color: #1e40af; }
-        .dash-btn.primary .d-label { color: white; }
+        .dash-kpi-icon {
+            font-size: 20px; width: 40px; height: 40px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.06); border-radius: 10px;
+        }
+        .dash-kpi-label { font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 3px; }
+        .dash-kpi-val { font-size: 24px; font-weight: 900; line-height: 1; margin-bottom: 2px; font-family: 'Prompt', sans-serif; }
+        .dash-kpi-sub { font-size: 10px; color: #334155; }
 
-        /* Bottom row */
-        .dash-bottom { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; margin-top: 16px; }
+        /* ── Action buttons ── */
+        .dash-actions { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+        @media (max-width: 480px) { .dash-actions { gap: 6px; } }
+
+        /* ── Bottom panels ── */
+        .dash-bottom { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; margin-top: 14px; }
         @media (max-width: 700px) { .dash-bottom { grid-template-columns: 1fr; } }
-        .dash-panel { background: white; border-radius: 14px; border: 1px solid #e8ecf0; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .dash-panel-title { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; }
 
-        /* Activity list */
-        .dash-activity-item { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid #f8fafc; }
+        .dash-panel {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 16px; padding: 18px;
+            backdrop-filter: blur(12px);
+        }
+        .dash-panel-title {
+            font-size: 10px; font-weight: 700; color: #475569;
+            text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .dash-panel-title::before {
+            content: ''; display: inline-block;
+            width: 3px; height: 12px; border-radius: 2px;
+            background: var(--accent-gold);
+        }
+
+        /* Activity */
+        .dash-activity-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
         .dash-activity-item:last-child { border-bottom: none; }
-        .dash-activity-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
-        .dash-activity-title { font-weight: 700; font-size: 11px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .dash-activity-sub { font-size: 10px; color: #94a3b8; }
+        .dash-activity-dot { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+        .dash-activity-title { font-weight: 700; font-size: 11px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dash-activity-sub { font-size: 10px; color: #334155; }
+
+        /* viewOnly banner dark */
+        #viewOnlyAlert { background: rgba(194,65,12,0.15) !important; border-color: rgba(194,65,12,0.4) !important; color: #fb923c !important; }
+
+        /* Notification panel */
+        #notifPanel {
+            position: fixed; top: 0; right: -380px; width: 370px; height: 100vh;
+            background: #0d1520; border-left: 1px solid rgba(255,255,255,0.08);
+            z-index: 9500; transition: right .3s cubic-bezier(.4,0,.2,1);
+            display: flex; flex-direction: column; box-shadow: -20px 0 60px rgba(0,0,0,0.5);
+        }
+        #notifPanel.open { right: 0; }
+        .notif-header {
+            padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.07);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .notif-title { font-size: 14px; font-weight: 800; color: #f1f5f9; font-family: 'Prompt',sans-serif; }
+        .notif-close { background: rgba(255,255,255,0.06); border: none; color: #94a3b8; width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:14px;transition:background .15s; }
+        .notif-close:hover { background: rgba(255,255,255,0.12); color: white; }
+        .notif-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+        .notif-body::-webkit-scrollbar { width: 4px; }
+        .notif-body::-webkit-scrollbar-track { background: transparent; }
+        .notif-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        .notif-item {
+            display: flex; gap: 12px; padding: 12px; border-radius: 12px;
+            margin-bottom: 8px; cursor: pointer;
+            transition: background .15s; border: 1px solid transparent;
+        }
+        .notif-item:hover { background: rgba(255,255,255,0.05); }
+        .notif-item.critical { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); }
+        .notif-item.warning  { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.2); }
+        .notif-item.info     { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.2); }
+        .notif-item.success  { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.2); }
+        .notif-icon { width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0; }
+        .notif-item-title { font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:2px; }
+        .notif-item-sub { font-size:10px;color:#475569;line-height:1.5; }
+        .notif-item-badge {
+            font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;
+            display:inline-block;margin-top:4px;text-transform:uppercase;letter-spacing:.5px;
+        }
+        .notif-empty { text-align:center;padding:40px 20px;color:#334155; }
+        .notif-empty .ne-icon { font-size:36px;margin-bottom:10px; }
+        .notif-empty .ne-text { font-size:12px; }
+        .notif-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9499; }
+        .notif-overlay.open { display:block; }
+
+        /* Notif bell button (sidebar / header) */
+        #notifBellBtn {
+            position: fixed; bottom: 80px; right: 20px;
+            width: 48px; height: 48px; border-radius: 50%;
+            background: linear-gradient(135deg, #1e3a5f, #0f2744);
+            border: 1.5px solid rgba(240,180,41,0.3);
+            color: white; font-size: 20px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            transition: transform .2s, box-shadow .2s;
+            z-index: 9400;
+        }
+        #notifBellBtn:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(0,0,0,0.5); }
+        #notifBadge {
+            position: absolute; top: -3px; right: -3px;
+            background: #ef4444; color: white;
+            font-size: 9px; font-weight: 800;
+            min-width: 18px; height: 18px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 4px; border: 2px solid #0f172a;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -288,15 +410,6 @@
                     <div onclick="toggleMonthlyCount()" id="monthlyCountToggleBtn" style="color:#06b6d4;">● เปิด/ปิด นับสต๊อกสิ้นเดือน</div>
                 </div>
             </div>
-            <div id="assetMenu" class="hidden">
-                <div class="nav-item" onclick="toggleSub('subAsset')" style="color:#f59e0b;">🏷️ ทรัพย์สิน ▾</div>
-                <div id="subAsset" class="submenu">
-                    <div onclick="openAssetManagement('registry')" data-tool="asset-registry" style="color:#f59e0b;">● ทะเบียนทรัพย์สิน</div>
-                    <div onclick="openAssetManagement('audit')" data-tool="asset-audit" style="color:#f59e0b;">● ตรวจนับรายรอบ</div>
-                    <div onclick="openAssetManagement('repair')" data-tool="asset-repair" style="color:#f59e0b;">● แจ้งซ่อม</div>
-                    <div onclick="openAssetManagement('dashboard')" data-tool="asset-dashboard" style="color:#f59e0b;">● Dashboard</div>
-                </div>
-            </div>
             <div class="nav-item" onclick="window.open('delivery.html','_blank')" style="color:#00c9ff;border-top:1px solid rgba(255,255,255,0.05);">🚛 ระบบขนส่ง (Delivery)</div>
             <div class="nav-item" onclick="openHelpGuide()" data-tool="help" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=help','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=help','_blank');" style="color:#7c3aed;">📖 คู่มือการใช้งาน</div>
         </div>
@@ -306,29 +419,47 @@
     <div class="main-content">
         <div id="dashboardView" class="no-print">
             <div class="dash-wrap">
-                <div id="viewOnlyAlert" class="hidden" style="background:#fff7ed;color:#c2410c;padding:10px 14px;border-radius:8px;border:1px solid #fdba74;margin-bottom:16px;font-size:12px;">
+
+                <!-- viewOnly -->
+                <div id="viewOnlyAlert" class="hidden" style="padding:10px 14px;border-radius:10px;border:1px solid;margin-bottom:16px;font-size:12px;">
                     ⚠️ <b>โหมดดูอย่างเดียว</b> — ไม่สามารถแก้ไขหรือบันทึกได้
                 </div>
+
+                <!-- Alert banner (stock low etc.) -->
                 <div id="dashAlertBanner"></div>
 
-                <div class="dash-greeting">
-                    <h2 id="greetingText">สวัสดี...</h2>
-                    <p id="greetingDate"></p>
+                <!-- Greeting row -->
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;">
+                    <div class="dash-greeting" style="margin-bottom:0;">
+                        <h2 id="greetingText">สวัสดี...</h2>
+                        <p id="greetingDate"></p>
+                    </div>
+                    <!-- Notification bell (desktop) -->
+                    <button onclick="openNotifPanel()" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;padding:8px 14px;border-radius:10px;cursor:pointer;font-size:12px;font-family:inherit;transition:all .2s;position:relative;" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+                        <span style="font-size:16px;">🔔</span>
+                        <span id="notifBellLabel" style="font-weight:600;">การแจ้งเตือน</span>
+                        <span id="notifBellCount" style="display:none;background:#ef4444;color:white;font-size:9px;font-weight:800;padding:1px 6px;border-radius:10px;"></span>
+                    </button>
                 </div>
 
+                <!-- Notification alert strip (when there are alerts) -->
+                <div id="dashNotifStrip" style="display:none;" onclick="openNotifPanel()"></div>
+
+                <!-- KPI + Actions -->
                 <div class="dash-top">
                     <div id="dashKpiRow" class="dash-kpi-list"></div>
                     <div id="dashActionRow" class="dash-actions"></div>
                 </div>
 
+                <!-- Activity + Chart -->
                 <div class="dash-bottom" id="dashBottomRow">
-                    <div class="dash-panel" style="overflow-y:auto;max-height:260px;">
-                        <div class="dash-panel-title">⚡ กิจกรรมล่าสุด</div>
-                        <div id="dashRecentList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังโหลด...</p></div>
+                    <div class="dash-panel" style="overflow-y:auto;max-height:280px;">
+                        <div class="dash-panel-title">กิจกรรมล่าสุด</div>
+                        <div id="dashRecentList"><p style="color:#334155;font-size:12px;margin:0;">กำลังโหลด...</p></div>
                     </div>
                     <div class="dash-panel">
-                        <div class="dash-panel-title">📈 Trend การนับสต๊อก 7 วัน</div>
-                        <div class="chart-wrap" style="height:160px;"><canvas id="trendChart" height="160"></canvas></div>
+                        <div class="dash-panel-title">Trend การนับสต๊อก 7 วัน</div>
+                        <div class="chart-wrap" style="height:180px;"><canvas id="trendChart" height="180"></canvas></div>
                     </div>
                 </div>
 
@@ -343,6 +474,27 @@
                 </div>
             </div>
         </div>
+
+        <!-- ── NOTIFICATION PANEL ── -->
+        <div class="notif-overlay" id="notifOverlay" onclick="closeNotifPanel()"></div>
+        <div id="notifPanel">
+            <div class="notif-header">
+                <div>
+                    <div class="notif-title">🔔 การแจ้งเตือน</div>
+                    <div id="notifSubtitle" style="font-size:10px;color:#475569;margin-top:2px;"></div>
+                </div>
+                <button class="notif-close" onclick="closeNotifPanel()">✕</button>
+            </div>
+            <div class="notif-body" id="notifBody">
+                <div class="notif-empty"><div class="ne-icon">🔕</div><div class="ne-text" style="color:#475569;">กำลังโหลด...</div></div>
+            </div>
+        </div>
+
+        <!-- Bell FAB (mobile) -->
+        <button id="notifBellBtn" onclick="openNotifPanel()" style="display:none;">
+            🔔
+            <span id="notifBadge"></span>
+        </button>
                 <div id="toolAppContainer" class="app-container hidden"></div>
     </div>
 
@@ -366,8 +518,7 @@
 
 
         // ── Firebase instances exposed globally ──
-        window.firebaseApp = initializeApp(firebaseConfig);
-        window.db   = getFirestore(window.firebaseApp);
+        window.db   = getFirestore(initializeApp(firebaseConfig));
         window.rtdb = getDatabase();
         // Re-assign for local use too
         const db   = window.db;
@@ -575,7 +726,6 @@
                 {icon:'📦', label:'นับสต๊อก',      fn:'openCentralStock()',         tool:'stock',         color:'#334155', show:isAdmin},
                 {icon:'📈', label:'รายงาน',        fn:'openStockSummary()',         tool:'stock-summary', color:'#0369a1', show:isAdmin},
                 {icon:'⚙️', label:'ตั้งค่า',        fn:'openWarehouseManager()',     tool:'warehouse-mgr', color:'#475569', show:isAdmin},
-                {icon:'🏷️', label:'ทรัพย์สิน',     fn:'openAssetManagement()',      tool:'asset-registry',color:'#d97706', show:true},
             ];
             const ar = document.getElementById('dashActionRow');
             if(ar) {
@@ -586,9 +736,12 @@
                     <button onclick="${a.fn}" data-tool="${a.tool||''}"
                         onauxclick="if(event.button===1&&this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
                         oncontextmenu="if(this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
-                        style="background:${a.color};color:white;border:none;border-radius:10px;padding:11px 4px 9px;cursor:pointer;font-family:inherit;text-align:center;transition:filter .15s;" onmouseover="this.style.filter='brightness(1.12)'" onmouseout="this.style.filter=''">
-                        <div style="font-size:18px;margin-bottom:3px;">${a.icon}</div>
-                        <div style="font-size:10px;font-weight:700;line-height:1.2;">${a.label}</div>
+                        style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-bottom:3px solid ${a.color};color:white;border-radius:12px;padding:13px 4px 10px;cursor:pointer;font-family:inherit;text-align:center;transition:all .18s;position:relative;overflow:hidden;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.09)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.04)';this.style.transform='';this.style.boxShadow=''"
+                        onmousedown="this.style.transform='translateY(0)'" onmouseup="this.style.transform='translateY(-2px)'">
+                        <div style="font-size:20px;margin-bottom:4px;">${a.icon}</div>
+                        <div style="font-size:10px;font-weight:700;line-height:1.3;color:#cbd5e1;">${a.label}</div>
                     </button>`).join('');
             }
 
@@ -610,6 +763,8 @@
                 renderDashKpiCards();
                 await Promise.all([ loadDashHistory(), renderStockAlerts() ]);
             }
+            // โหลด notifications หลัง dashboard พร้อม
+            if(typeof _maybeLoadNotifs === 'function') _maybeLoadNotifs();
         }
 
         // ── KPI Cards: admin/warehouse ──
@@ -626,12 +781,13 @@
             ];
             row.innerHTML = defs.map(k=>`
                 <div id="${k.id}_card" onclick="${k.fn}" class="dash-kpi-card" style="border-left-color:${k.color};">
-                    <div class="dash-kpi-icon">${k.icon}</div>
+                    <div class="dash-kpi-icon" style="background:${k.color}18;">${k.icon}</div>
                     <div style="flex:1;min-width:0;">
                         <div class="dash-kpi-label">${k.label}</div>
                         <div class="dash-kpi-val" style="color:${k.color};" id="${k.id}_val">—</div>
                         <div class="dash-kpi-sub" id="${k.id}_sub">กำลังโหลด...</div>
                     </div>
+                    <div style="width:3px;height:36px;border-radius:2px;background:${k.color};opacity:0.4;flex-shrink:0;"></div>
                 </div>`).join('');
 
             // Load values
@@ -712,19 +868,19 @@
             } catch(e){}
 
             row.innerHTML = `
-                <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" class="dash-kpi-card" style="border-left-color:${monthlyDone?'#10b981':'#f59e0b'};background:${monthlyDone?'#f0fdf4':'#fffbeb'};">
-                    <div class="dash-kpi-icon">${monthlyDone?'✅':'📅'}</div>
+                <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" class="dash-kpi-card" style="border-left-color:${monthlyDone?'#10b981':'#f59e0b'};">
+                    <div class="dash-kpi-icon" style="background:${monthlyDone?'rgba(16,185,129,0.15)':'rgba(245,158,11,0.15)'}">${monthlyDone?'✅':'📅'}</div>
                     <div style="flex:1;min-width:0;">
                         <div class="dash-kpi-label">นับสต๊อกสิ้นเดือน</div>
-                        <div class="dash-kpi-val" style="color:${monthlyDone?'#059669':'#d97706'};font-size:15px;">${monthlyDone?'นับแล้วเดือนนี้ ✓':'ยังไม่ได้นับ'}</div>
+                        <div class="dash-kpi-val" style="color:${monthlyDone?'#34d399':'#fbbf24'};font-size:15px;">${monthlyDone?'นับแล้วเดือนนี้ ✓':'ยังไม่ได้นับ'}</div>
                         <div class="dash-kpi-sub">${monthTH} • ${zone}</div>
                     </div>
                 </div>
-                <div onclick="openPilotHistory()" class="dash-kpi-card" style="border-left-color:${pilotCount>0?'#7c3aed':'#e2e8f0'};background:${pilotCount>0?'#f5f3ff':'white'};">
-                    <div class="dash-kpi-icon">🎲</div>
+                <div onclick="openPilotHistory()" class="dash-kpi-card" style="border-left-color:${pilotCount>0?'#a78bfa':'#334155'};">
+                    <div class="dash-kpi-icon" style="background:${pilotCount>0?'rgba(167,139,250,0.15)':'rgba(255,255,255,0.05)'}">🎲</div>
                     <div style="flex:1;min-width:0;">
                         <div class="dash-kpi-label">ทดลองนับเดือนนี้</div>
-                        <div class="dash-kpi-val" style="color:${pilotCount>0?'#7c3aed':'#94a3b8'};font-size:20px;">${pilotCount} ครั้ง</div>
+                        <div class="dash-kpi-val" style="color:${pilotCount>0?'#a78bfa':'#475569'};font-size:20px;">${pilotCount} ครั้ง</div>
                         <div class="dash-kpi-sub">${monthTH}</div>
                     </div>
                 </div>`;
@@ -785,11 +941,13 @@
                     rc.innerHTML = activities.slice(0,10).map(a=>{
                         const ds = a.date?(()=>{const p=a.date.split('/');return p.length===3?p[0]+'/'+p[1]:a.date;})():(a.ts?new Date(a.ts).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit'}):'-');
                         return '<div class="dash-activity-item">'
-                            + '<div class="dash-activity-dot" style="background:'+a.color+'18;">'+a.icon+'</div>'
+                            + '<div class="dash-activity-dot" style="background:'+a.color+'22;border-radius:9px;">'+a.icon+'</div>'
                             + '<div style="flex:1;min-width:0;">'
                             +   '<div class="dash-activity-title">'+a.title+'</div>'
                             +   '<div class="dash-activity-sub">'+ds+' • '+a.sub+'</div>'
-                            + '</div></div>';
+                            + '</div>'
+                            + '<div style="font-size:9px;color:#1e3a5f;white-space:nowrap;">'+ds+'</div>'
+                            + '</div>';
                     }).join('');
                 }
                 let stockSessions = [];
@@ -811,12 +969,319 @@
             }
             if(trendChartInstance) trendChartInstance.destroy();
             trendChartInstance = new Chart(canvas, {
-                type:'bar', data:{labels:days,datasets:[{label:'sessions',data:counts,backgroundColor:'rgba(59,130,246,0.12)',borderColor:'#3b82f6',borderWidth:2,borderRadius:8,borderSkipped:false}]},
-                options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}}
+                type:'bar',
+                data:{labels:days,datasets:[{
+                    label:'sessions',data:counts,
+                    backgroundColor: counts.map((_,i)=> i===counts.length-1 ? 'rgba(240,180,41,0.6)' : 'rgba(59,130,246,0.18)'),
+                    borderColor: counts.map((_,i)=> i===counts.length-1 ? '#f0b429' : '#3b82f6'),
+                    borderWidth:2, borderRadius:8, borderSkipped:false
+                }]},
+                options:{
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{legend:{display:false}, tooltip:{
+                        backgroundColor:'rgba(13,21,32,0.95)', borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+                        titleColor:'#94a3b8', bodyColor:'#f1f5f9', padding:10, cornerRadius:8
+                    }},
+                    scales:{
+                        y:{beginAtZero:true, ticks:{stepSize:1, color:'#334155', font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false}},
+                        x:{ticks:{color:'#334155', font:{size:10}}, grid:{display:false}, border:{display:false}}
+                    }
+                }
             });
         }
 
         function renderSummaryCards() {} // kept for backward compat
+
+        // ══════════════════════════════════════════════════════════════
+        // ── PERSIST STATE — จำหน้าที่อยู่หลัง refresh ────────────────
+        // ══════════════════════════════════════════════════════════════
+        const _PERSIST_KEY = 'ttg_lastTool';
+
+        // บันทึก tool ปัจจุบัน ทุกครั้งที่เปลี่ยนหน้า
+        const _origPushNav = typeof _pushNav === 'function' ? _pushNav : null;
+        function _savePersistState(toolKey) {
+            if(toolKey) sessionStorage.setItem(_PERSIST_KEY, toolKey);
+            else sessionStorage.removeItem(_PERSIST_KEY);
+        }
+
+        // Hook ทุก open function ให้ save state
+        (function _hookPersist() {
+            const _hookList = [
+                ['openCreateGR','gr'],['openGRHistory','gr-history'],['openLotRegister','lot-register'],
+                ['openQCCheck','qc'],['openQCHistory','qc-history'],['openPendingRequisitions','pending-req'],
+                ['openAllRequisitions','all-req'],['openMyRequisitions','my-req'],
+                ['openCreateRequisition','requisition'],['openRequisitionSettings','req-settings'],
+                ['openDailyStockCard','daily-stock'],['openWarehouseManager','warehouse-mgr'],
+                ['openUserManagement','user-mgmt'],['openHelpGuide','help'],
+                ['openCentralStock','stock'],['openStockSummary','stock-summary'],
+                ['openPurchaseOrder','purchase-order'],['openPilotHistory','pilot'],
+                ['openRandomSKUCount','random-sku'],['openInventoryCheck','inventory-check'],
+                ['openImportProducts','import-products'],['openWarehouseGroups','warehouse-groups'],
+            ];
+            _hookList.forEach(([fn, key]) => {
+                const orig = window[fn];
+                if(typeof orig === 'function') {
+                    window[fn] = async function(...args) {
+                        _savePersistState(key);
+                        return orig.apply(this, args);
+                    };
+                }
+            });
+        })();
+
+        // Restore state หลัง page load
+        window._restorePersistState = function() {
+            const saved = sessionStorage.getItem(_PERSIST_KEY);
+            const hash  = location.hash.replace('#','');
+            // hash มีอยู่แล้ว (จาก _restoreHashNav) → ใช้ hash
+            if(hash && navFnMap && navFnMap[hash]) return;
+            if(saved && navFnMap && navFnMap[saved]) {
+                setTimeout(()=>{ try { navFnMap[saved](); } catch(e){} }, 500);
+            }
+        };
+
+        // Clear persist เมื่อกลับ dashboard
+        const _origCloseToDashboard = _closeToDashboard;
+        // Override window.closeTool และ goToDashboard ให้ clear persist
+        window.addEventListener('ttg:closeToDashboard', ()=> sessionStorage.removeItem(_PERSIST_KEY));
+
+        // ──────────────────────────────────────────────────────────────
+        // ── BEFOREUNLOAD WARNING — เตือนเมื่อ refresh/close ─────────
+        // ──────────────────────────────────────────────────────────────
+        let _hasUnsavedData = false; // set to true ใน form ที่มีข้อมูลค้าง
+
+        // Helper ให้ tool อื่น set flag ได้
+        window.setUnsavedFlag = function(val) { _hasUnsavedData = !!val; };
+
+        // ตรวจ input/textarea ที่มีค่า (dashboard ซ่อน → ไม่นับ)
+        function _checkForUnsavedInputs() {
+            const container = document.getElementById('toolAppContainer');
+            if(!container || container.classList.contains('hidden')) return false;
+            const inputs = container.querySelectorAll('input[type="text"]:not([readonly]),input[type="number"]:not([readonly]),textarea:not([readonly])');
+            for(const inp of inputs) {
+                if((inp.value||'').trim().length > 0) return true;
+            }
+            return false;
+        }
+
+        window.addEventListener('beforeunload', (e) => {
+            const toolContainer = document.getElementById('toolAppContainer');
+            const toolVisible = toolContainer && !toolContainer.classList.contains('hidden');
+            if(!toolVisible) return; // อยู่ dashboard ไม่ต้องเตือน
+            if(_hasUnsavedData || _checkForUnsavedInputs() || Object.keys(tempCountData||{}).length > 0) {
+                e.preventDefault();
+                e.returnValue = ''; // required for Chrome
+            }
+        });
+
+        // ══════════════════════════════════════════════════════════════
+        // ── NOTIFICATION CENTER ───────────────────────────────────────
+        // ══════════════════════════════════════════════════════════════
+        let _notifCache = [];
+
+        window.openNotifPanel = function() {
+            document.getElementById('notifPanel')?.classList.add('open');
+            document.getElementById('notifOverlay')?.classList.add('open');
+            loadNotifications();
+        };
+        window.closeNotifPanel = function() {
+            document.getElementById('notifPanel')?.classList.remove('open');
+            document.getElementById('notifOverlay')?.classList.remove('open');
+        };
+
+        async function loadNotifications() {
+            const body = document.getElementById('notifBody');
+            if(!body) return;
+            body.innerHTML = '<div class="notif-empty"><div class="ne-icon">⏳</div><div class="ne-text" style="color:#475569;">กำลังโหลด...</div></div>';
+
+            const notifs = [];
+
+            // ── 1. Stock ต่ำกว่า Min ──────────────────────────────────
+            try {
+                await loadCountData();
+                const invSnap = await getDocs(collection(db,'inventoryHistory'));
+                const latestInv = {};
+                invSnap.forEach(d=>{ const x=d.data(); if(!latestInv[x.zone]||x.timestamp>latestInv[x.zone].timestamp) latestInv[x.zone]=x; });
+                let stockLowItems = [];
+                getVisibleWarehouses().forEach(zone => {
+                    getZoneProducts(zone).forEach(p => {
+                        const key = `${zone}__${p.id}`;
+                        const mm = productMinMax[key];
+                        if(!mm||!mm.min) return;
+                        const invItem = latestInv[zone]?.items?.find(it=>it.id===p.id);
+                        const balance = invItem?.balance ?? countData[p.id]?.total ?? 0;
+                        if(balance <= mm.min) stockLowItems.push({name:p.name||p.id, zone, balance, min:mm.min});
+                    });
+                });
+                if(stockLowItems.length > 0) {
+                    notifs.push({
+                        type:'critical', icon:'📉', bg:'rgba(239,68,68,0.15)',
+                        title:`สินค้า ${stockLowItems.length} รายการ ต่ำกว่า Min`,
+                        sub: stockLowItems.slice(0,3).map(i=>`${i.name} (${i.zone}): ${i.balance}/${i.min}`).join('
+') + (stockLowItems.length>3?`
+...และอีก ${stockLowItems.length-3} รายการ`:''),
+                        badge:'⚠️ ด่วน', badgeColor:'#ef4444', badgeBg:'rgba(239,68,68,0.2)',
+                        action: ()=>{ closeNotifPanel(); openPurchaseOrder(); }
+                    });
+                }
+            } catch(e){}
+
+            // ── 2. EXP ใกล้หมด ≤30 วัน ───────────────────────────────
+            try {
+                const lotSnap = await getDoc(doc(db,'config','lotRegister'));
+                const lots = lotSnap.exists()?(lotSnap.data().lots||{}):{};
+                let expItems = []; const now=new Date(); now.setHours(0,0,0,0);
+                Object.entries(lots).forEach(([pid,list])=>list.forEach(l=>{
+                    if(l.qtyRemaining&&l.exp){
+                        const days = Math.floor((new Date(l.exp)-now)/86400000);
+                        if(days<=30&&days>=0) expItems.push({name:l.productName||pid, days, qty:l.qtyRemaining});
+                    }
+                }));
+                expItems.sort((a,b)=>a.days-b.days);
+                if(expItems.length>0) {
+                    notifs.push({
+                        type:'warning', icon:'⏰', bg:'rgba(245,158,11,0.15)',
+                        title:`Lot ใกล้หมดอายุ ${expItems.length} รายการ`,
+                        sub: expItems.slice(0,3).map(i=>`${i.name}: เหลือ ${i.days} วัน (qty: ${i.qty})`).join('
+') + (expItems.length>3?`
+...และอีก ${expItems.length-3} รายการ`:''),
+                        badge:'⏰ EXP', badgeColor:'#f59e0b', badgeBg:'rgba(245,158,11,0.2)',
+                        action: ()=>{ closeNotifPanel(); openLotRegister(); }
+                    });
+                }
+            } catch(e){}
+
+            // ── 3. ใบเบิกรออนุมัติ ────────────────────────────────────
+            try {
+                const mrSnap = await getDocs(collection(db,'requisitions'));
+                let pending=0; mrSnap.forEach(d=>{ if(d.data().status==='pending') pending++; });
+                if(pending>0) {
+                    notifs.push({
+                        type:'warning', icon:'📝', bg:'rgba(245,158,11,0.15)',
+                        title:`ใบเบิก ${pending} ฉบับ รออนุมัติ`,
+                        sub:'กรุณาตรวจสอบและอนุมัติหรือปฏิเสธ',
+                        badge:'⏳ รออนุมัติ', badgeColor:'#f59e0b', badgeBg:'rgba(245,158,11,0.2)',
+                        action: ()=>{ closeNotifPanel(); openPendingRequisitions(); }
+                    });
+                }
+            } catch(e){}
+
+            // ── 4. ทรัพย์สินแจ้งซ่อมค้าง ─────────────────────────────
+            try {
+                const repairSnap = await getDocs(collection(db,'assetRepairs'));
+                let pending=0; repairSnap.forEach(d=>{ const s=d.data().status; if(s==='รอดำเนินการ'||s==='กำลังซ่อม') pending++; });
+                if(pending>0) {
+                    notifs.push({
+                        type:'warning', icon:'🔧', bg:'rgba(245,158,11,0.15)',
+                        title:`ทรัพย์สิน ${pending} รายการ รอซ่อม/กำลังซ่อม`,
+                        sub:'มีการแจ้งซ่อมที่ยังไม่เสร็จสิ้น',
+                        badge:'🔧 ซ่อม', badgeColor:'#f59e0b', badgeBg:'rgba(245,158,11,0.2)',
+                        action: ()=>{ closeNotifPanel(); if(window._renderAssetTool) window._renderAssetTool('repair'); }
+                    });
+                }
+            } catch(e){}
+
+            // ── 5. รอบตรวจนับทรัพย์สินที่ยังเปิดอยู่ ────────────────
+            try {
+                const auditSnap = await getDocs(collection(db,'assetAuditRounds'));
+                let openRounds=[]; auditSnap.forEach(d=>{ if(d.data().status==='open') openRounds.push(d.data()); });
+                if(openRounds.length>0) {
+                    notifs.push({
+                        type:'info', icon:'📋', bg:'rgba(59,130,246,0.15)',
+                        title:`รอบตรวจนับ ${openRounds.length} รอบ กำลังเปิดอยู่`,
+                        sub: openRounds.slice(0,2).map(r=>`${r.name||'รอบ'} — ${r.zone||'ทุกสาขา'}`).join('
+'),
+                        badge:'📋 ตรวจนับ', badgeColor:'#3b82f6', badgeBg:'rgba(59,130,246,0.2)',
+                        action: ()=>{ closeNotifPanel(); if(window._renderAssetTool) window._renderAssetTool('audit'); }
+                    });
+                }
+            } catch(e){}
+
+            // ── 6. QC Pass Rate ต่ำ ───────────────────────────────────
+            try {
+                const qcSnap = await getDocs(collection(db,'qcChecks'));
+                let arr=[]; qcSnap.forEach(d=>arr.push(d.data()));
+                arr.sort((a,b)=>b.timestamp-a.timestamp);
+                const last = arr[0];
+                if(last&&last.totalChecked>0) {
+                    const rate = Math.round(last.passCount/last.totalChecked*100);
+                    if(rate < 80) {
+                        notifs.push({
+                            type:'critical', icon:'🔍', bg:'rgba(239,68,68,0.15)',
+                            title:`QC Pass Rate ต่ำ: ${rate}%`,
+                            sub:`ตรวจล่าสุด: ${last.date||'—'} | ผ่าน ${last.passCount}/${last.totalChecked}`,
+                            badge:'🔴 QC Alert', badgeColor:'#ef4444', badgeBg:'rgba(239,68,68,0.2)',
+                            action: ()=>{ closeNotifPanel(); openQCHistory(); }
+                        });
+                    }
+                }
+            } catch(e){}
+
+            _notifCache = notifs;
+            _renderNotifPanel(notifs);
+            _updateNotifBadge(notifs.length);
+        }
+
+        function _renderNotifPanel(notifs) {
+            const body = document.getElementById('notifBody');
+            const sub  = document.getElementById('notifSubtitle');
+            if(!body) return;
+            if(sub) sub.innerText = notifs.length > 0 ? `${notifs.length} รายการที่ต้องดำเนินการ` : 'ทุกอย่างปกติ';
+
+            if(!notifs.length) {
+                body.innerHTML = '<div class="notif-empty"><div class="ne-icon">✅</div><div class="ne-text" style="color:#475569;">ทุกอย่างปกติดี ไม่มีการแจ้งเตือน</div></div>';
+                return;
+            }
+            body.innerHTML = notifs.map((n,i) => `
+                <div class="notif-item ${n.type}" onclick="(_notifCache[${i}]?.action||closeNotifPanel)()" style="background:${n.bg};">
+                    <div class="notif-icon" style="background:${n.badgeBg};">${n.icon}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="notif-item-title">${n.title}</div>
+                        <div class="notif-item-sub" style="white-space:pre-line;">${n.sub}</div>
+                        <span class="notif-item-badge" style="color:${n.badgeColor};background:${n.badgeBg};">${n.badge}</span>
+                    </div>
+                    <div style="font-size:14px;color:#334155;flex-shrink:0;">›</div>
+                </div>`).join('');
+        }
+
+        function _updateNotifBadge(count) {
+            // Desktop bell
+            const label = document.getElementById('notifBellLabel');
+            const countEl = document.getElementById('notifBellCount');
+            if(countEl) { countEl.style.display = count>0?'inline-flex':'none'; countEl.innerText = count; }
+            // Strip alert
+            const strip = document.getElementById('dashNotifStrip');
+            if(strip) {
+                if(count>0) {
+                    const critical = _notifCache.filter(n=>n.type==='critical').length;
+                    strip.style.display='flex';
+                    strip.style.cssText += ';display:flex;align-items:center;gap:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:10px 16px;margin-bottom:16px;cursor:pointer;';
+                    strip.innerHTML = `<div style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0;box-shadow:0 0 0 3px rgba(239,68,68,0.25);animation:pulse-red 2s infinite;"></div>
+                        <div style="font-size:12px;font-weight:700;color:#fca5a5;flex:1;">มี ${count} การแจ้งเตือน${critical>0?' ('+critical+' ด่วน)':''} — คลิกดูรายละเอียด</div>
+                        <div style="font-size:11px;color:#475569;">›</div>`;
+                } else {
+                    strip.style.display='none';
+                }
+            }
+            // Mobile FAB
+            const fab = document.getElementById('notifBellBtn');
+            const badge = document.getElementById('notifBadge');
+            if(fab) {
+                // Show FAB when tool is open
+                const toolVisible = !document.getElementById('toolAppContainer')?.classList.contains('hidden');
+                fab.style.display = toolVisible ? 'flex' : 'none';
+                if(badge) { badge.style.display=count>0?'flex':'none'; badge.innerText=count>9?'9+':count; }
+            }
+        }
+
+        // Auto-load notifs เมื่อ dashboard เปิด
+        window._dashNotifLoaded = false;
+        function _maybeLoadNotifs() {
+            if(!window._dashNotifLoaded) {
+                window._dashNotifLoaded = true;
+                setTimeout(loadNotifications, 1200);
+            }
+        }
 
         // ---- ONLINE PRESENCE ----
         // ── SESSION KICK SYSTEM ──────────────────────────────
@@ -1207,10 +1672,6 @@
             'req-settings':      ()=>{ const f=window._origOpenRequisitionSettings||window.openRequisitionSettings; f(); },
             'daily-stock':       ()=>{ const f=window._origOpenDailyStockCard||window.openDailyStockCard; f(); },
             'warehouse-mgr':     ()=>{ const f=window._origOpenWarehouseManager||window.openWarehouseManager; f(); },
-            'asset-registry':    ()=>{ if(window.openAssetManagement) window.openAssetManagement('registry'); },
-            'asset-audit':       ()=>{ if(window.openAssetManagement) window.openAssetManagement('audit'); },
-            'asset-repair':      ()=>{ if(window.openAssetManagement) window.openAssetManagement('repair'); },
-            'asset-dashboard':   ()=>{ if(window.openAssetManagement) window.openAssetManagement('dashboard'); },
             'user-mgmt':         ()=>{ const f=window._origOpenUserManagement||window.openUserManagement; f(); },
             'help':              ()=>{ const f=window._origOpenHelpGuide||window.openHelpGuide; f(); },
             'monthly-count':     ()=>{
@@ -1256,6 +1717,11 @@
             const hash = location.hash.replace('#','');
             if(hash && navFnMap[hash]) {
                 setTimeout(()=>{ try{ navFnMap[hash](); } catch(e){} }, 400);
+                return; // hash มีแล้ว ไม่ต้อง persist restore
+            }
+            // ไม่มี hash → ลอง restore จาก sessionStorage
+            if(typeof window._restorePersistState === 'function') {
+                window._restorePersistState();
             }
         };
 
@@ -1263,16 +1729,24 @@
         function _closeToDashboard(skipConfirm) {
             if(!skipConfirm && Object.keys(tempCountData).length>0) {
                 if(!confirm("ยังไม่บันทึก ต้องการปิดจริงไหม?")) {
-                    // ผู้ใช้ยกเลิก → กดย้อนกลับมาหน้านี้อีกครั้ง
                     history.pushState({ nav: location.hash.replace('#','') }, '', location.hash);
                     return;
                 }
             }
+            // clear unsaved flag
+            if(typeof setUnsavedFlag === 'function') setUnsavedFlag(false);
+            // clear persist key → dashboard ไม่ต้อง restore
+            sessionStorage.removeItem('ttg_lastTool');
             document.getElementById('toolAppContainer').classList.add('hidden');
             document.getElementById('dashboardView').classList.remove('hidden');
-            // ปิด sidebar mobile ถ้าเปิดอยู่
             const sidebar = document.getElementById('sidebarMenu');
             if(sidebar) sidebar.classList.remove('open');
+            // refresh notifs เมื่อกลับ dashboard
+            window._dashNotifLoaded = false;
+            if(typeof _maybeLoadNotifs === 'function') _maybeLoadNotifs();
+            // hide FAB
+            const fab = document.getElementById('notifBellBtn');
+            if(fab) fab.style.display = 'none';
         }
 
         // patch open functions
@@ -2022,7 +2496,6 @@ window.saveCentralStock = async function(){
     <script src="goods-receipt.js" defer></script>
     <script src="lot-register.js" defer></script>
     <script src="qc.js" defer></script>
-    <script src="asset-mgmt.js" defer></script>
 
 </body>
 </html>
