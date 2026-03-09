@@ -986,8 +986,9 @@ window._openAuditCount = async function(roundId) {
                 </div>
             </div>`;
         }).join('')}
-        <div style="margin-top:14px;text-align:right;">
-            <button onclick="_exportAuditResults('${roundId}')" style="background:#7c3aed;color:white;border:none;padding:9px 20px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">📤 Export ผลตรวจนับ</button>
+        <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="_exportAuditResults('${roundId}')" style="background:#7c3aed;color:white;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">📊 Excel</button>
+            <button onclick="_exportAuditPDF('${roundId}')" style="background:#dc2626;color:white;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">📄 PDF + รูป</button>
         </div>
     </div>`;
     area.scrollIntoView({ behavior:'smooth', block:'nearest' });
@@ -1048,8 +1049,9 @@ window._viewAuditResults = async function(roundId) {
             </div>`;
         }).join('')}
         </div>
-        <div style="margin-top:12px;text-align:right;">
-            <button onclick="_exportAuditResults('${roundId}')" style="background:#7c3aed;color:white;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">📤 Export Excel</button>
+        <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="_exportAuditResults('${roundId}')" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">📊 Excel</button>
+            <button onclick="_exportAuditPDF('${roundId}')" style="background:#dc2626;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">📄 PDF + รูป</button>
         </div>
     </div>`;
     area.scrollIntoView({ behavior:'smooth', block:'nearest' });
@@ -1059,11 +1061,135 @@ window._exportAuditResults = async function(roundId) {
     await _importFS();
     const snap = await _getDocs(_query(_collection(db,'assetAuditResults'), _where('roundId','==',roundId)));
     const results = snap.docs.map(d => d.data());
-    const rows = [['รหัสทรัพย์สิน','ผล','หมายเหตุ','ผู้ตรวจ','วันที่']];
-    results.forEach(r => rows.push([r.assetId, r.result, r.auditNote||'', r.countedBy, r.dateLabel||'']));
+    const rows = [['รหัสทรัพย์สิน','ผล','หมายเหตุ','ผู้ตรวจ','วันที่','มีรูปภาพ']];
+    results.forEach(r => rows.push([r.assetId, r.result, r.auditNote||'', r.countedBy, r.dateLabel||'', r.imageUrl ? '✅ มีรูป' : '—']));
     const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:10},{wch:24},{wch:16},{wch:12},{wch:10}];
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'AuditResults');
     XLSX.writeFile(wb, `TingTing_Audit_${roundId.slice(-6)}.xlsx`);
+    toast('✅ Export Excel เรียบร้อย', '#059669');
+};
+
+window._exportAuditPDF = async function(roundId) {
+    await _importFS();
+    toast('⏳ กำลังสร้าง PDF...', '#0891b2');
+    // โหลดข้อมูลรอบ
+    const roundSnap = await _getDoc(_doc(db,'assetAuditRounds',roundId));
+    const round = roundSnap.exists() ? roundSnap.data() : {};
+    // โหลดผลตรวจนับ
+    const snap = await _getDocs(_query(_collection(db,'assetAuditResults'), _where('roundId','==',roundId)));
+    const results = snap.docs.map(d => d.data());
+    if (!results.length) { toast('⚠️ ไม่มีผลตรวจนับ', '#c2410c'); return; }
+
+    const found   = results.filter(r=>r.result==='พบ').length;
+    const broken  = results.filter(r=>r.result==='ชำรุด').length;
+    const missing = results.filter(r=>r.result==='ไม่พบ').length;
+    const now = _todayTH();
+
+    const resultColors = {
+        'พบ':    { bg:'#f0fdf4', border:'#a7f3d0', color:'#065f46', icon:'✅' },
+        'ชำรุด': { bg:'#fff7ed', border:'#fed7aa', color:'#92400e', icon:'⚠️' },
+        'ไม่พบ': { bg:'#fef2f2', border:'#fecaca', color:'#991b1b', icon:'❌' },
+    };
+
+    const rows = results.map(r => {
+        const asset = _assetsCache.find(a => a._id === r.assetId) || {};
+        const rc = resultColors[r.result] || resultColors['พบ'];
+        // รูปทรัพย์สิน (จาก registry)
+        const assetImg = asset.imageUrl
+            ? `<img src="${asset.imageUrl}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;">`
+            : `<div style="width:48px;height:48px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:22px;">📦</div>`;
+        // รูปที่ถ่ายตอนตรวจนับ
+        const auditImg = r.imageUrl
+            ? `<img src="${r.imageUrl}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:2px solid ${rc.border};">`
+            : `<div style="width:48px;height:48px;border-radius:6px;background:#f8fafc;border:1.5px dashed #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#94a3b8;text-align:center;line-height:1.3;">ไม่มี<br>รูป</div>`;
+
+        return `<tr style="page-break-inside:avoid;">
+            <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;">${assetImg}</td>
+            <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;">
+                <div style="font-weight:800;font-size:11px;color:#0f172a;">${r.assetId}</div>
+                <div style="font-size:10px;color:#475569;">${asset.name||'—'}</div>
+                <div style="font-size:9px;color:#94a3b8;">${asset.category||''} ${asset.zone?'| '+asset.zone:''}</div>
+            </td>
+            <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;text-align:center;">
+                <span style="background:${rc.bg};color:${rc.color};border:1.5px solid ${rc.border};padding:4px 10px;border-radius:14px;font-size:10px;font-weight:800;white-space:nowrap;">${rc.icon} ${r.result}</span>
+            </td>
+            <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;font-size:10px;color:#475569;max-width:120px;">${r.auditNote||'—'}</td>
+            <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;text-align:center;">${auditImg}</td>
+            <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;font-size:10px;color:#64748b;text-align:center;">${r.countedBy}<br><span style="font-size:9px;color:#94a3b8;">${r.dateLabel||''}</span></td>
+        </tr>`;
+    }).join('');
+
+    const win = window.open('','_blank');
+    win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <title>ผลตรวจนับ — ${round.name||roundId}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:'Prompt',sans-serif;background:white;color:#0f172a;padding:24px;font-size:11px;}
+        .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid #0f172a;}
+        .logo{font-size:20px;font-weight:900;}.logo span{color:#f59e0b;}
+        .title{font-size:14px;font-weight:800;margin-top:3px;}
+        .subtitle{font-size:10px;color:#64748b;margin-top:3px;}
+        .meta{text-align:right;font-size:10px;color:#64748b;line-height:1.7;}
+        .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
+        .kpi-box{border-radius:9px;padding:12px 14px;border:1px solid #e2e8f0;}
+        .kpi-val{font-size:22px;font-weight:900;}
+        .kpi-lbl{font-size:9px;color:#94a3b8;text-transform:uppercase;margin-top:1px;}
+        .round-info{background:#f8fafc;border-radius:8px;padding:10px 14px;margin-bottom:16px;border:1px solid #e2e8f0;font-size:11px;color:#475569;line-height:1.8;}
+        table{width:100%;border-collapse:collapse;}
+        thead{background:#0f172a;color:white;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+        th{padding:9px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+        th:nth-child(3),th:nth-child(5),th:nth-child(6){text-align:center;}
+        tbody tr:nth-child(even){background:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+        .footer{margin-top:16px;padding-top:10px;border-top:1px solid #e2e8f0;text-align:center;font-size:9px;color:#94a3b8;}
+        @media print{
+            body{padding:10px;}
+            @page{margin:10mm;size:A4 portrait;}
+            tr{page-break-inside:avoid;}
+        }
+    </style></head><body>
+    <div class="header">
+        <div>
+            <div class="logo">Ting<span>Ting</span></div>
+            <div class="title">รายงานผลการตรวจนับทรัพย์สิน</div>
+            <div class="subtitle">${round.name||roundId}</div>
+        </div>
+        <div class="meta">
+            <div>พิมพ์โดย: ${currentUser?.name||''}</div>
+            <div>วันที่พิมพ์: ${now}</div>
+            <div>รวม ${results.length} รายการ</div>
+        </div>
+    </div>
+    <div class="round-info">
+        📍 Zone: <b>${round.zone||'ทุกสาขา'}</b> &nbsp;|&nbsp;
+        📦 หมวด: <b>${round.category||'ทุกหมวด'}</b> &nbsp;|&nbsp;
+        👤 เปิดโดย: <b>${round.createdBy||'—'}</b> &nbsp;|&nbsp;
+        📅 วันที่: <b>${round.dateLabel||'—'}</b>
+        ${round.deadline ? `&nbsp;|&nbsp; ⏰ กำหนดเสร็จ: <b>${_isoToTH(round.deadline)}</b>` : ''}
+    </div>
+    <div class="kpi">
+        <div class="kpi-box"><div class="kpi-val">${results.length}</div><div class="kpi-lbl">รายการทั้งหมด</div></div>
+        <div class="kpi-box" style="background:#f0fdf4;border-color:#a7f3d0;"><div class="kpi-val" style="color:#059669;">${found}</div><div class="kpi-lbl">✅ พบ</div></div>
+        <div class="kpi-box" style="background:#fff7ed;border-color:#fed7aa;"><div class="kpi-val" style="color:#d97706;">${broken}</div><div class="kpi-lbl">⚠️ ชำรุด</div></div>
+        <div class="kpi-box" style="background:#fef2f2;border-color:#fecaca;"><div class="kpi-val" style="color:#dc2626;">${missing}</div><div class="kpi-lbl">❌ ไม่พบ</div></div>
+    </div>
+    <table>
+        <thead><tr>
+            <th style="width:56px;">รูปสินทรัพย์</th>
+            <th>รหัส / ชื่อ</th>
+            <th style="width:90px;text-align:center;">ผล</th>
+            <th style="width:110px;">หมายเหตุ</th>
+            <th style="width:60px;text-align:center;">รูปตรวจนับ</th>
+            <th style="width:80px;text-align:center;">ผู้ตรวจ</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+    </table>
+    <div class="footer">TingTing Asset Management — รายงานผลตรวจนับ | สร้างเมื่อ ${now}</div>
+    <script>window.onload=()=>setTimeout(()=>window.print(),800);<\/script>
+    </body></html>`);
+    win.document.close();
 };
 
 // ═════════════════════════════════════════════════════════════════════
