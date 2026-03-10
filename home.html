@@ -149,64 +149,241 @@
         .date-display { position:absolute; top:50%; left:10px; transform:translateY(-50%); pointer-events:none; font-weight:bold; font-size:14px; color:#1e293b; }
     </style>
     <style>
-        /* ── DASHBOARD REDESIGN ── */
-        .dash-wrap { padding: 24px 28px; max-width: 1100px; }
-        @media (max-width: 768px) { .dash-wrap { padding: 56px 14px 20px; } }
+        /* ══════════════════════════════════════════
+           DASHBOARD v2 — TTGPlus New Layout
+           TOP: Greeting Banner
+           KPI: 4 Cards Row
+           MIDDLE: Alert + Activity (2 col)
+           BOTTOM: Chart
+           END: Quick Actions
+        ══════════════════════════════════════════ */
+        .dash-wrap { padding: 24px 28px; max-width: 1200px; }
+        @media (max-width: 768px) { .dash-wrap { padding: 56px 12px 20px; } }
 
-        /* Greeting */
-        .dash-greeting { margin-bottom: 22px; }
-        .dash-greeting h2 { margin: 0 0 2px; font-size: 22px; font-weight: 800; color: #0f172a; font-family: 'Prompt', sans-serif; }
-        .dash-greeting p  { margin: 0; font-size: 12px; color: #94a3b8; }
-
-        /* KPI + Actions top row */
-        .dash-top { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
-        @media (max-width: 700px) { .dash-top { grid-template-columns: 1fr; } }
-
-        /* KPI cards */
-        .dash-kpi-list { display: flex; flex-direction: column; gap: 8px; }
-        .dash-kpi-card {
-            background: white; border-radius: 12px; padding: 12px 16px;
-            border: 1px solid #e8ecf0; border-left: 3px solid var(--info);
-            cursor: pointer; display: flex; align-items: center; gap: 12px;
-            transition: box-shadow .2s, transform .15s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        /* ── GREETING BANNER ── */
+        .dash-greeting-banner {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e40af 100%);
+            border-radius: 18px;
+            padding: 22px 28px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 4px 24px rgba(15,23,42,0.18);
+            position: relative;
+            overflow: hidden;
         }
-        .dash-kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
-        .dash-kpi-icon { font-size: 22px; width: 38px; text-align: center; flex-shrink: 0; }
-        .dash-kpi-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
-        .dash-kpi-val { font-size: 22px; font-weight: 800; line-height: 1; margin-bottom: 2px; }
+        .dash-greeting-banner::before {
+            content: '';
+            position: absolute;
+            right: -30px; top: -30px;
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            background: rgba(240,180,41,0.08);
+        }
+        .dash-greeting-banner::after {
+            content: '';
+            position: absolute;
+            right: 60px; bottom: -50px;
+            width: 120px; height: 120px;
+            border-radius: 50%;
+            background: rgba(59,130,246,0.1);
+        }
+        .dash-greeting-left h2 {
+            margin: 0 0 4px;
+            font-size: 20px;
+            font-weight: 800;
+            color: white;
+            font-family: 'Prompt', sans-serif;
+            line-height: 1.2;
+        }
+        .dash-greeting-left p {
+            margin: 0;
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+        }
+        .dash-greeting-date {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            padding: 10px 16px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .dash-greeting-date .date-big { font-size: 13px; font-weight: 700; color: var(--accent-gold); }
+        .dash-greeting-date .date-sub { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+
+        /* ── KPI ROW (4 cards horizontal) ── */
+        .dash-kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 900px) { .dash-kpi-row { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 480px) { .dash-kpi-row { grid-template-columns: repeat(2, 1fr); gap: 8px; } }
+
+        .dash-kpi-card {
+            background: white;
+            border-radius: 14px;
+            padding: 16px 18px;
+            border: 1px solid #e8ecf0;
+            border-top: 3px solid var(--info);
+            cursor: pointer;
+            transition: box-shadow .2s, transform .15s;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        .dash-kpi-card::after {
+            content: attr(data-icon);
+            position: absolute;
+            right: 12px;
+            top: 12px;
+            font-size: 28px;
+            opacity: 0.12;
+        }
+        .dash-kpi-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.09); transform: translateY(-2px); }
+        .dash-kpi-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+        .dash-kpi-val { font-size: 28px; font-weight: 900; line-height: 1; margin-bottom: 4px; font-family: 'Prompt', sans-serif; }
         .dash-kpi-sub { font-size: 10px; color: #cbd5e1; }
 
-        /* Action grid */
-        .dash-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        @media (max-width: 480px) { .dash-actions { grid-template-columns: repeat(3, 1fr); gap: 6px; } }
-        .dash-btn {
-            background: white; border: 1.5px solid #e8ecf0; border-radius: 12px;
-            padding: 14px 6px 12px; cursor: pointer; text-align: center;
-            transition: all .15s; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 5px;
-            min-height: 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-            touch-action: manipulation;
+        /* ── MIDDLE ROW: Alert + Activity ── */
+        .dash-middle {
+            display: grid;
+            grid-template-columns: 1fr 1.6fr;
+            gap: 14px;
+            margin-bottom: 16px;
         }
-        .dash-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
-        .dash-btn:active { transform: translateY(0); box-shadow: none; }
-        .dash-btn .d-icon { font-size: 22px; line-height: 1; }
-        .dash-btn .d-label { font-size: 10px; font-weight: 700; color: #334155; line-height: 1.2; font-family: 'IBM Plex Sans Thai', sans-serif; }
-        .dash-btn.primary { background: #1e40af; border-color: #1e40af; }
-        .dash-btn.primary .d-label { color: white; }
+        @media (max-width: 768px) { .dash-middle { grid-template-columns: 1fr; } }
 
-        /* Bottom row */
-        .dash-bottom { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; margin-top: 16px; }
-        @media (max-width: 700px) { .dash-bottom { grid-template-columns: 1fr; } }
-        .dash-panel { background: white; border-radius: 14px; border: 1px solid #e8ecf0; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .dash-panel-title { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; }
+        .dash-panel {
+            background: white;
+            border-radius: 14px;
+            border: 1px solid #e8ecf0;
+            padding: 16px 18px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+        .dash-panel-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: .7px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .dash-panel-title span { font-size: 13px; }
+
+        /* Alert items */
+        .dash-alert-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 9px 10px;
+            border-radius: 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: background .15s;
+            border: 1px solid transparent;
+        }
+        .dash-alert-item:hover { background: #f8fafc; border-color: #e8ecf0; }
+        .dash-alert-item:last-child { margin-bottom: 0; }
+        .dash-alert-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .dash-alert-text { flex: 1; min-width: 0; }
+        .dash-alert-title { font-size: 12px; font-weight: 700; color: #1e293b; }
+        .dash-alert-sub { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+        .dash-alert-badge {
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 20px;
+            flex-shrink: 0;
+            align-self: center;
+        }
 
         /* Activity list */
-        .dash-activity-item { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid #f8fafc; }
+        .dash-activity-item {
+            display: flex; align-items: center; gap: 9px;
+            padding: 7px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
         .dash-activity-item:last-child { border-bottom: none; }
-        .dash-activity-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+        .dash-activity-dot {
+            width: 30px; height: 30px;
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
         .dash-activity-title { font-weight: 700; font-size: 11px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dash-activity-sub { font-size: 10px; color: #94a3b8; }
+
+        /* ── CHART SECTION ── */
+        .dash-chart-section {
+            background: white;
+            border-radius: 14px;
+            border: 1px solid #e8ecf0;
+            padding: 18px 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+        .dash-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .dash-chart-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: .7px;
+        }
+        .dash-chart-legend {
+            display: flex;
+            gap: 12px;
+            font-size: 10px;
+            color: #94a3b8;
+        }
+        .dash-chart-legend span::before {
+            content: '●';
+            margin-right: 4px;
+        }
+
+        /* ── QUICK ACTIONS (bottom) ── */
+        .dash-quick-actions {
+            background: white;
+            border-radius: 14px;
+            border: 1px solid #e8ecf0;
+            padding: 16px 18px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+        .dash-actions {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+        }
+        @media (max-width: 900px) { .dash-actions { grid-template-columns: repeat(4, 1fr); } }
+        @media (max-width: 480px) { .dash-actions { grid-template-columns: repeat(3, 1fr); gap: 8px; } }
+
+        /* KPI alias for list mode (BT) */
+        .dash-kpi-list { display: flex; flex-direction: column; gap: 8px; }
+
+        /* Legacy compat */
+        .dash-top { display: none !important; }
+        .dash-bottom { display: none !important; }
     </style>
 </head>
 <body>
@@ -306,32 +483,62 @@
     <div class="main-content">
         <div id="dashboardView" class="no-print">
             <div class="dash-wrap">
-                <div id="viewOnlyAlert" class="hidden" style="background:#fff7ed;color:#c2410c;padding:10px 14px;border-radius:8px;border:1px solid #fdba74;margin-bottom:16px;font-size:12px;">
+
+                <!-- ViewOnly / Alert banners -->
+                <div id="viewOnlyAlert" class="hidden" style="background:#fff7ed;color:#c2410c;padding:10px 14px;border-radius:8px;border:1px solid #fdba74;margin-bottom:14px;font-size:12px;">
                     ⚠️ <b>โหมดดูอย่างเดียว</b> — ไม่สามารถแก้ไขหรือบันทึกได้
                 </div>
                 <div id="dashAlertBanner"></div>
 
-                <div class="dash-greeting">
-                    <h2 id="greetingText">สวัสดี...</h2>
-                    <p id="greetingDate"></p>
+                <!-- ══ TOP: Greeting Banner ══ -->
+                <div class="dash-greeting-banner">
+                    <div class="dash-greeting-left">
+                        <h2 id="greetingText">สวัสดี...</h2>
+                        <p>ภาพรวมระบบคลังสินค้า TTGPlus</p>
+                    </div>
+                    <div class="dash-greeting-date">
+                        <div class="date-big" id="greetingDate"></div>
+                        <div class="date-sub">วันนี้</div>
+                    </div>
                 </div>
 
-                <div class="dash-top">
-                    <div id="dashKpiRow" class="dash-kpi-list"></div>
+                <!-- ══ KPI SUMMARY (4 cards) ══ -->
+                <div id="dashKpiRow" class="dash-kpi-row"></div>
+
+                <!-- ══ MIDDLE: Alert + Activity ══ -->
+                <div class="dash-middle">
+                    <!-- Alert Panel -->
+                    <div class="dash-panel">
+                        <div class="dash-panel-title"><span>🚨</span> แจ้งเตือนสำคัญ</div>
+                        <div id="dashAlertList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังตรวจสอบ...</p></div>
+                    </div>
+                    <!-- Activity Panel -->
+                    <div class="dash-panel" style="overflow-y:auto;max-height:300px;">
+                        <div class="dash-panel-title"><span>📜</span> กิจกรรมล่าสุด</div>
+                        <div id="dashRecentList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังโหลด...</p></div>
+                    </div>
+                </div>
+
+                <!-- ══ CHART ══ -->
+                <div class="dash-chart-section">
+                    <div class="dash-chart-header">
+                        <div class="dash-chart-title">📈 Trend การใช้งานระบบ 7 วัน</div>
+                        <div class="dash-chart-legend">
+                            <span style="color:#3b82f6;">นับสต๊อก</span>
+                            <span style="color:#10b981;">GR</span>
+                            <span style="color:#f59e0b;">MR</span>
+                        </div>
+                    </div>
+                    <div class="chart-wrap" style="height:180px;"><canvas id="trendChart" height="180"></canvas></div>
+                </div>
+
+                <!-- ══ QUICK ACTIONS (bottom) ══ -->
+                <div class="dash-quick-actions">
+                    <div class="dash-panel-title"><span>⚡</span> Quick Actions</div>
                     <div id="dashActionRow" class="dash-actions"></div>
                 </div>
 
-                <div class="dash-bottom" id="dashBottomRow">
-                    <div class="dash-panel" style="overflow-y:auto;max-height:260px;">
-                        <div class="dash-panel-title">⚡ กิจกรรมล่าสุด</div>
-                        <div id="dashRecentList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังโหลด...</p></div>
-                    </div>
-                    <div class="dash-panel">
-                        <div class="dash-panel-title">📈 Trend การนับสต๊อก 7 วัน</div>
-                        <div class="chart-wrap" style="height:160px;"><canvas id="trendChart" height="160"></canvas></div>
-                    </div>
-                </div>
-
+                <!-- Legacy hidden IDs (backward compat) -->
                 <div style="display:none;">
                     <span id="dashKpiGRVal"></span><span id="dashKpiGRSub"></span>
                     <span id="dashKpiMRVal"></span>
@@ -340,7 +547,9 @@
                     <span id="dashKpiGR"></span><span id="dashKpiMR"></span>
                     <span id="dashKpiQC"></span><span id="dashKpiEXP"></span>
                     <div id="dashSummaryCards"></div>
+                    <div id="dashBottomRow"></div>
                 </div>
+
             </div>
         </div>
                 <div id="toolAppContainer" class="app-container hidden"></div>
@@ -556,13 +765,13 @@
             const greet = hour<12?'🌅 อรุณสวัสดิ์':hour<17?'☀️ สวัสดีตอนบ่าย':'🌙 สวัสดีตอนเย็น';
             const el = document.getElementById('greetingText');
             const elDate = document.getElementById('greetingDate');
-            if(el) el.innerText = greet + ' ' + currentUser.name;
-            if(elDate) elDate.innerText = new Date().toLocaleDateString('th-TH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+            if(el) el.innerText = greet + ', ' + currentUser.name;
+            if(elDate) elDate.innerText = new Date().toLocaleDateString('th-TH',{weekday:'short',year:'numeric',month:'long',day:'numeric'});
 
             const isBT    = currentUser?.username?.toUpperCase().startsWith('BT');
             const isAdmin = currentUser?.role === 'admin';
 
-            // ── Action buttons: compact pill style ──
+            // ── Quick Action buttons ──
             const actions = [
                 {icon:'📅', label:'นับสิ้นเดือน', fn:'tryOpenMonthlyCount()',      tool:'monthly-count', color:'#1e40af', show:true},
                 {icon:'📋', label:'Stock Card',    fn:'openDailyStockCard()',       tool:'daily-stock',   color:'#0891b2', show:true},
@@ -580,29 +789,20 @@
             const ar = document.getElementById('dashActionRow');
             if(ar) {
                 const visible = actions.filter(a=>a.show);
-                // BT: 2 col, others: 3 col
-                ar.style.gridTemplateColumns = isBT ? 'repeat(2,1fr)' : 'repeat(3,1fr)';
+                const cols = isBT ? 3 : Math.min(6, visible.length);
+                ar.style.gridTemplateColumns = `repeat(${cols},1fr)`;
                 ar.innerHTML = visible.map(a=>`
                     <button onclick="${a.fn}" data-tool="${a.tool||''}"
                         onauxclick="if(event.button===1&&this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
                         oncontextmenu="if(this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
-                        style="background:${a.color};color:white;border:none;border-radius:10px;padding:11px 4px 9px;cursor:pointer;font-family:inherit;text-align:center;transition:filter .15s;" onmouseover="this.style.filter='brightness(1.12)'" onmouseout="this.style.filter=''">
-                        <div style="font-size:18px;margin-bottom:3px;">${a.icon}</div>
+                        style="background:${a.color};color:white;border:none;border-radius:12px;padding:14px 6px 12px;cursor:pointer;font-family:inherit;text-align:center;transition:filter .15s, transform .15s;box-shadow:0 2px 8px rgba(0,0,0,0.12);" onmouseover="this.style.filter='brightness(1.12)';this.style.transform='translateY(-2px)'" onmouseout="this.style.filter='';this.style.transform=''">
+                        <div style="font-size:20px;margin-bottom:4px;">${a.icon}</div>
                         <div style="font-size:10px;font-weight:700;line-height:1.2;">${a.label}</div>
                     </button>`).join('');
             }
 
-            // ── BT: hide chart panel, full-width activity ──
-            const br = document.getElementById('dashBottomRow');
-            if(br && isBT) {
-                br.style.gridTemplateColumns = '1fr';
-                // ซ่อน chart panel (อันที่ 2)
-                if(br.children[1]) br.children[1].style.display = 'none';
-            }
-
             await loadCountData();
             if(isBT) {
-                // BT: KPI = สถานะสาขาตัวเอง, no chart
                 renderBTKpi();
                 renderStockAlerts();
                 loadBTDashActivity();
@@ -625,13 +825,10 @@
                 {id:'kpi_exp', label:'EXP ใกล้หมด',     icon:'⚠️', color:'#ef4444', fn:'openLotRegister()'},
             ];
             row.innerHTML = defs.map(k=>`
-                <div id="${k.id}_card" onclick="${k.fn}" class="dash-kpi-card" style="border-left-color:${k.color};">
-                    <div class="dash-kpi-icon">${k.icon}</div>
-                    <div style="flex:1;min-width:0;">
-                        <div class="dash-kpi-label">${k.label}</div>
-                        <div class="dash-kpi-val" style="color:${k.color};" id="${k.id}_val">—</div>
-                        <div class="dash-kpi-sub" id="${k.id}_sub">กำลังโหลด...</div>
-                    </div>
+                <div id="${k.id}_card" onclick="${k.fn}" class="dash-kpi-card" data-icon="${k.icon}" style="border-top-color:${k.color};">
+                    <div class="dash-kpi-label">${k.icon} ${k.label}</div>
+                    <div class="dash-kpi-val" style="color:${k.color};" id="${k.id}_val">—</div>
+                    <div class="dash-kpi-sub" id="${k.id}_sub">กำลังโหลด...</div>
                 </div>`).join('');
 
             // Load values
@@ -686,7 +883,7 @@
                 const card=document.getElementById('kpi_exp_card');
                 if(card){
                     if(w>0) card.style.background='#fef2f2';
-                    else { card.style.borderLeftColor='#10b981'; if(ev) ev.style.color='#10b981'; }
+                    else { card.style.borderTopColor='#10b981'; if(ev) ev.style.color='#10b981'; }
                 }
             } catch(e){ const es=document.getElementById('kpi_exp_sub');if(es)es.innerText='ยังไม่มีข้อมูล'; }
         }
@@ -712,22 +909,103 @@
             } catch(e){}
 
             row.innerHTML = `
-                <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" class="dash-kpi-card" style="border-left-color:${monthlyDone?'#10b981':'#f59e0b'};background:${monthlyDone?'#f0fdf4':'#fffbeb'};">
-                    <div class="dash-kpi-icon">${monthlyDone?'✅':'📅'}</div>
-                    <div style="flex:1;min-width:0;">
-                        <div class="dash-kpi-label">นับสต๊อกสิ้นเดือน</div>
-                        <div class="dash-kpi-val" style="color:${monthlyDone?'#059669':'#d97706'};font-size:15px;">${monthlyDone?'นับแล้วเดือนนี้ ✓':'ยังไม่ได้นับ'}</div>
-                        <div class="dash-kpi-sub">${monthTH} • ${zone}</div>
-                    </div>
+                <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" class="dash-kpi-card" data-icon="${monthlyDone?'✅':'📅'}" style="border-top-color:${monthlyDone?'#10b981':'#f59e0b'};background:${monthlyDone?'#f0fdf4':'#fffbeb'};">
+                    <div class="dash-kpi-label">${monthlyDone?'✅':'📅'} นับสต๊อกสิ้นเดือน</div>
+                    <div class="dash-kpi-val" style="color:${monthlyDone?'#059669':'#d97706'};font-size:18px;">${monthlyDone?'นับแล้ว ✓':'ยังไม่ได้นับ'}</div>
+                    <div class="dash-kpi-sub">${monthTH} • ${zone}</div>
                 </div>
-                <div onclick="openPilotHistory()" class="dash-kpi-card" style="border-left-color:${pilotCount>0?'#7c3aed':'#e2e8f0'};background:${pilotCount>0?'#f5f3ff':'white'};">
-                    <div class="dash-kpi-icon">🎲</div>
-                    <div style="flex:1;min-width:0;">
-                        <div class="dash-kpi-label">ทดลองนับเดือนนี้</div>
-                        <div class="dash-kpi-val" style="color:${pilotCount>0?'#7c3aed':'#94a3b8'};font-size:20px;">${pilotCount} ครั้ง</div>
-                        <div class="dash-kpi-sub">${monthTH}</div>
-                    </div>
+                <div onclick="openPilotHistory()" class="dash-kpi-card" data-icon="🎲" style="border-top-color:${pilotCount>0?'#7c3aed':'#e2e8f0'};background:${pilotCount>0?'#f5f3ff':'white'};">
+                    <div class="dash-kpi-label">🎲 ทดลองนับเดือนนี้</div>
+                    <div class="dash-kpi-val" style="color:${pilotCount>0?'#7c3aed':'#94a3b8'};">${pilotCount}</div>
+                    <div class="dash-kpi-sub">ครั้ง • ${monthTH}</div>
                 </div>`;
+        }
+
+        // ── Alert Panel: Low Stock + Expiring Lot + Pending MR ──
+        async function renderStockAlerts() {
+            const container = document.getElementById('dashAlertList');
+            if(!container) return;
+            const alerts = [];
+
+            try {
+                // 1. Low Stock
+                const lowItems = [];
+                Object.keys(productMinMax).forEach(id=>{
+                    const min = productMinMax[id]?.min;
+                    const qty = countData[id]?.total ?? countData[id]?.qty ?? 0;
+                    if(min != null && qty <= min) {
+                        const p = allProducts.find(x=>x.id===id);
+                        lowItems.push({id, name:p?.name||id, qty, min});
+                    }
+                });
+                if(lowItems.length > 0) {
+                    alerts.push({
+                        icon:'📦', bg:'#fff7ed', iconBg:'#fed7aa', color:'#c2410c',
+                        title: `Low Stock: ${lowItems.length} รายการ`,
+                        sub: lowItems.slice(0,2).map(x=>`${x.name} (${x.qty})`).join(', ') + (lowItems.length>2?` +${lowItems.length-2}`:''),
+                        badge: lowItems.length, badgeColor:'#ef4444', badgeBg:'#fee2e2',
+                        fn: 'openStockSummary()'
+                    });
+                }
+            } catch(e){}
+
+            try {
+                // 2. Expiring Lots
+                const lotSnap = await getDoc(doc(db,'config','lotRegister'));
+                const lots = lotSnap.exists()?(lotSnap.data().lots||{}):[];
+                let expItems = [], expSoon = 0;
+                const now = new Date(); now.setHours(0,0,0,0);
+                Object.entries(lots).forEach(([id, list])=>(list||[]).forEach(l=>{
+                    if(!l.qtyRemaining || !l.exp) return;
+                    const days = Math.floor((new Date(l.exp)-now)/86400000);
+                    if(days<=30) { expSoon++; if(expItems.length<2) expItems.push({id, days}); }
+                }));
+                if(expSoon > 0) {
+                    alerts.push({
+                        icon:'⏰', bg:'#fef2f2', iconBg:'#fecaca', color:'#991b1b',
+                        title: `EXP ใกล้หมด: ${expSoon} Lot`,
+                        sub: expItems.map(x=>{const p=allProducts.find(p=>p.id===x.id);return `${p?.name||x.id} (${x.days}วัน)`;}).join(', '),
+                        badge: expSoon, badgeColor:'#dc2626', badgeBg:'#fee2e2',
+                        fn: 'openLotRegister()'
+                    });
+                }
+            } catch(e){}
+
+            try {
+                // 3. Pending MR
+                const mrSnap = await getDocs(collection(db,'requisitions'));
+                let pending = 0;
+                mrSnap.forEach(d=>{ if(d.data().status==='pending') pending++; });
+                if(pending > 0) {
+                    alerts.push({
+                        icon:'📋', bg:'#fffbeb', iconBg:'#fde68a', color:'#92400e',
+                        title: `ใบเบิกรออนุมัติ: ${pending} ใบ`,
+                        sub: 'กรุณาตรวจสอบและดำเนินการ',
+                        badge: pending, badgeColor:'#d97706', badgeBg:'#fef3c7',
+                        fn: 'openPendingRequisitions()'
+                    });
+                }
+            } catch(e){}
+
+            if(!alerts.length) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:24px 12px;">
+                        <div style="font-size:32px;margin-bottom:8px;">✅</div>
+                        <div style="font-size:12px;font-weight:700;color:#059669;">ระบบปกติ ไม่มีแจ้งเตือน</div>
+                        <div style="font-size:10px;color:#94a3b8;margin-top:4px;">Stock, EXP, MR ทุกอย่างเรียบร้อย</div>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = alerts.map(a=>`
+                <div class="dash-alert-item" onclick="${a.fn}" style="background:${a.bg};">
+                    <div class="dash-alert-icon" style="background:${a.iconBg};">${a.icon}</div>
+                    <div class="dash-alert-text">
+                        <div class="dash-alert-title" style="color:${a.color};">${a.title}</div>
+                        <div class="dash-alert-sub">${a.sub}</div>
+                    </div>
+                    <div class="dash-alert-badge" style="background:${a.badgeBg};color:${a.badgeColor};">${a.badge}</div>
+                </div>`).join('');
         }
 
         // ── BT Activity feed ──
@@ -792,27 +1070,51 @@
                             + '</div></div>';
                     }).join('');
                 }
-                let stockSessions = [];
+                let stockSessions = [], grSessions = [], mrSessions = [];
                 stockSnap.forEach(d=>stockSessions.push({id:d.id,...d.data()}));
+                grSnap.forEach(d=>grSessions.push(d.data()));
+                mrSnap.forEach(d=>mrSessions.push(d.data()));
                 stockSessions.sort((a,b)=>b.timestamp-a.timestamp);
-                renderTrendChart(stockSessions);
+                renderTrendChart(stockSessions, grSessions, mrSessions);
             } catch(e){ console.error(e); }
         }
 
-        function renderTrendChart(sessions) {
+        function renderTrendChart(stockSessions, grSessions=[], mrSessions=[]) {
             const canvas = document.getElementById('trendChart');
             if(!canvas) return;
-            const days=[], counts=[];
+            const days=[], stockCounts=[], grCounts=[], mrCounts=[];
             for(let i=6;i>=0;i--) {
                 const d=new Date(); d.setDate(d.getDate()-i);
                 const dy=String(d.getDate()).padStart(2,'0'), mo=String(d.getMonth()+1).padStart(2,'0'), yr=d.getFullYear()+543;
+                const thDate=`${dy}/${mo}/${yr}`;
                 days.push(d.toLocaleDateString('th-TH',{day:'numeric',month:'short'}));
-                counts.push(sessions.filter(s=>s.date===`${dy}/${mo}/${yr}`).length);
+                stockCounts.push(stockSessions.filter(s=>s.date===thDate).length);
+                grCounts.push(grSessions.filter(s=>s.date===thDate).length);
+                mrCounts.push(mrSessions.filter(s=>{
+                    if(!s.timestamp) return false;
+                    const sd = new Date(s.timestamp).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'/');
+                    return sd===thDate;
+                }).length);
             }
             if(trendChartInstance) trendChartInstance.destroy();
             trendChartInstance = new Chart(canvas, {
-                type:'bar', data:{labels:days,datasets:[{label:'sessions',data:counts,backgroundColor:'rgba(59,130,246,0.12)',borderColor:'#3b82f6',borderWidth:2,borderRadius:8,borderSkipped:false}]},
-                options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}}
+                type:'bar',
+                data:{
+                    labels:days,
+                    datasets:[
+                        {label:'นับสต๊อก',data:stockCounts,backgroundColor:'rgba(59,130,246,0.15)',borderColor:'#3b82f6',borderWidth:2,borderRadius:6,borderSkipped:false},
+                        {label:'GR รับสินค้า',data:grCounts,backgroundColor:'rgba(16,185,129,0.15)',borderColor:'#10b981',borderWidth:2,borderRadius:6,borderSkipped:false},
+                        {label:'MR ใบเบิก',data:mrCounts,backgroundColor:'rgba(245,158,11,0.15)',borderColor:'#f59e0b',borderWidth:2,borderRadius:6,borderSkipped:false},
+                    ]
+                },
+                options:{
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:10},padding:12}}},
+                    scales:{
+                        y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'#f1f5f9'}},
+                        x:{grid:{display:false},ticks:{font:{size:10}}}
+                    }
+                }
             });
         }
 
