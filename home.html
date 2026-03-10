@@ -153,10 +153,10 @@
            DASHBOARD v3 — TTGPlus Modern Layout
            TOP: Greeting Banner
            KPI: 4 Cards Row
-           MIDDLE: Alert | Activity | Quick Actions (3-col)
+           MIDDLE: Alert | Activity | Quick Actions (3-col, stretch)
            BOTTOM: Chart
         ══════════════════════════════════════════ */
-        .dash-wrap { padding: 24px 28px; max-width: 1280px; }
+        .dash-wrap { padding: 24px 28px; }
         @media (max-width: 768px) { .dash-wrap { padding: 56px 12px 20px; } }
 
         /* ── GREETING BANNER ── */
@@ -254,16 +254,16 @@
         .dash-kpi-val { font-size: 32px; font-weight: 900; line-height: 1; margin-bottom: 5px; font-family: 'Prompt', sans-serif; }
         .dash-kpi-sub { font-size: 10px; color: #b0bec5; }
 
-        /* ── MIDDLE ROW: 3 columns ── */
+        /* ── MIDDLE ROW: 3 columns — stretch เต็มความสูง ── */
         .dash-middle {
             display: grid;
-            grid-template-columns: 1fr 1.4fr 1.1fr;
+            grid-template-columns: 1fr 1.5fr 1fr;
             gap: 14px;
             margin-bottom: 16px;
-            align-items: start;
+            align-items: stretch;   /* ← ทุก panel สูงเท่ากัน */
         }
-        @media (max-width: 1000px) { .dash-middle { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 768px) { .dash-middle { grid-template-columns: 1fr; } }
+        @media (max-width: 1100px) { .dash-middle { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 768px)  { .dash-middle { grid-template-columns: 1fr; } }
 
         .dash-panel {
             background: white;
@@ -271,6 +271,8 @@
             border: 1px solid #eef1f6;
             padding: 18px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
         }
         .dash-panel-title {
             font-size: 10px;
@@ -282,8 +284,17 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            flex-shrink: 0;
         }
         .dash-panel-title span { font-size: 14px; }
+
+        /* panel--activity ให้ content scroll แทน panel สูงขึ้นเรื่อยๆ */
+        .dash-panel--activity .dash-activity-scroll {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .dash-panel--alert { justify-content: flex-start; }
 
         /* Alert items */
         .dash-alert-item {
@@ -336,41 +347,55 @@
         .dash-activity-title { font-weight: 700; font-size: 11px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dash-activity-sub { font-size: 10px; color: #94a3b8; margin-top: 1px; }
 
-        /* ── QUICK ACTIONS (inside panel, 2-col grid) ── */
+        /* ══ QUICK ACTIONS — Modern horizontal-card style ══ */
         .dash-actions {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-        }
-        .dash-action-btn {
             display: flex;
             flex-direction: column;
+            gap: 7px;
+            flex: 1;
+        }
+        /* ปุ่มแบบ horizontal: icon ซ้าย + text ขวา */
+        .dash-action-btn {
+            display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 5px;
-            padding: 14px 8px 12px;
+            gap: 11px;
+            padding: 10px 14px;
             border: none;
-            border-radius: 14px;
+            border-radius: 12px;
             cursor: pointer;
             font-family: inherit;
-            text-align: center;
+            text-align: left;
             transition: transform .15s, box-shadow .15s, filter .15s;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-            min-height: 68px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
             position: relative;
             overflow: hidden;
         }
-        .dash-action-btn::after {
+        /* shimmer highlight on top edge */
+        .dash-action-btn::before {
             content: '';
             position: absolute;
-            inset: 0;
-            background: rgba(255,255,255,0);
-            transition: background .15s;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: rgba(255,255,255,0.35);
+            border-radius: 12px 12px 0 0;
         }
-        .dash-action-btn:hover { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,0.16); filter: brightness(1.08); }
-        .dash-action-btn:active { transform: translateY(0); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
-        .dash-action-btn .d-icon { font-size: 20px; line-height: 1; position: relative; z-index: 1; }
-        .dash-action-btn .d-label { font-size: 10px; font-weight: 700; color: white; line-height: 1.2; position: relative; z-index: 1; }
+        .dash-action-btn:hover { transform: translateX(3px); box-shadow: 0 4px 14px rgba(0,0,0,0.18); filter: brightness(1.07); }
+        .dash-action-btn:active { transform: translateX(0); filter: brightness(0.95); }
+
+        /* icon badge */
+        .d-icon-wrap {
+            width: 34px; height: 34px;
+            border-radius: 9px;
+            background: rgba(255,255,255,0.18);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px;
+            flex-shrink: 0;
+            backdrop-filter: blur(4px);
+        }
+        .d-text { flex: 1; min-width: 0; }
+        .d-label { font-size: 11px; font-weight: 700; color: white; line-height: 1.2; }
+        .d-sub   { font-size: 9px; color: rgba(255,255,255,0.55); margin-top: 1px; }
+        .d-arrow { font-size: 12px; color: rgba(255,255,255,0.4); flex-shrink: 0; }
 
         /* ── CHART SECTION ── */
         .dash-chart-section {
@@ -404,7 +429,7 @@
         /* KPI alias for list mode (BT) */
         .dash-kpi-list { display: flex; flex-direction: column; gap: 8px; }
 
-        /* ── QUICK ACTIONS (bottom - kept for BT / legacy) ── */
+        /* ── QUICK ACTIONS (bottom - legacy/BT) ── */
         .dash-quick-actions {
             background: white;
             border-radius: 16px;
@@ -545,9 +570,11 @@
                         <div id="dashAlertList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังตรวจสอบ...</p></div>
                     </div>
                     <!-- Activity Panel -->
-                    <div class="dash-panel dash-panel--activity" style="overflow-y:auto;max-height:320px;">
+                    <div class="dash-panel dash-panel--activity">
                         <div class="dash-panel-title"><span>📜</span> กิจกรรมล่าสุด</div>
-                        <div id="dashRecentList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังโหลด...</p></div>
+                        <div class="dash-activity-scroll">
+                            <div id="dashRecentList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังโหลด...</p></div>
+                        </div>
                     </div>
                     <!-- Quick Actions Panel -->
                     <div class="dash-panel dash-panel--actions">
@@ -802,20 +829,20 @@
             const isBT    = currentUser?.username?.toUpperCase().startsWith('BT');
             const isAdmin = currentUser?.role === 'admin';
 
-            // ── Quick Action buttons ──
+            // ── Quick Action buttons — Modern horizontal card ──
             const actions = [
-                {icon:'📅', label:'นับสิ้นเดือน', fn:'tryOpenMonthlyCount()',      tool:'monthly-count', color:'linear-gradient(135deg,#1e40af,#2563eb)', show:true},
-                {icon:'📋', label:'Stock Card',    fn:'openDailyStockCard()',       tool:'daily-stock',   color:'linear-gradient(135deg,#0891b2,#06b6d4)', show:true},
-                {icon:'🎲', label:'ทดลองนับ',      fn:'openRandomSKUCount()',       tool:'',              color:'linear-gradient(135deg,#6d28d9,#7c3aed)', show:true},
-                {icon:'📊', label:'ผลทดลองนับ',    fn:'openPilotHistory()',         tool:'',              color:'linear-gradient(135deg,#5b21b6,#7c3aed)', show:true},
-                {icon:'🚚', label:'รับสินค้า GR',  fn:'openCreateGR()',             tool:'gr',            color:'linear-gradient(135deg,#047857,#059669)', show:!isBT},
-                {icon:'📝', label:'ใบเบิกสินค้า',  fn:'openPendingRequisitions()',  tool:'pending-req',   color:'linear-gradient(135deg,#b45309,#d97706)', show:!isBT},
-                {icon:'🔍', label:'QC Check',      fn:'openQCCheck()',              tool:'qc',            color:'linear-gradient(135deg,#6d28d9,#8b5cf6)', show:!isBT},
-                {icon:'🏷️', label:'ทะเบียน Lot',   fn:'openLotRegister()',          tool:'lot-register',  color:'linear-gradient(135deg,#b91c1c,#dc2626)', show:!isBT},
-                {icon:'📦', label:'นับสต๊อก',      fn:'openCentralStock()',         tool:'stock',         color:'linear-gradient(135deg,#1e293b,#334155)', show:isAdmin},
-                {icon:'📈', label:'รายงาน',        fn:'openStockSummary()',         tool:'stock-summary', color:'linear-gradient(135deg,#0c4a6e,#0369a1)', show:isAdmin},
-                {icon:'⚙️', label:'ตั้งค่า',        fn:'openWarehouseManager()',     tool:'warehouse-mgr', color:'linear-gradient(135deg,#374151,#4b5563)', show:isAdmin},
-                {icon:'🏷️', label:'ทรัพย์สิน',     fn:'openAssetManagement()',      tool:'asset-registry',color:'linear-gradient(135deg,#92400e,#d97706)', show:true},
+                {icon:'📅', label:'นับสิ้นเดือน',  sub:'Monthly Count',  fn:'tryOpenMonthlyCount()',     tool:'monthly-count', color:'linear-gradient(135deg,#1e3a8a,#2563eb)', show:true},
+                {icon:'📋', label:'Stock Card',      sub:'Daily Report',   fn:'openDailyStockCard()',      tool:'daily-stock',   color:'linear-gradient(135deg,#0c4a6e,#0891b2)', show:true},
+                {icon:'🎲', label:'ทดลองนับ',        sub:'Pilot Count',    fn:'openRandomSKUCount()',      tool:'',              color:'linear-gradient(135deg,#4c1d95,#7c3aed)', show:true},
+                {icon:'📊', label:'ผลทดลองนับ',      sub:'Pilot History',  fn:'openPilotHistory()',        tool:'',              color:'linear-gradient(135deg,#3b0764,#6d28d9)', show:true},
+                {icon:'🚚', label:'รับสินค้า GR',    sub:'Goods Receipt',  fn:'openCreateGR()',            tool:'gr',            color:'linear-gradient(135deg,#064e3b,#059669)', show:!isBT},
+                {icon:'📝', label:'ใบเบิกสินค้า',    sub:'Requisition',    fn:'openPendingRequisitions()', tool:'pending-req',   color:'linear-gradient(135deg,#78350f,#d97706)', show:!isBT},
+                {icon:'🔍', label:'QC Check',         sub:'Spot Check',     fn:'openQCCheck()',             tool:'qc',            color:'linear-gradient(135deg,#4c1d95,#8b5cf6)', show:!isBT},
+                {icon:'🏷️', label:'ทะเบียน Lot',     sub:'Lot Register',   fn:'openLotRegister()',         tool:'lot-register',  color:'linear-gradient(135deg,#7f1d1d,#dc2626)', show:!isBT},
+                {icon:'📦', label:'นับสต๊อก',         sub:'Stock Count',    fn:'openCentralStock()',        tool:'stock',         color:'linear-gradient(135deg,#0f172a,#334155)', show:isAdmin},
+                {icon:'📈', label:'รายงาน',            sub:'Analytics',      fn:'openStockSummary()',        tool:'stock-summary', color:'linear-gradient(135deg,#0c2a4a,#0369a1)', show:isAdmin},
+                {icon:'⚙️', label:'ตั้งค่า',            sub:'Settings',       fn:'openWarehouseManager()',    tool:'warehouse-mgr', color:'linear-gradient(135deg,#1c1917,#44403c)', show:isAdmin},
+                {icon:'🏷️', label:'ทรัพย์สิน',         sub:'Asset Mgmt',     fn:'openAssetManagement()',     tool:'asset-registry',color:'linear-gradient(135deg,#451a03,#b45309)', show:true},
             ];
             const ar = document.getElementById('dashActionRow');
             if(ar) {
@@ -825,8 +852,12 @@
                         onauxclick="if(event.button===1&&this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
                         oncontextmenu="if(this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
                         style="background:${a.color};">
-                        <div class="d-icon">${a.icon}</div>
-                        <div class="d-label">${a.label}</div>
+                        <div class="d-icon-wrap">${a.icon}</div>
+                        <div class="d-text">
+                            <div class="d-label">${a.label}</div>
+                            <div class="d-sub">${a.sub}</div>
+                        </div>
+                        <div class="d-arrow">›</div>
                     </button>`).join('');
             }
 
