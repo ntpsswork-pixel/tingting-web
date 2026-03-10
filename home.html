@@ -13,17 +13,17 @@
             --sidebar-mid: #1a2540;
             --accent-gold: #f0b429;
             --accent-gold-light: #fde68a;
-            --bg-light: #f4f6fb;
+            --bg-light: #f0f4fa;
             --success: #10b981;
             --danger: #ef4444;
             --info: #3b82f6;
             --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
             --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.1), 0 12px 32px rgba(0,0,0,0.06);
         }
-        body { margin:0; display:flex; font-family:'IBM Plex Sans Thai','Prompt',sans-serif; background:var(--bg-light); min-height:100vh; overflow-x:hidden; color:#1e293b; }
+        body { margin:0; display:flex; font-family:'IBM Plex Sans Thai','Prompt',sans-serif; background:linear-gradient(160deg, #eef2fa 0%, #f0f4fb 50%, #edf1f8 100%); min-height:100vh; overflow-x:hidden; color:#1e293b; }
 
         /* ── SIDEBAR ── */
-        .sidebar { width:var(--sidebar-width); height:100vh; background:var(--primary-dark); color:white; position:fixed; left:0; top:0; z-index:1000; display:flex; flex-direction:column; box-shadow:4px 0 24px rgba(0,0,0,0.15); }
+        .sidebar { width:var(--sidebar-width); height:100vh; background:linear-gradient(180deg, #0d1626 0%, #0f1e3a 60%, #0f172a 100%); color:white; position:fixed; left:0; top:0; z-index:1000; display:flex; flex-direction:column; box-shadow:4px 0 32px rgba(0,0,0,0.2); }
         .sidebar-brand { padding:0; border-bottom:1px solid rgba(255,255,255,0.07); }
         .sidebar-brand-inner { padding:22px 24px; display:flex; align-items:center; gap:12px; }
         .sidebar-logo { width:38px; height:38px; background:linear-gradient(135deg,var(--accent-gold),#d97706); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:900; color:#0f172a; letter-spacing:-1px; flex-shrink:0; box-shadow:0 4px 12px rgba(240,180,41,0.3); }
@@ -39,9 +39,9 @@
 
         .nav-links { flex:1; padding:8px 10px; overflow-y:auto; }
         .nav-links::-webkit-scrollbar { width:0; }
-        .nav-item { padding:10px 14px; cursor:pointer; border-radius:9px; margin-bottom:2px; transition:all 0.2s; display:flex; align-items:center; gap:10px; color:#94a3b8; font-size:13px; font-weight:500; }
-        .nav-item:hover { background:rgba(255,255,255,0.06); color:white; }
-        .nav-item.active { background:linear-gradient(135deg,rgba(240,180,41,0.2),rgba(240,180,41,0.1)); color:var(--accent-gold); font-weight:600; border-left:3px solid var(--accent-gold); }
+        .nav-item { padding:10px 14px; cursor:pointer; border-radius:10px; margin-bottom:3px; transition:all 0.2s; display:flex; align-items:center; gap:10px; color:#94a3b8; font-size:13px; font-weight:500; }
+        .nav-item:hover { background:rgba(255,255,255,0.07); color:white; transform:translateX(2px); }
+        .nav-item.active { background:linear-gradient(135deg,rgba(240,180,41,0.22),rgba(240,180,41,0.08)); color:var(--accent-gold); font-weight:600; border-left:3px solid var(--accent-gold); padding-left:11px; }
         .submenu { padding-left:14px; display:none; margin:2px 0 6px 10px; border-left:1px solid #1e3a5f; }
         .submenu div { padding:7px 12px; font-size:12px; color:#64748b; cursor:pointer; border-radius:7px; transition:all 0.15s; }
         .submenu div:hover { color:white; background:rgba(255,255,255,0.05); }
@@ -150,69 +150,72 @@
     </style>
     <style>
         /* ══════════════════════════════════════════
-           DASHBOARD v2 — TTGPlus New Layout
+           DASHBOARD v3 — TTGPlus Modern Layout
            TOP: Greeting Banner
            KPI: 4 Cards Row
-           MIDDLE: Alert + Activity (2 col)
+           MIDDLE: Alert | Activity | Quick Actions (3-col)
            BOTTOM: Chart
-           END: Quick Actions
         ══════════════════════════════════════════ */
-        .dash-wrap { padding: 24px 28px; max-width: 1200px; }
+        .dash-wrap { padding: 24px 28px; max-width: 1280px; }
         @media (max-width: 768px) { .dash-wrap { padding: 56px 12px 20px; } }
 
         /* ── GREETING BANNER ── */
         .dash-greeting-banner {
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e40af 100%);
-            border-radius: 18px;
-            padding: 22px 28px;
-            margin-bottom: 20px;
+            background: linear-gradient(135deg, #0f172a 0%, #1a2f55 55%, #1d4ed8 100%);
+            border-radius: 20px;
+            padding: 24px 32px;
+            margin-bottom: 18px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 16px;
-            box-shadow: 0 4px 24px rgba(15,23,42,0.18);
+            box-shadow: 0 8px 32px rgba(15,23,42,0.22);
             position: relative;
             overflow: hidden;
         }
         .dash-greeting-banner::before {
             content: '';
             position: absolute;
-            right: -30px; top: -30px;
-            width: 160px; height: 160px;
+            right: -40px; top: -40px;
+            width: 200px; height: 200px;
             border-radius: 50%;
-            background: rgba(240,180,41,0.08);
+            background: radial-gradient(circle, rgba(240,180,41,0.12) 0%, transparent 70%);
         }
         .dash-greeting-banner::after {
             content: '';
             position: absolute;
-            right: 60px; bottom: -50px;
-            width: 120px; height: 120px;
+            left: 30%; bottom: -60px;
+            width: 180px; height: 180px;
             border-radius: 50%;
-            background: rgba(59,130,246,0.1);
+            background: radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%);
         }
         .dash-greeting-left h2 {
-            margin: 0 0 4px;
-            font-size: 20px;
+            margin: 0 0 5px;
+            font-size: 22px;
             font-weight: 800;
             color: white;
             font-family: 'Prompt', sans-serif;
             line-height: 1.2;
+            position: relative; z-index: 1;
         }
         .dash-greeting-left p {
             margin: 0;
             font-size: 12px;
-            color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.45);
+            position: relative; z-index: 1;
         }
         .dash-greeting-date {
-            background: rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.07);
             border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 12px;
-            padding: 10px 16px;
-            text-align: right;
+            border-radius: 14px;
+            padding: 12px 20px;
+            text-align: center;
             flex-shrink: 0;
+            backdrop-filter: blur(8px);
+            position: relative; z-index: 1;
         }
-        .dash-greeting-date .date-big { font-size: 13px; font-weight: 700; color: var(--accent-gold); }
-        .dash-greeting-date .date-sub { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+        .dash-greeting-date .date-big { font-size: 14px; font-weight: 700; color: var(--accent-gold); letter-spacing: 0.3px; }
+        .dash-greeting-date .date-sub { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 3px; letter-spacing: 1px; text-transform: uppercase; }
 
         /* ── KPI ROW (4 cards horizontal) ── */
         .dash-kpi-row {
@@ -226,160 +229,189 @@
 
         .dash-kpi-card {
             background: white;
-            border-radius: 14px;
-            padding: 16px 18px;
-            border: 1px solid #e8ecf0;
+            border-radius: 16px;
+            padding: 18px 20px;
+            border: 1px solid #eef1f6;
             border-top: 3px solid var(--info);
             cursor: pointer;
-            transition: box-shadow .2s, transform .15s;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            transition: box-shadow .2s, transform .18s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             position: relative;
             overflow: hidden;
         }
         .dash-kpi-card::after {
             content: attr(data-icon);
             position: absolute;
-            right: 12px;
-            top: 12px;
-            font-size: 28px;
-            opacity: 0.12;
+            right: 14px;
+            bottom: 10px;
+            font-size: 34px;
+            opacity: 0.08;
+            line-height: 1;
+            pointer-events: none;
         }
-        .dash-kpi-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.09); transform: translateY(-2px); }
-        .dash-kpi-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
-        .dash-kpi-val { font-size: 28px; font-weight: 900; line-height: 1; margin-bottom: 4px; font-family: 'Prompt', sans-serif; }
-        .dash-kpi-sub { font-size: 10px; color: #cbd5e1; }
+        .dash-kpi-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.1); transform: translateY(-3px); }
+        .dash-kpi-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 8px; }
+        .dash-kpi-val { font-size: 32px; font-weight: 900; line-height: 1; margin-bottom: 5px; font-family: 'Prompt', sans-serif; }
+        .dash-kpi-sub { font-size: 10px; color: #b0bec5; }
 
-        /* ── MIDDLE ROW: Alert + Activity ── */
+        /* ── MIDDLE ROW: 3 columns ── */
         .dash-middle {
             display: grid;
-            grid-template-columns: 1fr 1.6fr;
+            grid-template-columns: 1fr 1.4fr 1.1fr;
             gap: 14px;
             margin-bottom: 16px;
+            align-items: start;
         }
+        @media (max-width: 1000px) { .dash-middle { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 768px) { .dash-middle { grid-template-columns: 1fr; } }
 
         .dash-panel {
             background: white;
-            border-radius: 14px;
-            border: 1px solid #e8ecf0;
-            padding: 16px 18px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            border-radius: 16px;
+            border: 1px solid #eef1f6;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
         .dash-panel-title {
             font-size: 10px;
             font-weight: 700;
             color: #94a3b8;
             text-transform: uppercase;
-            letter-spacing: .7px;
-            margin-bottom: 12px;
+            letter-spacing: .8px;
+            margin-bottom: 14px;
             display: flex;
             align-items: center;
             gap: 6px;
         }
-        .dash-panel-title span { font-size: 13px; }
+        .dash-panel-title span { font-size: 14px; }
 
         /* Alert items */
         .dash-alert-item {
             display: flex;
             align-items: flex-start;
             gap: 10px;
-            padding: 9px 10px;
-            border-radius: 10px;
-            margin-bottom: 6px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
             cursor: pointer;
-            transition: background .15s;
+            transition: all .15s;
             border: 1px solid transparent;
         }
-        .dash-alert-item:hover { background: #f8fafc; border-color: #e8ecf0; }
+        .dash-alert-item:hover { filter: brightness(0.97); transform: translateX(2px); }
         .dash-alert-item:last-child { margin-bottom: 0; }
         .dash-alert-icon {
-            width: 32px; height: 32px;
-            border-radius: 8px;
+            width: 34px; height: 34px;
+            border-radius: 10px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 14px;
+            font-size: 15px;
             flex-shrink: 0;
         }
         .dash-alert-text { flex: 1; min-width: 0; }
-        .dash-alert-title { font-size: 12px; font-weight: 700; color: #1e293b; }
-        .dash-alert-sub { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+        .dash-alert-title { font-size: 12px; font-weight: 700; }
+        .dash-alert-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; line-height: 1.4; }
         .dash-alert-badge {
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 800;
-            padding: 2px 8px;
+            padding: 3px 8px;
             border-radius: 20px;
             flex-shrink: 0;
-            align-self: center;
+            align-self: flex-start;
+            margin-top: 2px;
         }
 
         /* Activity list */
         .dash-activity-item {
-            display: flex; align-items: center; gap: 9px;
-            padding: 7px 0;
-            border-bottom: 1px solid #f1f5f9;
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f4f6fa;
         }
         .dash-activity-item:last-child { border-bottom: none; }
         .dash-activity-dot {
-            width: 30px; height: 30px;
-            border-radius: 9px;
+            width: 32px; height: 32px;
+            border-radius: 10px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 12px;
+            font-size: 13px;
             flex-shrink: 0;
         }
         .dash-activity-title { font-weight: 700; font-size: 11px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .dash-activity-sub { font-size: 10px; color: #94a3b8; }
+        .dash-activity-sub { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+
+        /* ── QUICK ACTIONS (inside panel, 2-col grid) ── */
+        .dash-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .dash-action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 14px 8px 12px;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            font-family: inherit;
+            text-align: center;
+            transition: transform .15s, box-shadow .15s, filter .15s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+            min-height: 68px;
+            position: relative;
+            overflow: hidden;
+        }
+        .dash-action-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0);
+            transition: background .15s;
+        }
+        .dash-action-btn:hover { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,0.16); filter: brightness(1.08); }
+        .dash-action-btn:active { transform: translateY(0); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+        .dash-action-btn .d-icon { font-size: 20px; line-height: 1; position: relative; z-index: 1; }
+        .dash-action-btn .d-label { font-size: 10px; font-weight: 700; color: white; line-height: 1.2; position: relative; z-index: 1; }
 
         /* ── CHART SECTION ── */
         .dash-chart-section {
             background: white;
-            border-radius: 14px;
-            border: 1px solid #e8ecf0;
-            padding: 18px 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            border-radius: 16px;
+            border: 1px solid #eef1f6;
+            padding: 20px 22px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
         .dash-chart-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 14px;
+            margin-bottom: 16px;
         }
         .dash-chart-title {
             font-size: 10px;
             font-weight: 700;
             color: #94a3b8;
             text-transform: uppercase;
-            letter-spacing: .7px;
+            letter-spacing: .8px;
         }
         .dash-chart-legend {
             display: flex;
-            gap: 12px;
+            gap: 14px;
             font-size: 10px;
             color: #94a3b8;
         }
-        .dash-chart-legend span::before {
-            content: '●';
-            margin-right: 4px;
-        }
-
-        /* ── QUICK ACTIONS (bottom) ── */
-        .dash-quick-actions {
-            background: white;
-            border-radius: 14px;
-            border: 1px solid #e8ecf0;
-            padding: 16px 18px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-        }
-        .dash-actions {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 10px;
-            margin-top: 12px;
-        }
-        @media (max-width: 900px) { .dash-actions { grid-template-columns: repeat(4, 1fr); } }
-        @media (max-width: 480px) { .dash-actions { grid-template-columns: repeat(3, 1fr); gap: 8px; } }
+        .dash-chart-legend span::before { content: '●'; margin-right: 4px; }
 
         /* KPI alias for list mode (BT) */
         .dash-kpi-list { display: flex; flex-direction: column; gap: 8px; }
+
+        /* ── QUICK ACTIONS (bottom - kept for BT / legacy) ── */
+        .dash-quick-actions {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #eef1f6;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
 
         /* Legacy compat */
         .dash-top { display: none !important; }
@@ -505,22 +537,27 @@
                 <!-- ══ KPI SUMMARY (4 cards) ══ -->
                 <div id="dashKpiRow" class="dash-kpi-row"></div>
 
-                <!-- ══ MIDDLE: Alert + Activity ══ -->
+                <!-- ══ MIDDLE: Alert | Activity | Quick Actions ══ -->
                 <div class="dash-middle">
                     <!-- Alert Panel -->
-                    <div class="dash-panel">
+                    <div class="dash-panel dash-panel--alert">
                         <div class="dash-panel-title"><span>🚨</span> แจ้งเตือนสำคัญ</div>
                         <div id="dashAlertList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังตรวจสอบ...</p></div>
                     </div>
                     <!-- Activity Panel -->
-                    <div class="dash-panel" style="overflow-y:auto;max-height:300px;">
+                    <div class="dash-panel dash-panel--activity" style="overflow-y:auto;max-height:320px;">
                         <div class="dash-panel-title"><span>📜</span> กิจกรรมล่าสุด</div>
                         <div id="dashRecentList"><p style="color:#94a3b8;font-size:12px;margin:0;">กำลังโหลด...</p></div>
+                    </div>
+                    <!-- Quick Actions Panel -->
+                    <div class="dash-panel dash-panel--actions">
+                        <div class="dash-panel-title"><span>⚡</span> Quick Actions</div>
+                        <div id="dashActionRow" class="dash-actions"></div>
                     </div>
                 </div>
 
                 <!-- ══ CHART ══ -->
-                <div class="dash-chart-section">
+                <div class="dash-chart-section" style="margin-bottom:0;">
                     <div class="dash-chart-header">
                         <div class="dash-chart-title">📈 Trend การใช้งานระบบ 7 วัน</div>
                         <div class="dash-chart-legend">
@@ -530,12 +567,6 @@
                         </div>
                     </div>
                     <div class="chart-wrap" style="height:180px;"><canvas id="trendChart" height="180"></canvas></div>
-                </div>
-
-                <!-- ══ QUICK ACTIONS (bottom) ══ -->
-                <div class="dash-quick-actions">
-                    <div class="dash-panel-title"><span>⚡</span> Quick Actions</div>
-                    <div id="dashActionRow" class="dash-actions"></div>
                 </div>
 
                 <!-- Legacy hidden IDs (backward compat) -->
@@ -773,31 +804,29 @@
 
             // ── Quick Action buttons ──
             const actions = [
-                {icon:'📅', label:'นับสิ้นเดือน', fn:'tryOpenMonthlyCount()',      tool:'monthly-count', color:'#1e40af', show:true},
-                {icon:'📋', label:'Stock Card',    fn:'openDailyStockCard()',       tool:'daily-stock',   color:'#0891b2', show:true},
-                {icon:'🎲', label:'ทดลองนับ',      fn:'openRandomSKUCount()',       tool:'',              color:'#7c3aed', show:true},
-                {icon:'📊', label:'ผลทดลองนับ',    fn:'openPilotHistory()',         tool:'',              color:'#5b21b6', show:true},
-                {icon:'🚚', label:'รับสินค้า GR',  fn:'openCreateGR()',             tool:'gr',            color:'#059669', show:!isBT},
-                {icon:'📝', label:'ใบเบิกสินค้า',  fn:'openPendingRequisitions()',  tool:'pending-req',   color:'#d97706', show:!isBT},
-                {icon:'🔍', label:'QC Check',      fn:'openQCCheck()',              tool:'qc',            color:'#7c3aed', show:!isBT},
-                {icon:'🏷️', label:'ทะเบียน Lot',   fn:'openLotRegister()',          tool:'lot-register',  color:'#dc2626', show:!isBT},
-                {icon:'📦', label:'นับสต๊อก',      fn:'openCentralStock()',         tool:'stock',         color:'#334155', show:isAdmin},
-                {icon:'📈', label:'รายงาน',        fn:'openStockSummary()',         tool:'stock-summary', color:'#0369a1', show:isAdmin},
-                {icon:'⚙️', label:'ตั้งค่า',        fn:'openWarehouseManager()',     tool:'warehouse-mgr', color:'#475569', show:isAdmin},
-                {icon:'🏷️', label:'ทรัพย์สิน',     fn:'openAssetManagement()',      tool:'asset-registry',color:'#d97706', show:true},
+                {icon:'📅', label:'นับสิ้นเดือน', fn:'tryOpenMonthlyCount()',      tool:'monthly-count', color:'linear-gradient(135deg,#1e40af,#2563eb)', show:true},
+                {icon:'📋', label:'Stock Card',    fn:'openDailyStockCard()',       tool:'daily-stock',   color:'linear-gradient(135deg,#0891b2,#06b6d4)', show:true},
+                {icon:'🎲', label:'ทดลองนับ',      fn:'openRandomSKUCount()',       tool:'',              color:'linear-gradient(135deg,#6d28d9,#7c3aed)', show:true},
+                {icon:'📊', label:'ผลทดลองนับ',    fn:'openPilotHistory()',         tool:'',              color:'linear-gradient(135deg,#5b21b6,#7c3aed)', show:true},
+                {icon:'🚚', label:'รับสินค้า GR',  fn:'openCreateGR()',             tool:'gr',            color:'linear-gradient(135deg,#047857,#059669)', show:!isBT},
+                {icon:'📝', label:'ใบเบิกสินค้า',  fn:'openPendingRequisitions()',  tool:'pending-req',   color:'linear-gradient(135deg,#b45309,#d97706)', show:!isBT},
+                {icon:'🔍', label:'QC Check',      fn:'openQCCheck()',              tool:'qc',            color:'linear-gradient(135deg,#6d28d9,#8b5cf6)', show:!isBT},
+                {icon:'🏷️', label:'ทะเบียน Lot',   fn:'openLotRegister()',          tool:'lot-register',  color:'linear-gradient(135deg,#b91c1c,#dc2626)', show:!isBT},
+                {icon:'📦', label:'นับสต๊อก',      fn:'openCentralStock()',         tool:'stock',         color:'linear-gradient(135deg,#1e293b,#334155)', show:isAdmin},
+                {icon:'📈', label:'รายงาน',        fn:'openStockSummary()',         tool:'stock-summary', color:'linear-gradient(135deg,#0c4a6e,#0369a1)', show:isAdmin},
+                {icon:'⚙️', label:'ตั้งค่า',        fn:'openWarehouseManager()',     tool:'warehouse-mgr', color:'linear-gradient(135deg,#374151,#4b5563)', show:isAdmin},
+                {icon:'🏷️', label:'ทรัพย์สิน',     fn:'openAssetManagement()',      tool:'asset-registry',color:'linear-gradient(135deg,#92400e,#d97706)', show:true},
             ];
             const ar = document.getElementById('dashActionRow');
             if(ar) {
                 const visible = actions.filter(a=>a.show);
-                const cols = isBT ? 3 : Math.min(6, visible.length);
-                ar.style.gridTemplateColumns = `repeat(${cols},1fr)`;
                 ar.innerHTML = visible.map(a=>`
-                    <button onclick="${a.fn}" data-tool="${a.tool||''}"
+                    <button class="dash-action-btn" onclick="${a.fn}" data-tool="${a.tool||''}"
                         onauxclick="if(event.button===1&&this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
                         oncontextmenu="if(this.dataset.tool){event.preventDefault();window.open('home.html?tool='+this.dataset.tool,'_blank');}"
-                        style="background:${a.color};color:white;border:none;border-radius:12px;padding:14px 6px 12px;cursor:pointer;font-family:inherit;text-align:center;transition:filter .15s, transform .15s;box-shadow:0 2px 8px rgba(0,0,0,0.12);" onmouseover="this.style.filter='brightness(1.12)';this.style.transform='translateY(-2px)'" onmouseout="this.style.filter='';this.style.transform=''">
-                        <div style="font-size:20px;margin-bottom:4px;">${a.icon}</div>
-                        <div style="font-size:10px;font-weight:700;line-height:1.2;">${a.label}</div>
+                        style="background:${a.color};">
+                        <div class="d-icon">${a.icon}</div>
+                        <div class="d-label">${a.label}</div>
                     </button>`).join('');
             }
 
@@ -826,7 +855,10 @@
             ];
             row.innerHTML = defs.map(k=>`
                 <div id="${k.id}_card" onclick="${k.fn}" class="dash-kpi-card" data-icon="${k.icon}" style="border-top-color:${k.color};">
-                    <div class="dash-kpi-label">${k.icon} ${k.label}</div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <div style="width:30px;height:30px;border-radius:8px;background:${k.color}18;display:flex;align-items:center;justify-content:center;font-size:14px;">${k.icon.split(' ')[0]}</div>
+                        <div class="dash-kpi-label" style="margin:0;">${k.label}</div>
+                    </div>
                     <div class="dash-kpi-val" style="color:${k.color};" id="${k.id}_val">—</div>
                     <div class="dash-kpi-sub" id="${k.id}_sub">กำลังโหลด...</div>
                 </div>`).join('');
