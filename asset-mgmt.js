@@ -1879,44 +1879,43 @@ window._repairOpenDetail = async function(repairId) {
 window._repairPrint = function(repairId) {
     const card = document.getElementById('repairDetailCard');
     if (!card) return;
+    const repNo   = card.dataset.repno   || repairId;
+    const repDate = card.dataset.repdate || '';
+    const repAsset= card.dataset.repasset|| '';
+    const assetLine = repAsset
+        ? '<div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;">' + repAsset + '</div>'
+        : '';
+    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+        + '<title>ใบแจ้งซ่อมทรัพย์สิน ' + repNo + '</title>'
+        + '<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">'
+        + '<style>'
+        + '* { box-sizing:border-box; margin:0; padding:0; }'
+        + 'body { font-family:Prompt,sans-serif; padding:0; color:#1e293b; font-size:12px; background:white; }'
+        + '.ph { background:#0f172a; color:white; padding:14px 24px; display:flex; justify-content:space-between; align-items:center; }'
+        + '.ph-l { display:flex; flex-direction:column; gap:3px; }'
+        + '.ph-org { font-size:10px; color:rgba(255,255,255,.5); letter-spacing:1.5px; text-transform:uppercase; }'
+        + '.ph-title { font-size:16px; font-weight:800; }'
+        + '.ph-r { text-align:right; }'
+        + '.ph-no { font-size:15px; font-weight:900; font-family:monospace; color:#f0b429; }'
+        + '.ph-date { font-size:10px; color:rgba(255,255,255,.5); margin-top:3px; }'
+        + '@media print { button{display:none!important;} .ph{-webkit-print-color-adjust:exact;print-color-adjust:exact;} }'
+        + '</style></head><body>'
+        + '<div class="ph">'
+        +   '<div class="ph-l">'
+        +     '<div class="ph-org">TTGPlus Management System</div>'
+        +     '<div class="ph-title">ใบแจ้งซ่อมทรัพย์สิน / Asset Repair Request</div>'
+        +     assetLine
+        +   '</div>'
+        +   '<div class="ph-r">'
+        +     '<div class="ph-no">' + repNo + '</div>'
+        +     '<div class="ph-date">' + repDate + '</div>'
+        +   '</div>'
+        + '</div>'
+        + card.outerHTML
+        + '<scr' + 'ipt>window.onload=()=>window.print();</scr' + 'ipt>'
+        + '</body></html>';
     const w = window.open('','_blank','width=900,height=700');
-    // ดึงข้อมูลจาก card สำหรับ header ทางการ
-    const repNo  = card.querySelector('[data-repno]')?.dataset?.repno  || repairId;
-    const repDate= card.querySelector('[data-repdate]')?.dataset?.repdate || '';
-    const repAsset=card.querySelector('[data-repasset]')?.dataset?.repasset || '';
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>ใบแจ้งซ่อมทรัพย์สิน ${repNo}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        * { box-sizing:border-box; margin:0; padding:0; }
-        body { font-family:'Prompt',sans-serif; padding:0; color:#1e293b; font-size:12px; background:white; }
-        .print-header { background:#0f172a; color:white; padding:14px 24px; display:flex; justify-content:space-between; align-items:center; }
-        .print-header-left { display:flex; flex-direction:column; gap:3px; }
-        .print-header-org { font-size:10px; color:rgba(255,255,255,.5); letter-spacing:1.5px; text-transform:uppercase; }
-        .print-header-title { font-size:16px; font-weight:800; letter-spacing:.3px; }
-        .print-header-right { text-align:right; }
-        .print-header-no { font-size:15px; font-weight:900; font-family:monospace; color:#f0b429; }
-        .print-header-date { font-size:10px; color:rgba(255,255,255,.5); margin-top:3px; }
-        @media print {
-            body { padding:0; }
-            button { display:none!important; }
-            .print-header { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-        }
-    </style>
-    </head><body>
-    <div class="print-header">
-        <div class="print-header-left">
-            <div class="print-header-org">TTGPlus Management System</div>
-            <div class="print-header-title">ใบแจ้งซ่อมทรัพย์สิน / Asset Repair Request</div>
-            ${repAsset ? \`<div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;">\${repAsset}</div>\` : ''}
-        </div>
-        <div class="print-header-right">
-            <div class="print-header-no">\${repNo}</div>
-            <div class="print-header-date">\${repDate}</div>
-        </div>
-    </div>
-    ${card.outerHTML}
-    <script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.write(html);
     w.document.close();
 };
 
