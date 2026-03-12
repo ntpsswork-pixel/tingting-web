@@ -1193,195 +1193,477 @@ window._exportAuditPDF = async function(roundId) {
 };
 
 // ═════════════════════════════════════════════════════════════════════
-//  TAB 3: REPAIR — แจ้งซ่อม
 // ═════════════════════════════════════════════════════════════════════
+//  TAB 3: REPAIR — ใบแจ้งซ่อม v2 (Approval Workflow)
+//
+//  Flow: คนแจ้ง (any) → หัวหน้าฝ่าย (warehouse/manager/hr)
+//                      → ผู้อนุมัติสุดท้าย (admin)
+//
+//  approval.steps = [
+//    { role:'warehouse', label:'หัวหน้าฝ่าย', approvedBy:null, approvedAt:null, note:'' },
+//    { role:'admin',     label:'ผู้อนุมัติ',   approvedBy:null, approvedAt:null, note:'' },
+//  ]
+//  สถานะ: draft → pending_l1 → pending_l2 → approved → in_progress → done → rejected
+//
+//  รองรับ role เพิ่มได้: แค่ push เข้า REPAIR_APPROVAL_FLOW
+// ═════════════════════════════════════════════════════════════════════
+
+const REPAIR_APPROVAL_FLOW = [
+    { role: 'warehouse', label: 'หัวหน้าฝ่าย' },
+    { role: 'admin',     label: 'ผู้อนุมัติ / ฝ่ายบุคคล' },
+];
+
+const REPAIR_STATUS_CFG = {
+    draft:        { label:'แบบร่าง',         icon:'📝', bg:'#f8fafc', border:'#e2e8f0', color:'#475569' },
+    pending_l1:   { label:'รอหัวหน้าฝ่าย',   icon:'🟡', bg:'#fffbeb', border:'#fde68a', color:'#a16207' },
+    pending_l2:   { label:'รออนุมัติ',        icon:'🟠', bg:'#fff7ed', border:'#fed7aa', color:'#c2410c' },
+    approved:     { label:'อนุมัติแล้ว',      icon:'✅', bg:'#f0fdf4', border:'#a7f3d0', color:'#065f46' },
+    in_progress:  { label:'กำลังซ่อม',        icon:'🔵', bg:'#eff6ff', border:'#bfdbfe', color:'#1d4ed8' },
+    done:         { label:'ซ่อมเสร็จ',        icon:'🟢', bg:'#f0fdf4', border:'#86efac', color:'#15803d' },
+    rejected:     { label:'ไม่อนุมัติ',       icon:'🔴', bg:'#fef2f2', border:'#fecaca', color:'#dc2626' },
+};
+
+// urgency config
+const REPAIR_URGENCY = {
+    urgent_high: { label:'ด่วนมาก', sub:'ภายใน 24 ชม.', icon:'🔴', color:'#dc2626', bg:'#fef2f2', border:'#fca5a5' },
+    urgent:      { label:'ด่วน',    sub:'ภายใน 3 วัน',  icon:'🟡', color:'#d97706', bg:'#fffbeb', border:'#fde68a' },
+    normal:      { label:'ปกติ',    sub:'ภายใน 7 วัน',  icon:'🟢', color:'#059669', bg:'#f0fdf4', border:'#a7f3d0' },
+    scheduled:   { label:'ตามนัด',  sub:'กำหนดวันเอง',  icon:'📅', color:'#6366f1', bg:'#eef2ff', border:'#c7d2fe' },
+};
+
+// helper: role can approve step index
+function _repairCanApprove(stepIndex) {
+    const step = REPAIR_APPROVAL_FLOW[stepIndex];
+    if (!step) return false;
+    const role = currentUser?.role || '';
+    // admin can approve any step; each step also mapped to specific roles
+    if (role === 'admin') return true;
+    return role === step.role;
+}
+
+// helper: which step index is next pending
+function _repairNextStep(r) {
+    const steps = r.approvalSteps || [];
+    for (let i = 0; i < REPAIR_APPROVAL_FLOW.length; i++) {
+        if (!steps[i]?.approvedBy) return i;
+    }
+    return -1; // all approved
+}
+
+// helper: is repair fully approved
+function _repairFullyApproved(r) {
+    return _repairNextStep(r) === -1;
+}
+
+// ── _repairFmtDate ──
+function _repairFmtDate(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    const thYear = d.getFullYear() + 543;
+    return `${d.getDate()} ${['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][d.getMonth()]} ${thYear} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// ── RENDER TAB ──
 function _renderRepair(c) {
-    const isAdmin = currentUser?.role === 'admin';
+    const role = currentUser?.role || '';
+    const canCreate = true; // everyone can create
     c.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-        <div><div style="font-size:15px;font-weight:800;color:#0f172a;">🔧 แจ้งซ่อมทรัพย์สิน</div>
-        <div style="font-size:12px;color:#94a3b8;margin-top:2px;">แจ้งชำรุด → ติดตาม → บันทึกค่าซ่อม</div></div>
-        <button onclick="_openNewRepairForm()" style="background:#d97706;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">+ แจ้งซ่อมใหม่</button>
+        <div>
+            <div style="font-size:15px;font-weight:800;color:#0f172a;">🔧 ใบแจ้งซ่อมทรัพย์สิน</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">คนแจ้ง → หัวหน้าฝ่าย → ผู้อนุมัติ → ซ่อม → เสร็จสิ้น</div>
+        </div>
+        <button onclick="_openNewRepairForm()" style="background:linear-gradient(135deg,#92400e,#d97706);color:white;border:none;padding:9px 18px;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(217,119,6,0.3);">+ แจ้งซ่อมใหม่</button>
     </div>
-    <!-- Filter -->
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-        <select id="repairStatusFilter" onchange="_loadRepairs()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;cursor:pointer;">
-            <option value="">— ทุกสถานะ —</option>
-            <option value="รอดำเนินการ">🟡 รอดำเนินการ</option>
-            <option value="กำลังซ่อม">🔵 กำลังซ่อม</option>
-            <option value="ซ่อมเสร็จ">🟢 ซ่อมเสร็จ</option>
-        </select>
+
+    <!-- Filter tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+        <button onclick="_repairFilterSet(this,'')"          class="rpf-btn rpf-active" data-v="" style="${_rpfBtnStyle(true)}">ทั้งหมด</button>
+        <button onclick="_repairFilterSet(this,'pending_l1')"class="rpf-btn" data-v="pending_l1" style="${_rpfBtnStyle(false)}">🟡 รอหัวหน้า</button>
+        <button onclick="_repairFilterSet(this,'pending_l2')"class="rpf-btn" data-v="pending_l2" style="${_rpfBtnStyle(false)}">🟠 รออนุมัติ</button>
+        <button onclick="_repairFilterSet(this,'approved')"  class="rpf-btn" data-v="approved"   style="${_rpfBtnStyle(false)}">✅ อนุมัติแล้ว</button>
+        <button onclick="_repairFilterSet(this,'in_progress')"class="rpf-btn" data-v="in_progress"style="${_rpfBtnStyle(false)}">🔵 กำลังซ่อม</button>
+        <button onclick="_repairFilterSet(this,'done')"      class="rpf-btn" data-v="done"       style="${_rpfBtnStyle(false)}">🟢 เสร็จแล้ว</button>
+        <button onclick="_repairFilterSet(this,'rejected')"  class="rpf-btn" data-v="rejected"   style="${_rpfBtnStyle(false)}">🔴 ไม่อนุมัติ</button>
     </div>
+
     <div id="repairList" style="min-height:150px;"><div style="text-align:center;padding:40px;color:#94a3b8;">⏳ กำลังโหลด...</div></div>
-    <div id="repairFormArea" style="margin-top:16px;"></div>`;
+    <div id="repairFormArea" style="margin-top:16px;"></div>
+    <div id="repairDetailArea" style="margin-top:16px;"></div>`;
     _loadRepairs();
 }
 
-async function _loadRepairs() {
+function _rpfBtnStyle(active) {
+    return active
+        ? 'background:#0f172a;color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;'
+        : 'background:white;color:#475569;border:1.5px solid #e2e8f0;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;';
+}
+
+window._repairFilterSet = function(btn, val) {
+    document.querySelectorAll('.rpf-btn').forEach(b => b.style.cssText = _rpfBtnStyle(false));
+    btn.style.cssText = _rpfBtnStyle(true);
+    _loadRepairs(val);
+};
+
+// ── LOAD LIST ──
+async function _loadRepairs(statusFilter) {
     await _importFS();
-    const statusFilter = document.getElementById('repairStatusFilter')?.value || '';
+    if (statusFilter === undefined) {
+        const active = document.querySelector('.rpf-btn.rpf-active');
+        statusFilter = active?.dataset?.v || '';
+    }
     let q = _query(_collection(db,'assetRepairs'), _orderBy('createdAt','desc'));
     const snap = await _getDocs(q);
     let repairs = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
-    if (statusFilter) repairs = repairs.filter(r => r.status === statusFilter);
-    // BT users only see their zone
+
+    // BT users see only own zone or own reports
     const isBT = currentUser?.username?.toUpperCase().startsWith('BT') && currentUser?.role !== 'admin';
     const myZone = (currentUser?.assignedZones||[])[0] || '';
     if (isBT) repairs = repairs.filter(r => r.zone === myZone || r.reportedBy === currentUser.name);
 
+    if (statusFilter) repairs = repairs.filter(r => r.status === statusFilter);
+
     const c = document.getElementById('repairList'); if (!c) return;
-    const isAdmin = currentUser?.role === 'admin';
-    if (!repairs.length) { c.innerHTML = `<div style="text-align:center;padding:30px;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:10px;">ไม่มีใบแจ้งซ่อม</div>`; return; }
+    if (!repairs.length) {
+        c.innerHTML = `<div style="text-align:center;padding:30px;color:#94a3b8;border:2px dashed #e2e8f0;border-radius:12px;">ไม่มีใบแจ้งซ่อม</div>`;
+        return;
+    }
 
-    const repairColors = { 'รอดำเนินการ': {bg:'#fffbeb',border:'#fde68a',color:'#a16207',icon:'🟡'}, 'กำลังซ่อม': {bg:'#eff6ff',border:'#bfdbfe',color:'#1d4ed8',icon:'🔵'}, 'ซ่อมเสร็จ': {bg:'#f0fdf4',border:'#a7f3d0',color:'#065f46',icon:'🟢'} };
-
+    const role = currentUser?.role || '';
     c.innerHTML = repairs.map(r => {
-        const st = repairColors[r.status] || repairColors['รอดำเนินการ'];
-        return `<div style="background:white;border-radius:11px;border:1.5px solid ${st.border};padding:16px;margin-bottom:10px;background:${st.bg};">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
-                <div style="display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0;">
-                    ${r.imageUrl ? `<img src="${r.imageUrl}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;border:2px solid ${st.border};">` :
-                        `<div style="width:52px;height:52px;border-radius:8px;background:white;border:2px solid ${st.border};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🔧</div>`}
-                    <div style="min-width:0;">
-                        <div style="font-weight:800;font-size:13px;color:#0f172a;">${r.assetId} — ${r.assetName||''}</div>
-                        <div style="font-size:11px;color:#475569;margin-top:2px;">${r.description||''}</div>
-                        <div style="font-size:10px;color:#94a3b8;margin-top:2px;">แจ้งโดย: ${r.reportedBy} | ${r.dateLabel||''} | Zone: ${r.zone||'—'}</div>
-                        ${r.repairCost ? `<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-top:2px;">ค่าซ่อม: ฿${_fmt(r.repairCost)}</div>` : ''}
-                        ${r.afterImageUrl ? `<div style="margin-top:5px;"><span style="font-size:9px;color:#059669;font-weight:700;">รูปหลังซ่อม:</span> <img src="${r.afterImageUrl}" style="width:36px;height:36px;border-radius:5px;object-fit:cover;vertical-align:middle;"></div>` : ''}
-                    </div>
+        const st = REPAIR_STATUS_CFG[r.status] || REPAIR_STATUS_CFG.pending_l1;
+        const urg = REPAIR_URGENCY[r.urgency] || REPAIR_URGENCY.normal;
+        const nextStep = _repairNextStep(r);
+        const canApproveNow = nextStep >= 0 && _repairCanApprove(nextStep) && ['pending_l1','pending_l2'].includes(r.status);
+        const canUpdate = ['admin','warehouse'].includes(role) && ['approved','in_progress'].includes(r.status);
+        const canReject = ['admin','warehouse'].includes(role) && ['pending_l1','pending_l2'].includes(r.status);
+
+        // approval steps mini-bar
+        const stepsHtml = (REPAIR_APPROVAL_FLOW).map((step, i) => {
+            const done = r.approvalSteps?.[i]?.approvedBy;
+            const isNext = i === nextStep && ['pending_l1','pending_l2'].includes(r.status);
+            const dotColor = done ? '#10b981' : isNext ? '#f59e0b' : '#e2e8f0';
+            const textColor = done ? '#059669' : isNext ? '#d97706' : '#94a3b8';
+            return `<div style="display:flex;align-items:center;gap:4px;">
+                <div style="width:18px;height:18px;border-radius:50%;background:${dotColor};display:flex;align-items:center;justify-content:center;font-size:9px;color:white;font-weight:700;flex-shrink:0;">${done?'✓':(i+1)}</div>
+                <div style="font-size:9px;color:${textColor};font-weight:${done||isNext?'700':'400'};white-space:nowrap;">${step.label}</div>
+                ${i < REPAIR_APPROVAL_FLOW.length-1 ? `<div style="width:16px;height:1px;background:${done?'#10b981':'#e2e8f0'};margin:0 2px;"></div>` : ''}
+            </div>`;
+        }).join('');
+
+        return `
+        <div style="background:white;border-radius:14px;border:1.5px solid ${st.border};padding:0;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+            <!-- header strip -->
+            <div style="background:${st.bg};padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid ${st.border};">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:10px;font-weight:800;color:#0f172a;font-family:monospace;">${r.repairNo||r._id.slice(-6).toUpperCase()}</span>
+                    <span style="background:white;color:${st.color};border:1px solid ${st.border};padding:2px 9px;border-radius:12px;font-size:10px;font-weight:700;">${st.icon} ${st.label}</span>
+                    <span style="background:${urg.bg};color:${urg.color};border:1px solid ${urg.border};padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">${urg.icon} ${urg.label}</span>
                 </div>
-                <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0;">
-                    <span style="background:white;color:${st.color};border:1px solid ${st.border};padding:3px 10px;border-radius:16px;font-size:10px;font-weight:700;">${st.icon} ${r.status}</span>
-                    ${isAdmin ? `<button onclick="_openUpdateRepair('${r._id}')" style="background:#f1f5f9;color:#475569;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;">✏️ อัปเดต</button>` : ''}
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    ${stepsHtml}
+                </div>
+            </div>
+            <!-- body -->
+            <div style="padding:14px 16px;">
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                    ${r.imageUrl ? `<img src="${r.imageUrl}" style="width:56px;height:56px;border-radius:9px;object-fit:cover;flex-shrink:0;border:1.5px solid #e2e8f0;">` :
+                        `<div style="width:56px;height:56px;border-radius:9px;background:#f8fafc;border:1.5px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🔧</div>`}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:2px;">${r.assetId||'—'} — ${r.assetName||''}</div>
+                        <div style="font-size:11px;color:#475569;margin-bottom:4px;line-height:1.4;">${r.description||''}</div>
+                        <div style="font-size:10px;color:#94a3b8;">แจ้งโดย: <b style="color:#475569;">${r.reportedBy}</b> · ${_repairFmtDate(r.createdAt)} · Zone: ${r.zone||'—'}</div>
+                        ${r.repairCost ? `<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-top:3px;">ค่าซ่อม: ฿${_fmt(r.repairCost)}</div>` : ''}
+                    </div>
+                    <!-- action buttons -->
+                    <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
+                        <button onclick="_repairOpenDetail('${r._id}')" style="background:#f1f5f9;color:#475569;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">📄 ดูรายละเอียด</button>
+                        ${canApproveNow ? `<button onclick="_repairApprove('${r._id}',${nextStep})" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">✅ อนุมัติ</button>` : ''}
+                        ${canReject ? `<button onclick="_repairReject('${r._id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">✕ ไม่อนุมัติ</button>` : ''}
+                        ${canUpdate ? `<button onclick="_repairOpenUpdate('${r._id}')" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">✏️ อัปเดต</button>` : ''}
+                    </div>
                 </div>
             </div>
         </div>`;
     }).join('');
 }
 
+// ── NEW REPAIR FORM ──
 window._openNewRepairForm = function(prefillAssetId) {
     const area = document.getElementById('repairFormArea'); if (!area) return;
+    document.getElementById('repairDetailArea').innerHTML = '';
     const assetOptions = _assetsCache.filter(a => a.status !== 'จำหน่ายแล้ว');
+
     area.innerHTML = `
-    <div style="background:white;border-radius:12px;border:2px solid #fde68a;padding:22px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div style="font-size:14px;font-weight:800;color:#a16207;">🔧 แจ้งซ่อมใหม่</div>
-            <button onclick="document.getElementById('repairFormArea').innerHTML=''" style="background:#f1f5f9;color:#475569;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:11px;">✕</button>
+    <div style="background:white;border-radius:14px;border:2px solid #fde68a;padding:22px;box-shadow:0 4px 16px rgba(0,0,0,0.06);">
+        <!-- header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+            <div>
+                <div style="font-size:14px;font-weight:800;color:#a16207;">🔧 สร้างใบแจ้งซ่อมใหม่</div>
+                <div style="font-size:10px;color:#94a3b8;margin-top:2px;">กรอกข้อมูลแล้วกด "ส่งเรื่อง" ระบบจะแจ้งหัวหน้าฝ่ายอัตโนมัติ</div>
+            </div>
+            <button onclick="document.getElementById('repairFormArea').innerHTML=''" style="background:#f1f5f9;color:#475569;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:11px;">✕ ปิด</button>
         </div>
-        <!-- รูปภาพความเสียหาย -->
-        <div style="margin-bottom:14px;">
-            <label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:6px;">📸 รูปความเสียหาย</label>
-            <div style="display:flex;align-items:center;gap:10px;">
-                <div id="repairImgPreview" style="width:70px;height:70px;border-radius:9px;background:#fffbeb;border:2px dashed #fde68a;display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;flex-shrink:0;">🔧</div>
-                <label style="background:#d97706;color:white;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">
-                    📂 แนบรูป<input type="file" id="repairImgInput" accept="image/*" style="display:none"
-                        onchange="(() => { const f=this.files[0]; if(!f) return; const r=new FileReader(); r.onload=e=>{ document.getElementById('repairImgPreview').innerHTML=\`<img src='\${e.target.result}' style='width:100%;height:100%;object-fit:cover;'>\`; }; r.readAsDataURL(f); })()">
-                </label>
+
+        <!-- รูปภาพ -->
+        <div style="margin-bottom:16px;">
+            <label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:8px;">📸 รูปความเสียหาย (ไม่บังคับ)</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <div id="repairImgPreview" style="width:80px;height:80px;border-radius:10px;background:#fffbeb;border:2px dashed #fde68a;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;flex-shrink:0;cursor:pointer;" onclick="document.getElementById('repairImgInput').click()">📷</div>
+                <div style="display:flex;flex-direction:column;gap:6px;justify-content:center;">
+                    <label style="background:#d97706;color:white;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;display:inline-block;">
+                        📂 เลือกรูป<input type="file" id="repairImgInput" accept="image/*" style="display:none"
+                            onchange="(() => { const f=this.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=e=>{ document.getElementById('repairImgPreview').innerHTML=\`<img src='\${e.target.result}' style='width:100%;height:100%;object-fit:cover;border-radius:8px;'>\`; }; rd.readAsDataURL(f); })()">
+                    </label>
+                    <div style="font-size:9px;color:#94a3b8;">รองรับ JPG, PNG, HEIC ไม่เกิน 10MB</div>
+                </div>
             </div>
         </div>
+
+        <!-- ข้อมูลทรัพย์สิน -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div><label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:4px;">ทรัพย์สิน *</label>
-                <select id="rep_assetId" style="width:100%;padding:9px 11px;border:1.5px solid #fde68a;border-radius:8px;font-size:12px;outline:none;cursor:pointer;">
+            <div>
+                <label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:4px;">ทรัพย์สิน *</label>
+                <select id="rep_assetId" style="width:100%;padding:9px 11px;border:1.5px solid #fde68a;border-radius:8px;font-size:12px;outline:none;cursor:pointer;background:white;">
                     <option value="">— เลือกทรัพย์สิน —</option>
                     ${assetOptions.map(a=>`<option value="${a._id}" ${prefillAssetId===a._id?'selected':''}>${a._id} — ${a.name}</option>`).join('')}
-                </select></div>
-            <div><label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:4px;">Zone / สาขา</label>
-                <select id="rep_zone" style="width:100%;padding:9px 11px;border:1.5px solid #fde68a;border-radius:8px;font-size:12px;outline:none;cursor:pointer;">
-                    <option value="">— ระบุสาขา —</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:4px;">Zone / สาขา</label>
+                <select id="rep_zone" style="width:100%;padding:9px 11px;border:1.5px solid #fde68a;border-radius:8px;font-size:12px;outline:none;cursor:pointer;background:white;">
+                    <option value="">— ระบุ Zone —</option>
                     ${(warehouseList||[]).map(z=>`<option value="${z}" ${(currentUser?.assignedZones||[])[0]===z?'selected':''}>${z}</option>`).join('')}
-                </select></div>
+                </select>
+            </div>
         </div>
-        <div style="margin-bottom:12px;"><label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:4px;">รายละเอียดความเสียหาย *</label>
-            <textarea id="rep_desc" rows="3" placeholder="อธิบายความเสียหายหรืออาการผิดปกติ..."
-                style="width:100%;padding:9px 11px;border:1.5px solid #fde68a;border-radius:8px;font-size:12px;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box;"></textarea></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="document.getElementById('repairFormArea').innerHTML=''" style="background:#f1f5f9;color:#475569;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-weight:600;">ยกเลิก</button>
-            <button onclick="_submitRepair()" style="background:#d97706;color:white;border:none;padding:9px 22px;border-radius:8px;cursor:pointer;font-weight:700;">📤 ส่งเรื่อง</button>
+
+        <!-- ระดับความเร่งด่วน -->
+        <div style="margin-bottom:14px;">
+            <label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:8px;">⚡ ระดับความเร่งด่วน</label>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                ${Object.entries(REPAIR_URGENCY).map(([k,v])=>`
+                <label style="cursor:pointer;">
+                    <input type="radio" name="rep_urgency" value="${k}" ${k==='normal'?'checked':''} style="display:none;"
+                        onchange="document.querySelectorAll('.urgency-opt').forEach(el=>el.style.borderColor='#e2e8f0');this.closest('label').querySelector('.urgency-opt').style.borderColor='${v.color}'">
+                    <div class="urgency-opt" style="border:2px solid ${k==='normal'?v.color:'#e2e8f0'};border-radius:10px;padding:10px 6px;text-align:center;background:${k==='normal'?v.bg:'white'};transition:all .15s;">
+                        <div style="font-size:18px;">${v.icon}</div>
+                        <div style="font-size:11px;font-weight:700;color:${v.color};margin-top:3px;">${v.label}</div>
+                        <div style="font-size:9px;color:#94a3b8;margin-top:1px;">${v.sub}</div>
+                    </div>
+                </label>`).join('')}
+            </div>
+        </div>
+
+        <!-- รายละเอียด -->
+        <div style="margin-bottom:14px;">
+            <label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:4px;">รายละเอียดความเสียหาย / อาการ *</label>
+            <textarea id="rep_desc" rows="3" placeholder="อธิบายอาการผิดปกติ วิธีที่สังเกตได้ หรือเหตุการณ์ที่เกี่ยวข้อง..."
+                style="width:100%;padding:9px 11px;border:1.5px solid #fde68a;border-radius:8px;font-size:12px;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box;"></textarea>
+        </div>
+
+        <!-- ค่าซ่อมโดยประมาณ (optional) -->
+        <div style="margin-bottom:18px;">
+            <label style="font-size:10px;font-weight:700;color:#a16207;display:block;margin-bottom:4px;">ค่าซ่อมโดยประมาณ (ถ้าทราบ)</label>
+            <input type="number" id="rep_estCost" placeholder="0 บาท" min="0"
+                style="width:200px;padding:9px 11px;border:1.5px solid #fde68a;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
+        </div>
+
+        <!-- buttons -->
+        <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #fef9c3;padding-top:16px;">
+            <button onclick="document.getElementById('repairFormArea').innerHTML=''" style="background:#f1f5f9;color:#475569;border:none;padding:10px 20px;border-radius:9px;cursor:pointer;font-weight:600;font-size:12px;">ยกเลิก</button>
+            <button onclick="_repairSubmit()" style="background:linear-gradient(135deg,#92400e,#d97706);color:white;border:none;padding:10px 24px;border-radius:9px;cursor:pointer;font-weight:700;font-size:12px;box-shadow:0 2px 8px rgba(217,119,6,0.3);">📤 ส่งเรื่องแจ้งซ่อม</button>
         </div>
     </div>`;
     area.scrollIntoView({ behavior:'smooth', block:'nearest' });
 };
 
-window._submitRepair = async function() {
+// ── SUBMIT NEW REPAIR ──
+window._repairSubmit = async function() {
     await _importFS();
     const assetId = document.getElementById('rep_assetId')?.value;
     const desc    = document.getElementById('rep_desc')?.value.trim();
+    const zone    = document.getElementById('rep_zone')?.value;
+    const urgency = document.querySelector('input[name="rep_urgency"]:checked')?.value || 'normal';
+    const estCost = parseFloat(document.getElementById('rep_estCost')?.value) || 0;
+
     if (!assetId) { toast('⚠️ กรุณาเลือกทรัพย์สิน', '#c2410c'); return; }
     if (!desc)    { toast('⚠️ กรุณาอธิบายความเสียหาย', '#c2410c'); return; }
+
     const asset = _assetsCache.find(a => a._id === assetId);
+
+    // upload image if any
     let imageUrl = '';
     const imgFile = document.getElementById('repairImgInput')?.files[0];
     if (imgFile) {
         try {
             toast('⏳ กำลังอัปโหลดรูป...', '#0891b2');
             imageUrl = await _uploadImage(imgFile, `assets/${assetId}/repair/${Date.now()}_${imgFile.name}`);
-        } catch(e) { toast('❌ อัปโหลดรูปไม่สำเร็จ: ' + e.message, '#c2410c'); console.error(e); return; }
+        } catch(e) { toast('❌ อัปโหลดรูปไม่สำเร็จ: ' + e.message, '#c2410c'); return; }
     }
+
+    // generate repair number
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    const countSnap = await _getDocs(_query(_collection(db,'assetRepairs')));
+    const seq = String(countSnap.size + 1).padStart(3,'0');
+    const repairNo = `RPR-${dateStr}-${seq}`;
+
+    // build approval steps from flow
+    const approvalSteps = REPAIR_APPROVAL_FLOW.map(step => ({
+        role: step.role, label: step.label,
+        approvedBy: null, approvedAt: null, note: ''
+    }));
+
     const data = {
-        assetId, assetName: asset?.name || '', zone: document.getElementById('rep_zone')?.value || asset?.zone || '',
-        description: desc, imageUrl, status: 'รอดำเนินการ',
-        reportedBy: currentUser.name, createdAt: Date.now(), dateLabel: _todayTH(),
+        repairNo,
+        assetId, assetName: asset?.name || '',
+        zone: zone || asset?.zone || '',
+        description: desc,
+        urgency,
+        estimatedCost: estCost,
+        imageUrl,
+        status: 'pending_l1',
+        approvalSteps,
+        reportedBy: currentUser.name,
+        reportedByRole: currentUser.role,
+        createdAt: Date.now(),
+        dateLabel: _todayTH(),
+        timeline: [{
+            action: 'สร้างใบแจ้งซ่อม',
+            by: currentUser.name,
+            role: currentUser.role,
+            at: Date.now(),
+            note: `ส่งเรื่องไปยัง${REPAIR_APPROVAL_FLOW[0].label}`
+        }]
     };
+
     await _addDoc(_collection(db,'assetRepairs'), data);
-    // อัปเดตสถานะทรัพย์สินเป็นชำรุด
     await _updateDoc(_doc(db,'assets',assetId), { status:'ชำรุด', updatedAt: Date.now(), updatedBy: currentUser.name });
-    toast('✅ แจ้งซ่อมเรียบร้อย', '#059669');
+
+    toast(`✅ ส่งใบแจ้งซ่อม ${repairNo} เรียบร้อย`, '#059669');
     document.getElementById('repairFormArea').innerHTML = '';
-    _loadRepairs();
-    _loadAssets();
+    _loadRepairs(); _loadAssets();
 };
 
-window._openUpdateRepair = async function(repairId) {
+// ── APPROVE ──
+window._repairApprove = async function(repairId, stepIndex) {
+    await _importFS();
+    const snap = await _getDoc(_doc(db,'assetRepairs',repairId));
+    if (!snap.exists()) return;
+    const r = snap.data();
+
+    // confirm
+    const stepLabel = REPAIR_APPROVAL_FLOW[stepIndex]?.label || '';
+    if (!confirm(`ยืนยันอนุมัติในฐานะ "${stepLabel}"?\n\nชื่อ: ${currentUser.name}\nเวลา: ${_repairFmtDate(Date.now())}`)) return;
+
+    const steps = r.approvalSteps ? [...r.approvalSteps] : REPAIR_APPROVAL_FLOW.map(s=>({...s}));
+    steps[stepIndex] = { ...steps[stepIndex], approvedBy: currentUser.name, approvedAt: Date.now(), note: '' };
+
+    // determine next status
+    const allApproved = steps.every(s => s.approvedBy);
+    const nextStatus = allApproved ? 'approved' : `pending_l${stepIndex + 2}`;
+
+    const timeline = [...(r.timeline||[]), {
+        action: `อนุมัติขั้น ${stepIndex+1}: ${stepLabel}`,
+        by: currentUser.name, role: currentUser.role,
+        at: Date.now(),
+        note: allApproved ? 'อนุมัติครบทุกขั้นแล้ว รอดำเนินการซ่อม' : `ส่งต่อ${REPAIR_APPROVAL_FLOW[stepIndex+1]?.label||''}`
+    }];
+
+    await _updateDoc(_doc(db,'assetRepairs',repairId), { approvalSteps: steps, status: nextStatus, timeline });
+    toast(`✅ อนุมัติเรียบร้อย${allApproved?' — ใบแจ้งซ่อมผ่านการอนุมัติแล้ว':''}`, '#059669');
+    _loadRepairs();
+    document.getElementById('repairDetailArea').innerHTML = '';
+};
+
+// ── REJECT ──
+window._repairReject = async function(repairId) {
+    const note = prompt('ระบุเหตุผลที่ไม่อนุมัติ:');
+    if (note === null) return; // cancelled
     await _importFS();
     const snap = await _getDoc(_doc(db,'assetRepairs',repairId));
     const r = snap.data();
-    const area = document.getElementById('repairFormArea'); if (!area) return;
+    const timeline = [...(r.timeline||[]), {
+        action: 'ไม่อนุมัติ',
+        by: currentUser.name, role: currentUser.role,
+        at: Date.now(), note: note || '—'
+    }];
+    await _updateDoc(_doc(db,'assetRepairs',repairId), { status:'rejected', rejectedBy: currentUser.name, rejectedAt: Date.now(), rejectionNote: note||'—', timeline });
+    // restore asset status if needed
+    if (r.assetId) await _updateDoc(_doc(db,'assets',r.assetId), { status:'ปกติ', updatedAt: Date.now(), updatedBy: currentUser.name });
+    toast('🔴 บันทึกการไม่อนุมัติแล้ว', '#dc2626');
+    _loadRepairs();
+    document.getElementById('repairDetailArea').innerHTML = '';
+};
+
+// ── UPDATE STATUS (admin/warehouse after approved) ──
+window._repairOpenUpdate = async function(repairId) {
+    await _importFS();
+    const snap = await _getDoc(_doc(db,'assetRepairs',repairId));
+    const r = snap.data();
+    const area = document.getElementById('repairDetailArea'); if (!area) return;
+    document.getElementById('repairFormArea').innerHTML = '';
+
     area.innerHTML = `
-    <div style="background:white;border-radius:12px;border:2px solid #bfdbfe;padding:22px;">
+    <div style="background:white;border-radius:14px;border:2px solid #bfdbfe;padding:22px;box-shadow:0 4px 16px rgba(0,0,0,0.06);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div style="font-size:14px;font-weight:800;color:#1d4ed8;">✏️ อัปเดตสถานะการซ่อม</div>
-            <button onclick="document.getElementById('repairFormArea').innerHTML=''" style="background:#f1f5f9;color:#475569;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:11px;">✕</button>
+            <div style="font-size:14px;font-weight:800;color:#1d4ed8;">✏️ อัปเดตสถานะการซ่อม — ${r.repairNo||''}</div>
+            <button onclick="document.getElementById('repairDetailArea').innerHTML=''" style="background:#f1f5f9;color:#475569;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:11px;">✕</button>
         </div>
-        <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
-            <div style="font-weight:700;font-size:12px;">${r.assetId} — ${r.assetName}</div>
-            <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.description}</div>
-            ${r.imageUrl ? `<img src="${r.imageUrl}" style="margin-top:8px;width:80px;height:80px;border-radius:7px;object-fit:cover;">` : ''}
+
+        <!-- asset summary -->
+        <div style="background:#f8fafc;border-radius:10px;padding:12px;margin-bottom:16px;display:flex;gap:10px;align-items:center;">
+            ${r.imageUrl?`<img src="${r.imageUrl}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;">`:'<div style="font-size:28px;flex-shrink:0;">🔧</div>'}
+            <div>
+                <div style="font-weight:700;font-size:12px;">${r.assetId} — ${r.assetName}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">${r.description}</div>
+            </div>
         </div>
+
         <!-- รูปหลังซ่อม -->
         <div style="margin-bottom:14px;">
             <label style="font-size:10px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:6px;">📸 รูปหลังซ่อมเสร็จ</label>
             <div style="display:flex;align-items:center;gap:10px;">
-                <div id="repairAfterPreview" style="width:60px;height:60px;border-radius:8px;background:#f1f5f9;border:2px dashed #bfdbfe;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;flex-shrink:0;">
-                    ${r.afterImageUrl ? `<img src="${r.afterImageUrl}" style="width:100%;height:100%;object-fit:cover;">` : '📷'}
+                <div id="repairAfterPreview" style="width:64px;height:64px;border-radius:9px;background:#eff6ff;border:2px dashed #bfdbfe;display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0;cursor:pointer;" onclick="document.getElementById('repairAfterImg').click()">
+                    ${r.afterImageUrl?`<img src="${r.afterImageUrl}" style="width:100%;height:100%;object-fit:cover;">`:'📷'}
                 </div>
-                <label style="background:#1d4ed8;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">
+                <label style="background:#1d4ed8;color:white;padding:7px 13px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">
                     📂 แนบรูป<input type="file" id="repairAfterImg" accept="image/*" style="display:none"
-                        onchange="(() => { const f=this.files[0]; if(!f) return; const r=new FileReader(); r.onload=e=>{ document.getElementById('repairAfterPreview').innerHTML=\`<img src='\${e.target.result}' style='width:100%;height:100%;object-fit:cover;'>\`; }; r.readAsDataURL(f); })()">
+                        onchange="(() => { const f=this.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=e=>{ document.getElementById('repairAfterPreview').innerHTML=\`<img src='\${e.target.result}' style='width:100%;height:100%;object-fit:cover;'>\`; }; rd.readAsDataURL(f); })()">
                 </label>
             </div>
         </div>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div><label style="font-size:10px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">สถานะการซ่อม</label>
-                <select id="repUpdate_status" style="width:100%;padding:9px 11px;border:1.5px solid #bfdbfe;border-radius:8px;font-size:12px;outline:none;cursor:pointer;font-weight:700;">
-                    <option value="รอดำเนินการ" ${r.status==='รอดำเนินการ'?'selected':''}>🟡 รอดำเนินการ</option>
-                    <option value="กำลังซ่อม" ${r.status==='กำลังซ่อม'?'selected':''}>🔵 กำลังซ่อม</option>
-                    <option value="ซ่อมเสร็จ" ${r.status==='ซ่อมเสร็จ'?'selected':''}>🟢 ซ่อมเสร็จ</option>
-                </select></div>
-            <div><label style="font-size:10px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">ค่าซ่อม (฿)</label>
+            <div>
+                <label style="font-size:10px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">สถานะการซ่อม</label>
+                <select id="repUpdate_status" style="width:100%;padding:9px 11px;border:1.5px solid #bfdbfe;border-radius:8px;font-size:12px;outline:none;cursor:pointer;font-weight:700;background:white;">
+                    <option value="approved"     ${r.status==='approved'?'selected':''}>✅ อนุมัติแล้ว (รอซ่อม)</option>
+                    <option value="in_progress"  ${r.status==='in_progress'?'selected':''}>🔵 กำลังซ่อม</option>
+                    <option value="done"         ${r.status==='done'?'selected':''}>🟢 ซ่อมเสร็จ</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:10px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">ค่าซ่อมจริง (฿)</label>
                 <input type="number" id="repUpdate_cost" value="${r.repairCost||''}" placeholder="0" min="0"
-                    style="width:100%;padding:9px 11px;border:1.5px solid #bfdbfe;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;"></div>
+                    style="width:100%;padding:9px 11px;border:1.5px solid #bfdbfe;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
+            </div>
         </div>
-        <div style="margin-bottom:12px;"><label style="font-size:10px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">บันทึกเพิ่มเติม</label>
-            <textarea id="repUpdate_note" rows="2" style="width:100%;padding:9px 11px;border:1.5px solid #bfdbfe;border-radius:8px;font-size:12px;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box;">${r.repairNote||''}</textarea></div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:10px;font-weight:700;color:#1d4ed8;display:block;margin-bottom:4px;">บันทึกเพิ่มเติม</label>
+            <textarea id="repUpdate_note" rows="2" placeholder="บันทึกการซ่อม รายการอะไหล่ หรือข้อสังเกต..."
+                style="width:100%;padding:9px 11px;border:1.5px solid #bfdbfe;border-radius:8px;font-size:12px;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box;">${r.repairNote||''}</textarea>
+        </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="document.getElementById('repairFormArea').innerHTML=''" style="background:#f1f5f9;color:#475569;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-weight:600;">ยกเลิก</button>
-            <button onclick="_saveRepairUpdate('${repairId}','${r.assetId}')" style="background:#1d4ed8;color:white;border:none;padding:9px 22px;border-radius:8px;cursor:pointer;font-weight:700;">💾 บันทึก</button>
+            <button onclick="document.getElementById('repairDetailArea').innerHTML=''" style="background:#f1f5f9;color:#475569;border:none;padding:10px 20px;border-radius:9px;cursor:pointer;font-weight:600;font-size:12px;">ยกเลิก</button>
+            <button onclick="_repairSaveUpdate('${repairId}','${r.assetId}')" style="background:linear-gradient(135deg,#1e40af,#2563eb);color:white;border:none;padding:10px 24px;border-radius:9px;cursor:pointer;font-weight:700;font-size:12px;">💾 บันทึก</button>
         </div>
     </div>`;
     area.scrollIntoView({ behavior:'smooth', block:'nearest' });
 };
 
-window._saveRepairUpdate = async function(repairId, assetId) {
+window._repairSaveUpdate = async function(repairId, assetId) {
     await _importFS();
     const status = document.getElementById('repUpdate_status')?.value;
     const cost   = parseFloat(document.getElementById('repUpdate_cost')?.value) || 0;
@@ -1392,18 +1674,184 @@ window._saveRepairUpdate = async function(repairId, assetId) {
         try {
             toast('⏳ กำลังอัปโหลดรูป...', '#0891b2');
             afterImageUrl = await _uploadImage(afterFile, `assets/${assetId}/repair/after_${Date.now()}_${afterFile.name}`);
-        } catch(e) { toast('❌ อัปโหลดรูปไม่สำเร็จ: ' + e.message, '#c2410c'); console.error(e); return; }
+        } catch(e) { toast('❌ อัปโหลดรูปไม่สำเร็จ', '#c2410c'); return; }
     }
-    const upd = { status, repairCost: cost, repairNote: note, updatedAt: Date.now(), updatedBy: currentUser.name };
+
+    const snap = await _getDoc(_doc(db,'assetRepairs',repairId));
+    const r = snap.data();
+    const timeline = [...(r.timeline||[]), {
+        action: `อัปเดตสถานะ → ${REPAIR_STATUS_CFG[status]?.label||status}`,
+        by: currentUser.name, role: currentUser.role,
+        at: Date.now(), note: note || '—'
+    }];
+
+    const upd = { status, repairCost: cost, repairNote: note, updatedAt: Date.now(), updatedBy: currentUser.name, timeline };
     if (afterImageUrl) upd.afterImageUrl = afterImageUrl;
     await _updateDoc(_doc(db,'assetRepairs',repairId), upd);
-    // sync asset status
-    const newAssetStatus = status === 'ซ่อมเสร็จ' ? 'ปกติ' : 'กำลังซ่อม';
+
+    const newAssetStatus = status === 'done' ? 'ปกติ' : 'กำลังซ่อม';
     await _updateDoc(_doc(db,'assets',assetId), { status: newAssetStatus, updatedAt: Date.now(), updatedBy: currentUser.name });
-    toast('✅ อัปเดตการซ่อมเรียบร้อย', '#059669');
-    document.getElementById('repairFormArea').innerHTML = '';
+
+    toast('✅ อัปเดตเรียบร้อย', '#059669');
+    document.getElementById('repairDetailArea').innerHTML = '';
     _loadRepairs(); _loadAssets();
 };
+
+// ── DETAIL VIEW (with approval steps + timeline + print) ──
+window._repairOpenDetail = async function(repairId) {
+    await _importFS();
+    const snap = await _getDoc(_doc(db,'assetRepairs',repairId));
+    if (!snap.exists()) return;
+    const r = snap.data();
+    const area = document.getElementById('repairDetailArea'); if (!area) return;
+    document.getElementById('repairFormArea').innerHTML = '';
+
+    const st  = REPAIR_STATUS_CFG[r.status] || REPAIR_STATUS_CFG.pending_l1;
+    const urg = REPAIR_URGENCY[r.urgency]   || REPAIR_URGENCY.normal;
+
+    // approval steps detail
+    const stepsDetailHtml = REPAIR_APPROVAL_FLOW.map((step, i) => {
+        const s = r.approvalSteps?.[i];
+        const done = s?.approvedBy;
+        const isNext = i === _repairNextStep(r) && ['pending_l1','pending_l2'].includes(r.status);
+        return `
+        <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9;align-items:flex-start;">
+            <div style="width:34px;height:34px;border-radius:50%;background:${done?'#10b981':isNext?'#f59e0b':'#f1f5f9'};border:2px solid ${done?'#10b981':isNext?'#f59e0b':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${done||isNext?'white':'#94a3b8'};flex-shrink:0;">${done?'✓':(i+1)}</div>
+            <div style="flex:1;">
+                <div style="font-size:12px;font-weight:700;color:#0f172a;">${step.label} <span style="font-size:10px;font-weight:400;color:#94a3b8;">(role: ${step.role})</span></div>
+                ${done
+                    ? `<div style="font-size:11px;color:#059669;margin-top:2px;">✅ อนุมัติโดย <b>${s.approvedBy}</b> · ${_repairFmtDate(s.approvedAt)}</div>${s.note?`<div style="font-size:10px;color:#64748b;">${s.note}</div>`:''}`
+                    : isNext
+                        ? `<div style="font-size:11px;color:#d97706;margin-top:2px;">⏳ รอการอนุมัติ</div>`
+                        : `<div style="font-size:11px;color:#94a3b8;margin-top:2px;">— ยังไม่ถึงขั้นนี้</div>`
+                }
+            </div>
+            <!-- inline approve button -->
+            ${(!done && isNext && _repairCanApprove(i)) ? `
+            <button onclick="_repairApprove('${repairId}',${i})" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;flex-shrink:0;">✅ อนุมัติ</button>` : ''}
+        </div>`;
+    }).join('');
+
+    // timeline
+    const timelineHtml = (r.timeline||[]).slice().reverse().map(t => `
+    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f8fafc;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#3b82f6;flex-shrink:0;margin-top:4px;"></div>
+        <div>
+            <div style="font-size:11px;font-weight:700;color:#0f172a;">${t.action}</div>
+            <div style="font-size:10px;color:#94a3b8;">${t.by} (${t.role}) · ${_repairFmtDate(t.at)}</div>
+            ${t.note && t.note!=='—'?`<div style="font-size:10px;color:#64748b;margin-top:1px;">${t.note}</div>`:''}
+        </div>
+    </div>`).join('');
+
+    // signature block (for print)
+    const sigHtml = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:4px;">
+        ${[
+            {role:'ผู้แจ้ง', name: r.reportedBy, at: r.createdAt},
+            ...REPAIR_APPROVAL_FLOW.map((step,i)=>({
+                role: step.label,
+                name: r.approvalSteps?.[i]?.approvedBy || '................................',
+                at: r.approvalSteps?.[i]?.approvedAt || null
+            })),
+            {role:'ผู้ดำเนินการซ่อม', name:'................................', at: null}
+        ].map(sig=>`
+        <div style="border:1.5px dashed #e2e8f0;border-radius:10px;padding:14px 10px 10px;text-align:center;background:#fafbfd;">
+            <div style="height:48px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;">
+                <div style="width:80%;height:1px;background:#e2e8f0;"></div>
+            </div>
+            <div style="font-size:10px;font-weight:700;color:#0f172a;margin-top:6px;">${sig.role}</div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px;">${sig.name}</div>
+            <div style="font-size:9px;color:#94a3b8;margin-top:2px;">${sig.at?_repairFmtDate(sig.at):'........./........./.........'}</div>
+        </div>`).join('')}
+    </div>`;
+
+    area.innerHTML = `
+    <div style="background:white;border-radius:14px;border:1.5px solid ${st.border};overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.06);" id="repairDetailCard">
+        <!-- header -->
+        <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:18px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div>
+                <div style="font-size:11px;color:rgba(255,255,255,.5);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">ใบแจ้งซ่อมทรัพย์สิน</div>
+                <div style="font-size:18px;font-weight:900;color:white;font-family:monospace;">${r.repairNo||repairId.slice(-8).toUpperCase()}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;">${_repairFmtDate(r.createdAt)}</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <span style="background:${urg.bg};color:${urg.color};border:1px solid ${urg.border};padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;">${urg.icon} ${urg.label}</span>
+                <span style="background:${st.bg};color:${st.color};border:1px solid ${st.border};padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;">${st.icon} ${st.label}</span>
+                <button onclick="document.getElementById('repairDetailArea').innerHTML=''" style="background:rgba(255,255,255,.1);color:white;border:1px solid rgba(255,255,255,.2);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:11px;">✕ ปิด</button>
+                <button onclick="window._repairPrint('${repairId}')" style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.25);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">🖨️ พิมพ์</button>
+            </div>
+        </div>
+
+        <div style="padding:20px 22px;">
+            <!-- asset info -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+                <div>
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">ข้อมูลทรัพย์สิน</div>
+                    <div style="font-size:13px;font-weight:800;color:#0f172a;">${r.assetId} — ${r.assetName||''}</div>
+                    <div style="font-size:11px;color:#475569;margin-top:2px;">Zone: ${r.zone||'—'}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">ผู้แจ้ง</div>
+                    <div style="font-size:13px;font-weight:800;color:#0f172a;">${r.reportedBy}</div>
+                    <div style="font-size:11px;color:#475569;margin-top:2px;">${_repairFmtDate(r.createdAt)}</div>
+                </div>
+            </div>
+
+            <!-- รูป + description -->
+            <div style="display:flex;gap:14px;margin-bottom:18px;align-items:flex-start;">
+                ${r.imageUrl?`<img src="${r.imageUrl}" style="width:90px;height:90px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1.5px solid #e2e8f0;">`:''}
+                <div style="flex:1;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">ลักษณะความเสียหาย</div>
+                    <div style="font-size:12px;color:#1e293b;line-height:1.6;background:#f8fafc;border-radius:8px;padding:10px 12px;">${r.description}</div>
+                    ${r.estimatedCost?`<div style="font-size:11px;color:#6366f1;font-weight:700;margin-top:6px;">ค่าซ่อมโดยประมาณ: ฿${_fmt(r.estimatedCost)}</div>`:''}
+                    ${r.repairCost?`<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-top:4px;">ค่าซ่อมจริง: ฿${_fmt(r.repairCost)}</div>`:''}
+                </div>
+                ${r.afterImageUrl?`<div><div style="font-size:9px;color:#059669;font-weight:700;margin-bottom:4px;">รูปหลังซ่อม</div><img src="${r.afterImageUrl}" style="width:70px;height:70px;border-radius:8px;object-fit:cover;border:2px solid #a7f3d0;"></div>`:''}
+            </div>
+
+            <!-- approval steps -->
+            <div style="margin-bottom:18px;">
+                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px;">การอนุมัติในระบบ</div>
+                ${stepsDetailHtml}
+                ${r.status==='rejected'?`<div style="background:#fef2f2;border-radius:8px;padding:10px 12px;margin-top:8px;"><div style="font-size:11px;font-weight:700;color:#dc2626;">🔴 ไม่อนุมัติ — ${r.rejectedBy} · ${_repairFmtDate(r.rejectedAt)}</div><div style="font-size:11px;color:#64748b;margin-top:2px;">${r.rejectionNote||''}</div></div>`:''}
+            </div>
+
+            <!-- signature (print area) -->
+            <div style="margin-bottom:18px;">
+                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">ลายเซ็นผู้เกี่ยวข้อง (สำหรับพิมพ์)</div>
+                ${sigHtml}
+            </div>
+
+            <!-- timeline -->
+            <div>
+                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">ประวัติการดำเนินงาน</div>
+                <div style="background:#f8fafc;border-radius:10px;padding:12px 14px;">
+                    ${timelineHtml || '<div style="font-size:11px;color:#94a3b8;">ยังไม่มีประวัติ</div>'}
+                </div>
+            </div>
+        </div>
+    </div>`;
+    area.scrollIntoView({ behavior:'smooth', block:'start' });
+};
+
+// ── PRINT ──
+window._repairPrint = function(repairId) {
+    const card = document.getElementById('repairDetailCard');
+    if (!card) return;
+    const w = window.open('','_blank','width=900,height=700');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>ใบแจ้งซ่อม ${repairId}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { font-family:'Prompt',sans-serif; padding:20px; color:#1e293b; font-size:12px; }
+        @media print { body { padding:10px; } button { display:none!important; } }
+    </style>
+    </head><body>${card.outerHTML}
+    <script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.close();
+};
+
 
 // ═════════════════════════════════════════════════════════════════════
 //  TAB 4: DASHBOARD
