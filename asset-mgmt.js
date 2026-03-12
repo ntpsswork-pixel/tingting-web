@@ -1389,9 +1389,15 @@ async function _loadRepairs(statusFilter) {
 }
 
 // ── NEW REPAIR FORM ──
-window._openNewRepairForm = function(prefillAssetId) {
+window._openNewRepairForm = async function(prefillAssetId) {
     const area = document.getElementById('repairFormArea'); if (!area) return;
     document.getElementById('repairDetailArea').innerHTML = '';
+    // โหลด assets ถ้า cache ยังว่าง (เช่น เปิด repair tab โดยตรง)
+    if (!_assetsCache.length) {
+        await _importFS();
+        const snap = await _getDocs(_query(_collection(db,'assets'), _orderBy('createdAt','desc')));
+        _assetsCache = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    }
     const assetOptions = _assetsCache.filter(a => a.status !== 'จำหน่ายแล้ว');
 
     area.innerHTML = `
