@@ -729,17 +729,17 @@
                     if (d.stockSheetTemplates)  stockSheetTemplates = d.stockSheetTemplates;
                     if (d.productCategories)    productCategories   = d.productCategories;
                     if (d.warehouseGroups)      warehouseGroups     = d.warehouseGroups;
-                    // --- migrate: เพิ่ม requisition ให้ทุก role ที่ยังไม่มี ---
+                    // --- migrate: เพิ่ม requisition + asset ให้ทุก role ที่ยังไม่มี ---
                     let needSave = false;
                     const reqDefaults = {
-                        admin:     ['warehouse','tools','admin','requisition','gr','qc'],
-                        warehouse: ['warehouse','tools','requisition','gr'],
-                        staff:     ['tools','requisition'],
-                        qc:        ['gr','qc']
+                        admin:     ['warehouse','tools','admin','requisition','gr','qc','asset'],
+                        warehouse: ['warehouse','tools','requisition','gr','asset'],
+                        staff:     ['tools','requisition','asset'],
+                        qc:        ['gr','qc','asset']
                     };
                     Object.keys(roleSettings).forEach(r => {
                         if (!roleSettings[r].menus) roleSettings[r].menus = [];
-                        const needMenus = ['requisition','gr','qc'];
+                        const needMenus = ['requisition','gr','qc','asset'];
                         needMenus.forEach(m => {
                             if (!roleSettings[r].menus.includes(m)) {
                                 if (reqDefaults[r]) roleSettings[r].menus = reqDefaults[r];
