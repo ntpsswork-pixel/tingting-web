@@ -1223,6 +1223,22 @@ const REPAIR_STATUS_CFG = {
     rejected:     { label:'ไม่อนุมัติ',       icon:'🔴', bg:'#fef2f2', border:'#fecaca', color:'#dc2626' },
 };
 
+// ── LIGHTBOX ──
+window._repairLightbox = function(src, caption) {
+    const ov = document.createElement('div');
+    ov.id = 'repairLightboxOv';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:zoom-out;animation:fadeInLB .18s ease;';
+    ov.innerHTML = `
+        <style>@keyframes fadeInLB{from{opacity:0}to{opacity:1}} @keyframes scaleInLB{from{transform:scale(.88)}to{transform:scale(1)}}</style>
+        <img src="${src}" style="max-width:92vw;max-height:82vh;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.6);animation:scaleInLB .2s ease;object-fit:contain;">
+        ${caption ? `<div style="margin-top:14px;color:rgba(255,255,255,.7);font-size:12px;font-weight:600;">${caption}</div>` : ''}
+        <button style="position:absolute;top:18px;right:22px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:white;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
+    `;
+    ov.onclick = () => ov.remove();
+    document.body.appendChild(ov);
+};
+
+
 // urgency config
 const REPAIR_URGENCY = {
     urgent_high: { label:'ด่วนมาก', sub:'ภายใน 24 ชม.', icon:'🔴', color:'#dc2626', bg:'#fef2f2', border:'#fca5a5' },
@@ -1724,7 +1740,7 @@ window._repairOpenDetail = async function(repairId) {
         <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9;align-items:flex-start;">
             <div style="width:34px;height:34px;border-radius:50%;background:${done?'#10b981':isNext?'#f59e0b':'#f1f5f9'};border:2px solid ${done?'#10b981':isNext?'#f59e0b':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${done||isNext?'white':'#94a3b8'};flex-shrink:0;">${done?'✓':(i+1)}</div>
             <div style="flex:1;">
-                <div style="font-size:12px;font-weight:700;color:#0f172a;">${step.label} <span style="font-size:10px;font-weight:400;color:#94a3b8;">(role: ${step.role})</span></div>
+                <div style="font-size:12px;font-weight:700;color:#0f172a;">${step.label}</div>
                 ${done
                     ? `<div style="font-size:11px;color:#059669;margin-top:2px;">✅ อนุมัติโดย <b>${s.approvedBy}</b> · ${_repairFmtDate(s.approvedAt)}</div>${s.note?`<div style="font-size:10px;color:#64748b;">${s.note}</div>`:''}`
                     : isNext
@@ -1772,7 +1788,10 @@ window._repairOpenDetail = async function(repairId) {
     </div>`;
 
     area.innerHTML = `
-    <div style="background:white;border-radius:14px;border:1.5px solid ${st.border};overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.06);" id="repairDetailCard">
+    <div style="background:white;border-radius:14px;border:1.5px solid ${st.border};overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.06);" id="repairDetailCard"
+        data-repno="${r.repairNo||repairId.slice(-8).toUpperCase()}"
+        data-repdate="${_repairFmtDate(r.createdAt)}"
+        data-repasset="${r.assetId} — ${r.assetName||''}">
         <!-- header -->
         <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:18px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
             <div>
@@ -1805,14 +1824,30 @@ window._repairOpenDetail = async function(repairId) {
 
             <!-- รูป + description -->
             <div style="display:flex;gap:14px;margin-bottom:18px;align-items:flex-start;">
-                ${r.imageUrl?`<img src="${r.imageUrl}" style="width:90px;height:90px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1.5px solid #e2e8f0;">`:''}
+                ${r.imageUrl?`
+                <div style="flex-shrink:0;">
+                    <div style="font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:4px;text-align:center;">ก่อนซ่อม</div>
+                    <img src="${r.imageUrl}" onclick="_repairLightbox('${r.imageUrl}','รูปความเสียหาย — '+r.assetId)"
+                        style="width:90px;height:90px;border-radius:10px;object-fit:cover;border:1.5px solid #e2e8f0;cursor:zoom-in;transition:transform .15s,box-shadow .15s;"
+                        onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.15)'"
+                        onmouseout="this.style.transform='';this.style.boxShadow=''">
+                    <div style="font-size:9px;color:#3b82f6;text-align:center;margin-top:4px;">🔍 คลิกขยาย</div>
+                </div>`:''}
                 <div style="flex:1;">
                     <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">ลักษณะความเสียหาย</div>
                     <div style="font-size:12px;color:#1e293b;line-height:1.6;background:#f8fafc;border-radius:8px;padding:10px 12px;">${r.description}</div>
                     ${r.estimatedCost?`<div style="font-size:11px;color:#6366f1;font-weight:700;margin-top:6px;">ค่าซ่อมโดยประมาณ: ฿${_fmt(r.estimatedCost)}</div>`:''}
                     ${r.repairCost?`<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-top:4px;">ค่าซ่อมจริง: ฿${_fmt(r.repairCost)}</div>`:''}
                 </div>
-                ${r.afterImageUrl?`<div><div style="font-size:9px;color:#059669;font-weight:700;margin-bottom:4px;">รูปหลังซ่อม</div><img src="${r.afterImageUrl}" style="width:70px;height:70px;border-radius:8px;object-fit:cover;border:2px solid #a7f3d0;"></div>`:''}
+                ${r.afterImageUrl?`
+                <div style="flex-shrink:0;">
+                    <div style="font-size:9px;color:#059669;font-weight:700;margin-bottom:4px;text-align:center;">หลังซ่อม</div>
+                    <img src="${r.afterImageUrl}" onclick="_repairLightbox('${r.afterImageUrl}','รูปหลังซ่อม — '+r.assetId)"
+                        style="width:90px;height:90px;border-radius:10px;object-fit:cover;border:2px solid #a7f3d0;cursor:zoom-in;transition:transform .15s,box-shadow .15s;"
+                        onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.15)'"
+                        onmouseout="this.style.transform='';this.style.boxShadow=''">
+                    <div style="font-size:9px;color:#059669;text-align:center;margin-top:4px;">🔍 คลิกขยาย</div>
+                </div>`:''}
             </div>
 
             <!-- approval steps -->
@@ -1845,15 +1880,42 @@ window._repairPrint = function(repairId) {
     const card = document.getElementById('repairDetailCard');
     if (!card) return;
     const w = window.open('','_blank','width=900,height=700');
+    // ดึงข้อมูลจาก card สำหรับ header ทางการ
+    const repNo  = card.querySelector('[data-repno]')?.dataset?.repno  || repairId;
+    const repDate= card.querySelector('[data-repdate]')?.dataset?.repdate || '';
+    const repAsset=card.querySelector('[data-repasset]')?.dataset?.repasset || '';
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>ใบแจ้งซ่อม ${repairId}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <title>ใบแจ้งซ่อมทรัพย์สิน ${repNo}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { box-sizing:border-box; margin:0; padding:0; }
-        body { font-family:'Prompt',sans-serif; padding:20px; color:#1e293b; font-size:12px; }
-        @media print { body { padding:10px; } button { display:none!important; } }
+        body { font-family:'Prompt',sans-serif; padding:0; color:#1e293b; font-size:12px; background:white; }
+        .print-header { background:#0f172a; color:white; padding:14px 24px; display:flex; justify-content:space-between; align-items:center; }
+        .print-header-left { display:flex; flex-direction:column; gap:3px; }
+        .print-header-org { font-size:10px; color:rgba(255,255,255,.5); letter-spacing:1.5px; text-transform:uppercase; }
+        .print-header-title { font-size:16px; font-weight:800; letter-spacing:.3px; }
+        .print-header-right { text-align:right; }
+        .print-header-no { font-size:15px; font-weight:900; font-family:monospace; color:#f0b429; }
+        .print-header-date { font-size:10px; color:rgba(255,255,255,.5); margin-top:3px; }
+        @media print {
+            body { padding:0; }
+            button { display:none!important; }
+            .print-header { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        }
     </style>
-    </head><body>${card.outerHTML}
+    </head><body>
+    <div class="print-header">
+        <div class="print-header-left">
+            <div class="print-header-org">TTGPlus Management System</div>
+            <div class="print-header-title">ใบแจ้งซ่อมทรัพย์สิน / Asset Repair Request</div>
+            ${repAsset ? \`<div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;">\${repAsset}</div>\` : ''}
+        </div>
+        <div class="print-header-right">
+            <div class="print-header-no">\${repNo}</div>
+            <div class="print-header-date">\${repDate}</div>
+        </div>
+    </div>
+    ${card.outerHTML}
     <script>window.onload=()=>window.print();<\/script></body></html>`);
     w.document.close();
 };
