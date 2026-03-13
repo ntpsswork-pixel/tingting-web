@@ -852,7 +852,8 @@ window._showImportPreview = function(raw) {
 
     const rows = raw.map((row, i) => {
         const g  = k => String(row[k]||'').trim();
-        const id          = g('รหัส')||g('รหัสบัญชี')||g('ProductCode');
+        const rawId        = g('รหัส')||g('รหัสบัญชี')||g('ProductCode');
+        const id          = rawId.replace(/[\/\s]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
         const name        = g('ชื่อ')||g('รายการ')||g('ProductName');
         const cat         = g('หมวด')||g('หมวดหมู่สินทรัพย์') || 'อื่นๆ';
         const zone        = g('Zone');
