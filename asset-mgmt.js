@@ -754,17 +754,10 @@ window._downloadAssetTemplate = function() {
 
     // Data validation dropdowns via comments (XLSX-style note since SheetJS free doesn't support DV)
     // Add note to category column header
-    ws['C1'].c = [{ a:'TTGPlus', t:'ค่าที่รองรับ:
-' + cats.join('
-') }];
-    ws['F1'].c = [{ a:'TTGPlus', t:'Zone ที่รองรับ:
-' + zones.join('
-') }];
-    ws['G1'].c = [{ a:'TTGPlus', t:'สถานะที่รองรับ:
-' + statuses.join('
-') }];
-    ws['H1'].c = [{ a:'TTGPlus', t:'รูปแบบวันที่: YYYY-MM-DD
-เช่น 2024-01-15' }];
+    ws['C1'].c = [{ a:'TTGPlus', t:'ค่าที่รองรับ:\n' + cats.join('\n') }];
+    ws['F1'].c = [{ a:'TTGPlus', t:'Zone ที่รองรับ:\n' + zones.join('\n') }];
+    ws['G1'].c = [{ a:'TTGPlus', t:'สถานะที่รองรับ:\n' + statuses.join('\n') }];
+    ws['H1'].c = [{ a:'TTGPlus', t:'รูปแบบวันที่: YYYY-MM-DD\nเช่น 2024-01-15' }];
 
     XLSX.utils.book_append_sheet(wb, ws, '📋 Template');
 
