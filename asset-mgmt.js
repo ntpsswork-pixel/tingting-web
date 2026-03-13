@@ -142,6 +142,7 @@ function _renderAssetShell(c) {
         { id: 'audit',    icon: '🔍', label: 'ตรวจนับรายรอบ' },
         { id: 'repair',   icon: '🔧', label: 'แจ้งซ่อม' },
         { id: 'dashboard',icon: '📊', label: 'Dashboard' },
+        ...(isAdmin ? [{ id: 'settings', icon: '⚙️', label: 'ตั้งค่า' }] : []),
     ];
 
     c.innerHTML = `
@@ -162,7 +163,7 @@ function _renderAssetShell(c) {
 
 window.assetSwitchTab = function(tabId) {
     _assetActiveTab = tabId;
-    ['registry','audit','repair','dashboard'].forEach(id => {
+    ['registry','audit','repair','dashboard','settings'].forEach(id => {
         const btn = document.getElementById(`assetTab_${id}`); if (!btn) return;
         if (id === tabId) {
             btn.style.background = 'white'; btn.style.color = '#0f172a';
@@ -178,6 +179,7 @@ window.assetSwitchTab = function(tabId) {
         case 'audit':     _renderAudit(content); break;
         case 'repair':    _renderRepair(content); break;
         case 'dashboard': _renderDashboard(content); break;
+        case 'settings':  _renderAssetSettings(content); break;
     }
 };
 
@@ -997,6 +999,122 @@ window._confirmImportAssets = async function() {
     _loadAssets();
 };
 
+// ─── Delete Repair Document ───────────────────────────────────────────
+window._repairDelete = async function(repairId, repairNo) {
+    if (!confirm(`ยืนยันลบใบแจ้งซ่อม ${repairNo}?\nการลบไม่สามารถกู้คืนได้`)) return;
+    try {
+        await _importFS();
+        await _deleteDoc(_doc(db, 'assetRepairs', repairId));
+        toast(`🗑️ ลบใบแจ้งซ่อม ${repairNo} แล้ว`, '#dc2626');
+        _loadRepairs();
+    } catch(e) {
+        console.error(e);
+        toast('❌ ลบไม่สำเร็จ: ' + e.message, '#c2410c');
+    }
+};
+
+// ─── Asset Settings (Category Management) ────────────────────────────
+function _renderAssetSettings(c) {
+    c.innerHTML = `
+    <div style="max-width:560px;">
+        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:4px;">⚙️ ตั้งค่าทรัพย์สิน</div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:20px;">จัดการหมวดหมู่ทรัพย์สินที่ใช้ในระบบ</div>
+        <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+            <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">📂 หมวดหมู่ทรัพย์สิน</div>
+            <div id="assetCatList" style="margin-bottom:16px;"></div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" id="newCatInput" placeholder="ชื่อหมวดหมู่ใหม่..."
+                    style="flex:1;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-family:inherit;outline:none;"
+                    onkeydown="if(event.key==='Enter') _assetCatAdd()">
+                <button onclick="_assetCatAdd()"
+                    style="background:#0f172a;color:white;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">+ เพิ่ม</button>
+            </div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:8px;">
+                ⚠️ การลบหมวดหมู่จะไม่กระทบทรัพย์สินที่มีอยู่แล้ว — แค่ไม่สามารถเลือกหมวดนั้นได้ในการเพิ่มใหม่
+            </div>
+        </div>
+    </div>`;
+    _assetCatRender();
+}
+
+function _assetCatRender() {
+    const el = document.getElementById('assetCatList');
+    if (!el) return;
+    if (!ASSET_CATEGORIES.length) {
+        el.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">ยังไม่มีหมวดหมู่</div>';
+        return;
+    }
+    el.innerHTML = ASSET_CATEGORIES.map((cat, i) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:13px;">📂</span>
+                <span id="catLabel_${i}" style="font-size:12px;font-weight:600;color:#0f172a;">${cat}</span>
+                <input id="catInput_${i}" type="text" value="${cat}"
+                    style="display:none;font-size:12px;padding:4px 8px;border:1.5px solid #93c5fd;border-radius:6px;font-family:inherit;outline:none;"
+                    onkeydown="if(event.key==='Enter') _assetCatSaveEdit(${i}); if(event.key==='Escape') _assetCatCancelEdit(${i})">
+            </div>
+            <div style="display:flex;gap:5px;" id="catBtns_${i}">
+                <button onclick="_assetCatStartEdit(${i})"
+                    style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;">✏️ แก้ไข</button>
+                <button onclick="_assetCatDelete(${i})"
+                    style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;">🗑️ ลบ</button>
+            </div>
+            <div style="display:none;gap:5px;" id="catEditBtns_${i}">
+                <button onclick="_assetCatSaveEdit(${i})"
+                    style="background:#f0fdf4;color:#059669;border:1px solid #a7f3d0;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;">✅ บันทึก</button>
+                <button onclick="_assetCatCancelEdit(${i})"
+                    style="background:#f1f5f9;color:#475569;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;">ยกเลิก</button>
+            </div>
+        </div>`).join('');
+}
+
+window._assetCatAdd = function() {
+    const input = document.getElementById('newCatInput');
+    const val = input?.value.trim();
+    if (!val) { toast('⚠️ กรุณากรอกชื่อหมวดหมู่', '#c2410c'); return; }
+    if (ASSET_CATEGORIES.includes(val)) { toast('⚠️ มีหมวดหมู่นี้แล้ว', '#c2410c'); return; }
+    ASSET_CATEGORIES.push(val);
+    input.value = '';
+    _assetCatRender();
+    toast(`✅ เพิ่มหมวดหมู่ "${val}" แล้ว`, '#059669');
+};
+
+window._assetCatDelete = function(i) {
+    const cat = ASSET_CATEGORIES[i];
+    if (!cat) return;
+    if (!confirm(`ลบหมวดหมู่ "${cat}"?`)) return;
+    ASSET_CATEGORIES.splice(i, 1);
+    _assetCatRender();
+    toast(`🗑️ ลบหมวดหมู่ "${cat}" แล้ว`, '#dc2626');
+};
+
+window._assetCatStartEdit = function(i) {
+    document.getElementById(`catLabel_${i}`).style.display = 'none';
+    document.getElementById(`catInput_${i}`).style.display = 'inline-block';
+    document.getElementById(`catBtns_${i}`).style.display = 'none';
+    document.getElementById(`catEditBtns_${i}`).style.display = 'flex';
+    document.getElementById(`catInput_${i}`).focus();
+};
+
+window._assetCatCancelEdit = function(i) {
+    document.getElementById(`catLabel_${i}`).style.display = 'inline';
+    document.getElementById(`catInput_${i}`).style.display = 'none';
+    document.getElementById(`catBtns_${i}`).style.display = 'flex';
+    document.getElementById(`catEditBtns_${i}`).style.display = 'none';
+};
+
+window._assetCatSaveEdit = function(i) {
+    const val = document.getElementById(`catInput_${i}`)?.value.trim();
+    if (!val) { toast('⚠️ ชื่อหมวดหมู่ต้องไม่ว่าง', '#c2410c'); return; }
+    if (ASSET_CATEGORIES.includes(val) && ASSET_CATEGORIES[i] !== val) {
+        toast('⚠️ มีหมวดหมู่นี้แล้ว', '#c2410c'); return;
+    }
+    const old = ASSET_CATEGORIES[i];
+    ASSET_CATEGORIES[i] = val;
+    _assetCatRender();
+    toast(`✅ เปลี่ยน "${old}" → "${val}" แล้ว`, '#059669');
+};
+
 // ─── Open Repair from Registry ────────────────────────────────────────
 window._openRepairFromAsset = function(assetId) {
     assetSwitchTab('repair');
@@ -1632,6 +1750,7 @@ async function _loadRepairs(statusFilter) {
                         ${canApproveNow ? `<button onclick="_repairApprove('${r._id}',${nextStep})" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">✅ อนุมัติ</button>` : ''}
                         ${canReject ? `<button onclick="_repairReject('${r._id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">✕ ไม่อนุมัติ</button>` : ''}
                         ${canUpdate ? `<button onclick="_repairOpenUpdate('${r._id}')" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">✏️ อัปเดต</button>` : ''}
+                        ${role==='admin' ? `<button onclick="_repairDelete('${r._id}','${r.repairNo||r._id.slice(-6).toUpperCase()}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">🗑️ ลบ</button>` : ''}
                     </div>
                 </div>
             </div>
