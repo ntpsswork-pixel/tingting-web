@@ -432,7 +432,7 @@
                 </div></div>
                 <p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
 
-            const snap = await getDocs(collection(db,'qcChecks'));
+            const snap = await getDocs(query(collection(db,'qcChecks'), orderBy('checkedAt','desc'), limit(300)));
             let checks=[]; snap.forEach(d=>checks.push({id:d.id,...d.data()}));
             checks.sort((a,b)=>b.timestamp-a.timestamp);
             window._qcAllChecks = checks;
@@ -965,7 +965,7 @@
 
         // ── GR EXPORT EXCEL ──────────────────────────────
         window.exportGRExcel = async function() {
-            const snap = await getDocs(collection(db,'goodsReceipts'));
+            const snap = await getDocs(query(collection(db,'goodsReceipts'), orderBy('receivedAt','desc'), limit(300)));
             const rows = [['GR Number','วันที่','สร้างโดย','ผู้รับ','Supplier','สถานะ','รหัสสินค้า','ชื่อสินค้า','คาดรับ','รับจริง','หน่วย','Lot','MFD','EXP','คลัง','สถานะรายการ','หมายเหตุ']];
             const statusTH = {draft:'แบบร่าง',pending:'รออนุมัติ',approved:'อนุมัติแล้ว',rejected:'ปฏิเสธ',completed:'เสร็จสิ้น'};
             const iSL = {complete:'ครบ',partial:'ไม่ครบ',damaged:'เสียหาย',extra:'ของแทรก'};

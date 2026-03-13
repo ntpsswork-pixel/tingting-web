@@ -19,7 +19,7 @@
         async function genMRNumber() {
             const now = new Date();
             const prefix = `MR-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-            const snap = await getDocs(collection(db,'requisitions'));
+            const snap = await getDocs(query(collection(db,'requisitions'), orderBy('createdAt','desc'), limit(300)));
             const todayDocs = [];
             snap.forEach(d=>{ if(d.id.startsWith(prefix)) todayDocs.push(d.id); });
             const seq = String(todayDocs.length+1).padStart(3,'0');
@@ -31,7 +31,7 @@
             document.getElementById('dashboardView').classList.add('hidden');
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
             const visibleZones = getVisibleWarehouses();
-            const usSnap = await getDocs(collection(db,'users'));
+            const usSnap = await getDocs(query(collection(db,'users'), limit(200)));
             let staffOpts = '';
             usSnap.forEach(d=>{ const u=d.data(); if(u.status!=='suspended') staffOpts+=`<option value="${u.name}">${u.name}</option>`; });
             const today = new Date().toISOString().slice(0,10);
@@ -216,7 +216,7 @@
             </div></div>
             <div id="myReqList"><p style="text-align:center;color:#94a3b8;padding:40px;">กำลังโหลด...</p></div>`;
 
-            const snap = await getDocs(collection(db,'requisitions'));
+            const snap = await getDocs(query(collection(db,'requisitions'), orderBy('createdAt','desc'), limit(300)));
             let docs = [];
             snap.forEach(d=>docs.push({id:d.id,...d.data()}));
             docs = docs.filter(d=>d.requestedBy===currentUser.name || currentUser.role==='admin');
@@ -238,7 +238,7 @@
             </div>
             <div id="pendingReqList"><p style="text-align:center;color:#94a3b8;padding:40px;">กำลังโหลด...</p></div>`;
 
-            const snap = await getDocs(collection(db,'requisitions'));
+            const snap = await getDocs(query(collection(db,'requisitions'), orderBy('createdAt','desc'), limit(300)));
             let docs = [];
             snap.forEach(d=>docs.push({id:d.id,...d.data()}));
             docs.sort((a,b)=>b.timestamp-a.timestamp);
@@ -268,7 +268,7 @@
             </div></div>
             <div id="allReqList"><p style="text-align:center;color:#94a3b8;padding:40px;">กำลังโหลด...</p></div>`;
 
-            const snap = await getDocs(collection(db,'requisitions'));
+            const snap = await getDocs(query(collection(db,'requisitions'), orderBy('createdAt','desc'), limit(300)));
             let docs = [];
             snap.forEach(d=>docs.push({id:d.id,...d.data()}));
             docs.sort((a,b)=>b.timestamp-a.timestamp);
@@ -481,7 +481,7 @@
         // ---- Badge counter ----
         async function loadReqBadge() {
             try {
-                const snap = await getDocs(collection(db,'requisitions'));
+                const snap = await getDocs(query(collection(db,'requisitions'), orderBy('createdAt','desc'), limit(300)));
                 let pending = 0;
                 snap.forEach(d=>{ if(d.data().status==='pending') pending++; });
                 const badge = document.getElementById('reqBadge');

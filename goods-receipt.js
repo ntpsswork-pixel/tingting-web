@@ -241,7 +241,7 @@
             const snap = await getDoc(doc(db,'goodsReceipts',grId));
             if(!snap.exists()){ toast('❌ ไม่พบ GR','#c2410c'); return; }
             const gr = {id:grId, ...snap.data()};
-            const usersSnap = await getDocs(collection(db,'users'));
+            const usersSnap = await getDocs(query(collection(db,'users'), limit(200)));
             let staffOpts='';
             usersSnap.forEach(d=>{ const u=d.data(); if(u.status!=='suspended') staffOpts+=`<option value="${u.name}" ${u.name===currentUser.name?'selected':''}>${u.name}</option>`; });
             const warehouseOpts = getVisibleWarehouses().map(z=>`<option value="${z}">${z}</option>`).join('');
@@ -470,7 +470,7 @@
             const c = document.getElementById('toolAppContainer'); c.classList.remove('hidden');
             c.innerHTML=`<div class="tool-header"><h2>📄 ประวัติ GR</h2></div><p style="text-align:center;color:#94a3b8;padding:30px;">⏳ กำลังโหลด...</p>`;
 
-            const snap = await getDocs(collection(db,'goodsReceipts'));
+            const snap = await getDocs(query(collection(db,'goodsReceipts'), orderBy('receivedAt','desc'), limit(300)));
             let allGRDocs = [];
             snap.forEach(d=>allGRDocs.push({id:d.id,...d.data()}));
             allGRDocs.sort((a,b)=>b.timestamp-a.timestamp);
