@@ -142,6 +142,7 @@ function _renderAssetShell(c) {
         { id: 'audit',    icon: '🔍', label: 'ตรวจนับรายรอบ' },
         { id: 'repair',   icon: '🔧', label: 'แจ้งซ่อม' },
         { id: 'dashboard',icon: '📊', label: 'Dashboard' },
+        ...(isAdmin ? [{ id: 'settings', icon: '⚙️', label: 'ตั้งค่า' }] : []),
     ];
 
     c.innerHTML = `
@@ -162,7 +163,7 @@ function _renderAssetShell(c) {
 
 window.assetSwitchTab = function(tabId) {
     _assetActiveTab = tabId;
-    ['registry','audit','repair','dashboard'].forEach(id => {
+    ['registry','audit','repair','dashboard','settings'].forEach(id => {
         const btn = document.getElementById(`assetTab_${id}`); if (!btn) return;
         if (id === tabId) {
             btn.style.background = 'white'; btn.style.color = '#0f172a';
@@ -178,6 +179,7 @@ window.assetSwitchTab = function(tabId) {
         case 'audit':     _renderAudit(content); break;
         case 'repair':    _renderRepair(content); break;
         case 'dashboard': _renderDashboard(content); break;
+        case 'settings':  _renderAssetSettings(content); break;
     }
 };
 
@@ -192,7 +194,6 @@ function _renderRegistry(c) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
             ${isAdmin ? `
             <button onclick="_openAddAssetForm()" style="background:#0f172a;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">+ เพิ่มทรัพย์สิน</button>
-            <button onclick="_downloadAssetTemplate()" style="background:#0369a1;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📋 Template</button>
             <button onclick="_importAssetsExcel()" style="background:#059669;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📥 Import Excel</button>
             ` : ''}
             <button onclick="_exportAssetsExcel()" style="background:#7c3aed;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📊 Excel</button>
@@ -723,61 +724,6 @@ window._exportAssetsPDF = function(assetsToExport) {
     win.document.close();
 };
 
-// ─── Download Template ────────────────────────────────────────────────
-window._downloadAssetTemplate = function() {
-    const cats = (typeof ASSET_CATEGORIES !== 'undefined') ? ASSET_CATEGORIES : ['อุปกรณ์ครัว','IT Equipment','เฟอร์นิเจอร์','ยานพาหนะ','อื่นๆ'];
-    const zones = (typeof warehouseList !== 'undefined' && warehouseList.length) ? warehouseList : ['สาขา1','สาขา2'];
-    const statuses = ['ปกติ','ชำรุด','ซ่อมอยู่','เลิกใช้งาน'];
-
-    // Header row + example rows
-    const headers = ['รหัส','ชื่อ','หมวด','ยี่ห้อ/รุ่น','Serial/ทะเบียน','Zone','สถานะ','วันที่ซื้อ','ราคาซื้อ','อายุใช้งาน(ปี)','หมายเหตุ'];
-    const example1 = ['AST001','เครื่องชงกาแฟ Breville',cats[0]||'อุปกรณ์ครัว','Breville BES870','SN-12345',zones[0]||'','ปกติ','2024-01-15',35000,5,'ชั้น 1 ห้องครัว'];
-    const example2 = ['AST002','โน้ตบุ๊ค Dell Latitude',cats[1]||'IT Equipment','Dell Latitude 5540','DL-98765',zones[0]||'','ปกติ','2023-06-01',42000,3,'ฝ่าย Admin'];
-
-    const wb = XLSX.utils.book_new();
-
-    // ── Sheet 1: Template ──
-    const ws = XLSX.utils.aoa_to_sheet([headers, example1, example2]);
-
-    // Column widths
-    ws['!cols'] = [
-        {wch:12},{wch:30},{wch:16},{wch:18},{wch:16},
-        {wch:12},{wch:12},{wch:14},{wch:12},{wch:16},{wch:24}
-    ];
-
-    // Style header row (yellow background)
-    const headerStyle = { font:{bold:true}, fill:{fgColor:{rgb:'FFF59E0B'}}, alignment:{horizontal:'center'} };
-    headers.forEach((_,ci) => {
-        const cell = XLSX.utils.encode_cell({r:0, c:ci});
-        if (ws[cell]) ws[cell].s = headerStyle;
-    });
-
-    // Data validation dropdowns via comments (XLSX-style note since SheetJS free doesn't support DV)
-    // Add note to category column header
-    ws['C1'].c = [{ a:'TTGPlus', t:'ค่าที่รองรับ:\n' + cats.join('\n') }];
-    ws['F1'].c = [{ a:'TTGPlus', t:'Zone ที่รองรับ:\n' + zones.join('\n') }];
-    ws['G1'].c = [{ a:'TTGPlus', t:'สถานะที่รองรับ:\n' + statuses.join('\n') }];
-    ws['H1'].c = [{ a:'TTGPlus', t:'รูปแบบวันที่: YYYY-MM-DD\nเช่น 2024-01-15' }];
-
-    XLSX.utils.book_append_sheet(wb, ws, '📋 Template');
-
-    // ── Sheet 2: Reference ──
-    const refData = [
-        ['== ค่าอ้างอิง ==','','',''],
-        ['หมวดหมู่ (หมวด)','Zone / สาขา','สถานะ','รูปแบบวันที่ซื้อ'],
-        ...Array.from({length: Math.max(cats.length, zones.length, statuses.length)}, (_,i) => [
-            cats[i]||'', zones[i]||'', statuses[i]||'', i===0?'YYYY-MM-DD':i===1?'ตัวอย่าง: 2024-01-15':''
-        ])
-    ];
-    const wsRef = XLSX.utils.aoa_to_sheet(refData);
-    wsRef['!cols'] = [{wch:20},{wch:20},{wch:16},{wch:20}];
-    XLSX.utils.book_append_sheet(wb, wsRef, '📌 ค่าอ้างอิง');
-
-    XLSX.writeFile(wb, 'TTGPlus_Asset_Template.xlsx');
-    toast('✅ ดาวน์โหลด Template เรียบร้อย', '#0284c7');
-};
-
-// ─── Import Excel with Preview ────────────────────────────────────────
 window._importAssetsExcel = function() {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = '.xlsx,.xls,.csv';
@@ -786,163 +732,157 @@ window._importAssetsExcel = function() {
         const reader = new FileReader();
         reader.onload = async ev => {
             const wb = XLSX.read(ev.target.result, { type:'array' });
-            const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:'' });
-            if (!raw.length) { toast('❌ ไม่พบข้อมูลในไฟล์', '#c2410c'); return; }
-            _showImportPreview(raw);
+            const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:'' });
+            if (!data.length) { toast('❌ ไม่พบข้อมูล', '#c2410c'); return; }
+            await _importFS();
+            let added = 0;
+            for (const row of data) {
+                const id = String(row['รหัส']||row['ProductCode']||'').trim(); if (!id) continue;
+                const d = {
+                    name: String(row['ชื่อ']||row['ProductName']||'').trim(),
+                    category: String(row['หมวด']||'').trim()||'อื่นๆ',
+                    brand: String(row['ยี่ห้อ/รุ่น']||'').trim(),
+                    serial: String(row['Serial/ทะเบียน']||'').trim(),
+                    zone: String(row['Zone']||'').trim(),
+                    status: String(row['สถานะ']||'ปกติ').trim(),
+                    purchaseDate: String(row['วันที่ซื้อ']||'').trim(),
+                    price: parseFloat(row['ราคาซื้อ'])||0,
+                    lifeYears: parseFloat(row['อายุใช้งาน(ปี)'])||0,
+                    note: String(row['หมายเหตุ']||'').trim(),
+                    createdAt: Date.now(), createdBy: currentUser.name,
+                    updatedAt: Date.now(), updatedBy: currentUser.name,
+                };
+                if (!d.name) continue;
+                await _setDoc(_doc(db, 'assets', id), d, { merge: true });
+                added++;
+            }
+            toast(`✅ Import ${added} รายการ`, '#059669');
+            _loadAssets();
         };
         reader.readAsArrayBuffer(file);
     };
     input.click();
 };
 
-// ─── Import Preview Modal ─────────────────────────────────────────────
-window._showImportPreview = function(raw) {
-    const VALID_STATUS = ['ปกติ','ชำรุด','ซ่อมอยู่','เลิกใช้งาน'];
-    const cats = (typeof ASSET_CATEGORIES !== 'undefined') ? ASSET_CATEGORIES : [];
-    const zones = (typeof warehouseList !== 'undefined') ? warehouseList : [];
 
-    // Parse & validate each row
-    const rows = raw.map((row, i) => {
-        const id    = String(row['รหัส']||row['ProductCode']||'').trim();
-        const name  = String(row['ชื่อ']||row['ProductName']||'').trim();
-        const cat   = String(row['หมวด']||'').trim() || 'อื่นๆ';
-        const zone  = String(row['Zone']||'').trim();
-        const status= String(row['สถานะ']||'ปกติ').trim();
-        const date  = String(row['วันที่ซื้อ']||'').trim();
-        const price = parseFloat(row['ราคาซื้อ'])||0;
-        const life  = parseFloat(row['อายุใช้งาน(ปี)'])||0;
-
-        const errors = [];
-        if (!id)   errors.push('ไม่มีรหัส');
-        if (!name) errors.push('ไม่มีชื่อ');
-        if (cats.length && !cats.includes(cat) && cat !== 'อื่นๆ') errors.push(`หมวด "${cat}" ไม่ถูกต้อง`);
-        if (zones.length && zone && !zones.includes(zone)) errors.push(`Zone "${zone}" ไม่ถูกต้อง`);
-        if (status && !VALID_STATUS.includes(status)) errors.push(`สถานะ "${status}" ไม่ถูกต้อง`);
-        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.push('วันที่ควรเป็น YYYY-MM-DD');
-
-        return { _row: i+2, id, name, cat, zone, status, date, price, life,
-                 brand: String(row['ยี่ห้อ/รุ่น']||'').trim(),
-                 serial: String(row['Serial/ทะเบียน']||'').trim(),
-                 note: String(row['หมายเหตุ']||'').trim(),
-                 errors, ok: errors.length === 0 };
-    });
-
-    const okRows    = rows.filter(r => r.ok);
-    const errRows   = rows.filter(r => !r.ok);
-    const skipRows  = rows.filter(r => !r.id && !r.name);
-
-    // Build modal
-    const overlay = document.createElement('div');
-    overlay.id = 'importPreviewOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto;';
-
-    const rowsHtml = rows.map(r => {
-        const bg = r.errors.length ? '#fef2f2' : '#f0fdf4';
-        const border = r.errors.length ? '#fecaca' : '#a7f3d0';
-        const badge = r.errors.length
-            ? `<span style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;">❌ ${r.errors.join(', ')}</span>`
-            : `<span style="background:#dcfce7;color:#15803d;border:1px solid #a7f3d0;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;">✅ พร้อม Import</span>`;
-        return `<tr style="background:${bg};border-bottom:1px solid ${border};">
-            <td style="padding:7px 10px;font-size:11px;color:#94a3b8;">${r._row}</td>
-            <td style="padding:7px 10px;font-size:11px;font-weight:700;color:#0f172a;">${r.id||'—'}</td>
-            <td style="padding:7px 10px;font-size:11px;">${r.name||'—'}</td>
-            <td style="padding:7px 10px;font-size:11px;">${r.cat}</td>
-            <td style="padding:7px 10px;font-size:11px;">${r.zone||'—'}</td>
-            <td style="padding:7px 10px;font-size:11px;">${r.status}</td>
-            <td style="padding:7px 10px;font-size:11px;">${r.date||'—'}</td>
-            <td style="padding:7px 10px;font-size:11px;text-align:right;">${r.price ? '฿'+r.price.toLocaleString() : '—'}</td>
-            <td style="padding:7px 10px;">${badge}</td>
-        </tr>`;
-    }).join('');
-
-    overlay.innerHTML = `
-    <div style="background:white;border-radius:16px;width:100%;max-width:1100px;box-shadow:0 20px 60px rgba(0,0,0,0.25);overflow:hidden;">
-        <div style="background:#0f172a;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;">
-            <div>
-                <div style="font-size:16px;font-weight:800;color:white;">🔍 ตรวจสอบข้อมูลก่อน Import</div>
-                <div style="font-size:12px;color:#94a3b8;margin-top:2px;">พบ ${rows.length} แถว — พร้อม: ${okRows.length} | มีข้อผิดพลาด: ${errRows.length} | ข้ามได้: ${skipRows.length}</div>
-            </div>
-            <button onclick="document.getElementById('importPreviewOverlay').remove()" style="background:#334155;color:white;border:none;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
-        </div>
-
-        <!-- Summary bar -->
-        <div style="display:flex;gap:12px;padding:16px 24px;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-wrap:wrap;">
-            <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:8px;padding:10px 16px;flex:1;min-width:120px;">
-                <div style="font-size:20px;font-weight:900;color:#059669;">${okRows.length}</div>
-                <div style="font-size:10px;color:#64748b;margin-top:2px;">พร้อม Import</div>
-            </div>
-            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 16px;flex:1;min-width:120px;">
-                <div style="font-size:20px;font-weight:900;color:#dc2626;">${errRows.length}</div>
-                <div style="font-size:10px;color:#64748b;margin-top:2px;">มีข้อผิดพลาด (จะข้าม)</div>
-            </div>
-            <div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 16px;flex:1;min-width:120px;">
-                <div style="font-size:20px;font-weight:900;color:#d97706;">${rows.length}</div>
-                <div style="font-size:10px;color:#64748b;margin-top:2px;">แถวทั้งหมด</div>
-            </div>
-        </div>
-
-        ${errRows.length ? `<div style="padding:10px 24px;background:#fef2f2;border-bottom:1px solid #fecaca;font-size:11px;color:#dc2626;">
-            ⚠️ แถวที่มีข้อผิดพลาดจะถูกข้ามอัตโนมัติ — แก้ไขแล้วค่อย Import ใหม่ หรือกด Import เฉพาะแถวที่ถูกต้อง ${okRows.length} รายการ
-        </div>` : ''}
-
-        <!-- Table -->
-        <div style="overflow-x:auto;max-height:420px;overflow-y:auto;">
-            <table style="width:100%;border-collapse:collapse;">
-                <thead style="position:sticky;top:0;background:#0f172a;z-index:1;">
-                    <tr>
-                        <th style="padding:9px 10px;text-align:left;font-size:10px;color:#94a3b8;font-weight:600;white-space:nowrap;">แถว</th>
-                        <th style="padding:9px 10px;text-align:left;font-size:10px;color:white;font-weight:700;white-space:nowrap;">รหัส</th>
-                        <th style="padding:9px 10px;text-align:left;font-size:10px;color:white;font-weight:700;white-space:nowrap;">ชื่อ</th>
-                        <th style="padding:9px 10px;text-align:left;font-size:10px;color:white;font-weight:700;white-space:nowrap;">หมวด</th>
-                        <th style="padding:9px 10px;text-align:left;font-size:10px;color:white;font-weight:700;white-space:nowrap;">Zone</th>
-                        <th style="padding:9px 10px;text-align:left;font-size:10px;color:white;font-weight:700;white-space:nowrap;">สถานะ</th>
-                        <th style="padding:9px 10px;text-align:left;font-size:10px;color:white;font-weight:700;white-space:nowrap;">วันที่ซื้อ</th>
-                        <th style="padding:9px 10px;text-align:right;font-size:10px;color:white;font-weight:700;white-space:nowrap;">ราคา</th>
-                        <th style="padding:9px 10px;text-align:left;font-size:10px;color:white;font-weight:700;white-space:nowrap;">สถานะตรวจสอบ</th>
-                    </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-            </table>
-        </div>
-
-        <!-- Actions -->
-        <div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;background:white;">
-            <button onclick="document.getElementById('importPreviewOverlay').remove()"
-                style="background:#f1f5f9;color:#475569;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">ยกเลิก</button>
-            ${okRows.length ? `<button onclick="_confirmImportAssets()" id="confirmImportBtn"
-                style="background:#059669;color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">
-                ✅ Import ${okRows.length} รายการที่ถูกต้อง
-            </button>` : `<button disabled style="background:#e2e8f0;color:#94a3b8;border:none;padding:10px 24px;border-radius:8px;font-weight:700;font-size:12px;">ไม่มีรายการที่นำเข้าได้</button>`}
-        </div>
-    </div>`;
-
-    document.body.appendChild(overlay);
-    // Store valid rows for confirm step
-    window._pendingImportRows = okRows;
+// ─── Delete Repair Document ───────────────────────────────────────────
+window._repairDelete = async function(repairId, repairNo) {
+    if (!confirm(`ยืนยันลบใบแจ้งซ่อม ${repairNo}?\nการลบไม่สามารถกู้คืนได้`)) return;
+    try {
+        await _importFS();
+        await _deleteDoc(_doc(db, 'assetRepairs', repairId));
+        toast(`🗑️ ลบใบแจ้งซ่อม ${repairNo} แล้ว`, '#dc2626');
+        _loadRepairs();
+    } catch(e) {
+        console.error(e);
+        toast('❌ ลบไม่สำเร็จ: ' + e.message, '#c2410c');
+    }
 };
 
-window._confirmImportAssets = async function() {
-    const rows = window._pendingImportRows || [];
-    if (!rows.length) return;
-    const btn = document.getElementById('confirmImportBtn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลัง Import...'; }
-    await _importFS();
-    let added = 0;
-    for (const r of rows) {
-        const d = {
-            name: r.name, category: r.cat, brand: r.brand,
-            serial: r.serial, zone: r.zone, status: r.status || 'ปกติ',
-            purchaseDate: r.date, price: r.price, lifeYears: r.life, note: r.note,
-            createdAt: Date.now(), createdBy: currentUser.name,
-            updatedAt: Date.now(), updatedBy: currentUser.name,
-        };
-        await _setDoc(_doc(db, 'assets', r.id), d, { merge: true });
-        added++;
+// ─── Asset Settings (Category Management) ────────────────────────────
+function _renderAssetSettings(c) {
+    const cats = [...ASSET_CATEGORIES];
+    c.innerHTML = `
+    <div style="max-width:560px;">
+        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:4px;">⚙️ ตั้งค่าทรัพย์สิน</div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:20px;">จัดการหมวดหมู่ทรัพย์สินที่ใช้ในระบบ</div>
+
+        <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+            <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">📂 หมวดหมู่ทรัพย์สิน</div>
+
+            <div id="assetCatList" style="margin-bottom:16px;"></div>
+
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" id="newCatInput" placeholder="ชื่อหมวดหมู่ใหม่..."
+                    style="flex:1;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-family:inherit;outline:none;"
+                    onkeydown="if(event.key==='Enter') _assetCatAdd()">
+                <button onclick="_assetCatAdd()"
+                    style="background:#0f172a;color:white;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">+ เพิ่ม</button>
+            </div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:8px;">
+                ⚠️ การลบหมวดหมู่จะไม่กระทบทรัพย์สินที่มีอยู่แล้ว — แค่ไม่สามารถเลือกหมวดนั้นได้ในการเพิ่มใหม่
+            </div>
+        </div>
+    </div>`;
+    _assetCatRender();
+}
+
+function _assetCatRender() {
+    const el = document.getElementById('assetCatList');
+    if (!el) return;
+    if (!ASSET_CATEGORIES.length) {
+        el.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">ยังไม่มีหมวดหมู่</div>';
+        return;
     }
-    document.getElementById('importPreviewOverlay')?.remove();
-    window._pendingImportRows = [];
-    toast(`✅ Import สำเร็จ ${added} รายการ`, '#059669');
-    _loadAssets();
+    el.innerHTML = ASSET_CATEGORIES.map((cat, i) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:13px;">📂</span>
+                <span id="catLabel_${i}" style="font-size:12px;font-weight:600;color:#0f172a;">${cat}</span>
+                <input id="catInput_${i}" type="text" value="${cat}"
+                    style="display:none;font-size:12px;padding:4px 8px;border:1.5px solid #93c5fd;border-radius:6px;font-family:inherit;outline:none;"
+                    onkeydown="if(event.key==='Enter') _assetCatSaveEdit(${i}); if(event.key==='Escape') _assetCatCancelEdit(${i})">
+            </div>
+            <div style="display:flex;gap:5px;" id="catBtns_${i}">
+                <button onclick="_assetCatStartEdit(${i})"
+                    style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;">✏️ แก้ไข</button>
+                <button onclick="_assetCatDelete(${i})"
+                    style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;">🗑️ ลบ</button>
+            </div>
+            <div style="display:none;gap:5px;" id="catEditBtns_${i}">
+                <button onclick="_assetCatSaveEdit(${i})"
+                    style="background:#f0fdf4;color:#059669;border:1px solid #a7f3d0;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;">✅ บันทึก</button>
+                <button onclick="_assetCatCancelEdit(${i})"
+                    style="background:#f1f5f9;color:#475569;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;">ยกเลิก</button>
+            </div>
+        </div>`).join('');
+}
+
+window._assetCatAdd = function() {
+    const input = document.getElementById('newCatInput');
+    const val = input?.value.trim();
+    if (!val) { toast('⚠️ กรุณากรอกชื่อหมวดหมู่', '#c2410c'); return; }
+    if (ASSET_CATEGORIES.includes(val)) { toast('⚠️ มีหมวดหมู่นี้แล้ว', '#c2410c'); return; }
+    ASSET_CATEGORIES.push(val);
+    input.value = '';
+    _assetCatRender();
+    toast(`✅ เพิ่มหมวดหมู่ "${val}" แล้ว`, '#059669');
+};
+
+window._assetCatDelete = function(i) {
+    const cat = ASSET_CATEGORIES[i];
+    if (!cat) return;
+    if (!confirm(`ลบหมวดหมู่ "${cat}"?`)) return;
+    ASSET_CATEGORIES.splice(i, 1);
+    _assetCatRender();
+    toast(`🗑️ ลบหมวดหมู่ "${cat}" แล้ว`, '#dc2626');
+};
+
+window._assetCatStartEdit = function(i) {
+    document.getElementById(`catLabel_${i}`).style.display = 'none';
+    document.getElementById(`catInput_${i}`).style.display = 'inline-block';
+    document.getElementById(`catBtns_${i}`).style.display = 'none';
+    document.getElementById(`catEditBtns_${i}`).style.display = 'flex';
+    document.getElementById(`catInput_${i}`).focus();
+};
+
+window._assetCatCancelEdit = function(i) {
+    document.getElementById(`catLabel_${i}`).style.display = 'inline';
+    document.getElementById(`catInput_${i}`).style.display = 'none';
+    document.getElementById(`catBtns_${i}`).style.display = 'flex';
+    document.getElementById(`catEditBtns_${i}`).style.display = 'none';
+};
+
+window._assetCatSaveEdit = function(i) {
+    const val = document.getElementById(`catInput_${i}`)?.value.trim();
+    if (!val) { toast('⚠️ ชื่อหมวดหมู่ต้องไม่ว่าง', '#c2410c'); return; }
+    if (ASSET_CATEGORIES.includes(val) && ASSET_CATEGORIES[i] !== val) {
+        toast('⚠️ มีหมวดหมู่นี้แล้ว', '#c2410c'); return;
+    }
+    const old = ASSET_CATEGORIES[i];
+    ASSET_CATEGORIES[i] = val;
+    _assetCatRender();
+    toast(`✅ เปลี่ยน "${old}" → "${val}" แล้ว`, '#059669');
 };
 
 // ─── Open Repair from Registry ────────────────────────────────────────
@@ -1580,6 +1520,7 @@ async function _loadRepairs(statusFilter) {
                         ${canApproveNow ? `<button onclick="_repairApprove('${r._id}',${nextStep})" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">✅ อนุมัติ</button>` : ''}
                         ${canReject ? `<button onclick="_repairReject('${r._id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">✕ ไม่อนุมัติ</button>` : ''}
                         ${canUpdate ? `<button onclick="_repairOpenUpdate('${r._id}')" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">✏️ อัปเดต</button>` : ''}
+                        ${role==='admin' ? `<button onclick="_repairDelete('${r._id}','${r.repairNo||r._id.slice(-6).toUpperCase()}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:10px;font-weight:700;">🗑️ ลบ</button>` : ''}
                     </div>
                 </div>
             </div>
