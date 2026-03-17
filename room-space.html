@@ -759,3 +759,89 @@ function resetLayout(roomId) {
   fpInit(roomId);
   toast('Reset layout แล้ว');
 }
+// ────────────────────────────────────────────
+//  Import Excel
+// ────────────────────────────────────────────
+function handleFileInput(input) { if (input.files[0]) readExcel(input.files[0]); }
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop',      e => { e.preventDefault(); dz.classList.remove('drag-over'); if (e.dataTransfer.files[0]) readExcel(e.dataTransfer.files[0]); });
+
+function readExcel(file) {
+  const rd = new FileReader();
+  rd.onload = evt => {
+    try {
+      const wb  = XLSX.read(evt.target.result, { type:'array' });
+      const wsR = wb.Sheets['rooms'], wsE = wb.Sheets['equipment'];
+      if (!wsR || !wsE) { toast('ไม่พบ Sheet "rooms" หรือ "equipment"','danger'); return; }
+      const rRows = XLSX.utils.sheet_to_json(wsR, { defval:'' });
+      const eRows = XLSX.utils.sheet_to_json(wsE, { defval:'' });
+      const nr = rRows.filter(r=>r.room_name).map(r=>({
+        id:uid(), name:String(r.room_name).trim(),
+        width:parseFloat(r.width)||400, length:parseFloat(r.length)||600,
+        unit:String(r.unit||'cm').toLowerCase().trim(), equipment:[]
+      }));
+      eRows.filter(e=>e.room_name&&e.equipment_name).forEach(e=>{
+        const rm = nr.find(x => x.name === String(e.room_name).trim()); if (!rm) return;
+        rm.equipment.push({ id:uid(), name:String(e.equipment_name).trim(),
+          width:parseFloat(e.width)||0, length:parseFloat(e.length)||0,
+          quantity:parseInt(e.quantity)||1, unit:String(e.unit||rm.unit).toLowerCase().trim(),
+          note:String(e.note||'').trim() });
+      });
+      rooms = [...rooms, ...nr];
+      if (nr.length) activeId = nr[0].id;
+      renderAll();
+      toast(`Import สำเร็จ — ${nr.length} ห้อง`);
+    } catch(err) { toast('อ่านไฟล์ไม่ได้: ' + err.message, 'danger'); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+// ────────────────────────────────────────────
+//  Export CSV
+// ────────────────────────────────────────────
+function exportCSV() {
+  if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
+  const lines = ['ห้อง,กว้าง,ยาว,หน่วย,พื้นที่ห้อง(m²),รายการ,พื้นที่อุปกรณ์(m²),%ใช้'];
+  rooms.forEach(r => {
+    lines.push(`"${r.name}",${r.width},${r.length},${r.unit},${(roomArea(r)/10000).toFixed(2)},${r.equipment.length},${(totalEq(r)/10000).toFixed(2)},${pct(r).toFixed(1)}%`);
+    r.equipment.forEach(e => {
+      lines.push(`,"${e.name}",${e.width},${e.length},${e.unit||r.unit},,,${(eqArea(e,r.unit)/10000).toFixed(2)},จำนวน:${e.quantity}`);
+    });
+  });
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type:'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a'); a.href = url;
+  a.download = `room-space-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('Export CSV เรียบร้อย');
+}
+
+// ────────────────────────────────────────────
+//  Download Template
+// ────────────────────────────────────────────
+function downloadTemplate() {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['room_name','width','length','unit','note'],
+    ['ห้องครัว',400,600,'cm',''], ['ห้องเก็บของ',300,500,'cm',''],
+  ]), 'rooms');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['room_name','equipment_name','width','length','quantity','unit','note'],
+    ['ห้องครัว','โต๊ะเตรียมอาหาร',60,120,2,'cm','ติดผนัง'],
+    ['ห้องครัว','ตู้เย็น',65,70,1,'cm','มุมห้อง'],
+    ['ห้องเก็บของ','ชั้นวางของ',40,120,3,'cm','ติดผนัง'],
+  ]), 'equipment');
+  XLSX.writeFile(wb, 'ttgplus_room_template.xlsx');
+  toast('Download template เรียบร้อย');
+}
+
+// ────────────────────────────────────────────
+//  Init
+// ────────────────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>
