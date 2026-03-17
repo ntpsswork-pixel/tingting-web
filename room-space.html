@@ -6,787 +6,556 @@
 <title>Room Space Calculator — TTGPlus</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
   :root {
-    --bg:        #1a1917;
-    --bg2:       #222120;
-    --bg3:       #2a2826;
-    --border:    #3a3835;
-    --gold:      #f0b429;
-    --gold-dim:  #b8891f;
-    --cream:     #e8e2d9;
-    --muted:     #888580;
-    --danger:    #e05252;
-    --ok:        #4caf7d;
-    --warn:      #f0a429;
-    --radius:    10px;
-    --shadow:    0 4px 24px rgba(0,0,0,0.4);
+    --bg:     #0f172a;
+    --bg2:    #1a2540;
+    --bg3:    #1e2d4a;
+    --border: #2a3a5c;
+    --gold:   #f0b429;
+    --cream:  #e2e8f0;
+    --muted:  #64748b;
+    --ok:     #10b981;
+    --warn:   #f59e0b;
+    --danger: #ef4444;
+    --r:      10px;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Prompt', sans-serif; background: var(--bg); color: var(--cream); min-height: 100vh; font-size: 14px; overflow-x: hidden; }
 
-  body {
-    font-family: 'IBM Plex Sans Thai', sans-serif;
-    background: var(--bg);
-    color: var(--cream);
-    min-height: 100vh;
-    font-size: 14px;
-  }
+  /* Topbar */
+  .topbar { height: 52px; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; padding: 0 20px; position: sticky; top: 0; z-index: 200; }
+  .topbar-logo  { font-size: 16px; font-weight: 700; color: var(--gold); }
+  .topbar-sep   { color: var(--border); }
+  .topbar-title { font-size: 13px; font-weight: 500; }
+  .topbar-right { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 
-  /* ── Top Bar ── */
-  .topbar {
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    padding: 0 24px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .topbar-logo { font-size: 18px; font-weight: 700; color: var(--gold); letter-spacing: 0.5px; }
-  .topbar-sep  { color: var(--border); font-size: 20px; }
-  .topbar-title{ color: var(--cream); font-size: 14px; font-weight: 500; }
-  .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+  /* Layout */
+  .layout { display: flex; height: calc(100vh - 52px); overflow: hidden; }
 
-  /* ── Buttons ── */
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 14px; border-radius: var(--radius);
-    border: none; cursor: pointer; font-family: inherit;
-    font-size: 13px; font-weight: 500; transition: all .15s;
-  }
-  .btn-primary   { background: var(--gold); color: #1a1917; }
-  .btn-primary:hover { background: #f5c142; }
-  .btn-ghost     { background: transparent; color: var(--cream); border: 1px solid var(--border); }
-  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
-  .btn-danger    { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
-  .btn-danger:hover{ background: rgba(224,82,82,.1); }
-  .btn-sm { padding: 4px 10px; font-size: 12px; }
-  .btn-icon { padding: 6px 10px; }
-
-  /* ── Layout ── */
-  .layout { display: grid; grid-template-columns: 300px 1fr; height: calc(100vh - 56px); }
-
-  /* ── Sidebar ── */
-  .sidebar {
-    background: var(--bg2);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    overflow: hidden;
-  }
-  .sidebar-header {
-    padding: 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 8px;
-  }
-  .sidebar-header h3 { font-size: 13px; font-weight: 600; color: var(--cream); flex: 1; }
-  .room-list { flex: 1; overflow-y: auto; padding: 8px; }
-  .room-item {
-    padding: 10px 12px; border-radius: 8px;
-    cursor: pointer; transition: all .15s;
-    margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
-    border: 1px solid transparent;
-  }
-  .room-item:hover   { background: var(--bg3); }
-  .room-item.active  { background: rgba(240,180,41,.1); border-color: rgba(240,180,41,.3); }
-  .room-dot {
-    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-  }
+  /* Sidebar */
+  .sidebar { width: 256px; flex-shrink: 0; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .sb-hdr  { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .sb-hdr span { flex: 1; font-size: 12px; font-weight: 600; }
+  .room-list { flex: 1; overflow-y: auto; padding: 6px; min-height: 0; }
+  .room-item { padding: 9px 11px; border-radius: 8px; cursor: pointer; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; transition: background .12s; }
+  .room-item:hover  { background: var(--bg3); }
+  .room-item.active { background: rgba(240,180,41,.12); border-color: rgba(240,180,41,.3); }
+  .room-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
   .room-info { flex: 1; min-width: 0; }
   .room-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .room-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
-  .room-pct  {
-    font-size: 11px; font-weight: 600; font-family: 'IBM Plex Mono', monospace;
-    padding: 2px 6px; border-radius: 4px;
-  }
+  .room-meta { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .room-pct  { font-size: 11px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; flex-shrink: 0; }
+  .import-zone { margin: 8px; border: 2px dashed var(--border); border-radius: 8px; padding: 14px 10px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; color: var(--muted); flex-shrink: 0; display: block; }
+  .import-zone:hover, .import-zone.drag-over { border-color: var(--gold); color: var(--cream); background: rgba(240,180,41,.04); }
+  .import-zone p { font-size: 11px; margin-top: 4px; line-height: 1.5; }
+  #file-input { display: none; }
 
-  /* ── Main ── */
-  .main { overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+  /* Main */
+  .main { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
-  /* ── Empty state ── */
-  .empty-state {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 12px; color: var(--muted); text-align: center; padding: 60px;
-  }
-  .empty-icon { font-size: 48px; opacity: .4; }
-  .empty-state h2 { font-size: 18px; color: var(--cream); }
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 7px; border: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; transition: filter .12s; white-space: nowrap; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn-gold  { background: var(--gold); color: #0f172a; }
+  .btn-ghost { background: transparent; color: var(--cream); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-red   { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-red:hover { background: rgba(239,68,68,.08); }
+  .btn-sm { padding: 4px 9px; font-size: 11px; }
 
-  /* ── Cards ── */
-  .card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .card-header {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px;
-  }
-  .card-header h3 { font-size: 14px; font-weight: 600; flex: 1; }
-  .card-body { padding: 18px; }
+  /* Card */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); }
+  .card-hdr { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .card-hdr h3 { font-size: 13px; font-weight: 600; flex: 1; }
+  .card-body { padding: 16px; }
 
-  /* ── Room Header Info ── */
-  .room-detail-header {
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
-    flex-wrap: wrap;
-  }
-  .room-title-area h2 { font-size: 22px; font-weight: 700; color: var(--gold); }
-  .room-title-area p  { color: var(--muted); font-size: 13px; margin-top: 4px; }
-  .room-edit-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
-  .input-field {
-    background: var(--bg3); border: 1px solid var(--border);
-    color: var(--cream); border-radius: 6px; padding: 6px 10px;
-    font-family: inherit; font-size: 13px; outline: none; transition: border-color .15s;
-  }
-  .input-field:focus { border-color: var(--gold); }
-  .input-field.sm   { width: 90px; }
-  .input-field.md   { width: 140px; }
-  select.input-field { cursor: pointer; }
+  /* Room edit */
+  .edit-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .ifield { background: var(--bg3); border: 1px solid var(--border); color: var(--cream); border-radius: 6px; padding: 6px 10px; font-family: inherit; font-size: 13px; outline: none; transition: border-color .15s; }
+  .ifield:focus { border-color: var(--gold); }
+  .w-name { width: 155px; }
+  .w-size { width: 78px; }
+  .w-unit { width: 68px; cursor: pointer; }
 
-  /* ── KPI row ── */
-  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-  .kpi {
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 14px 16px;
-  }
-  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-  .kpi-value { font-size: 22px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; margin-top: 4px; }
-  .kpi-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .kpi.ok    { border-color: rgba(76,175,125,.3); }
-  .kpi.ok .kpi-value { color: var(--ok); }
-  .kpi.warn  { border-color: rgba(240,164,41,.3); }
-  .kpi.warn .kpi-value { color: var(--warn); }
-  .kpi.danger{ border-color: rgba(224,82,82,.3); }
-  .kpi.danger .kpi-value { color: var(--danger); }
+  /* KPI — 2 col default, 4 col on wide */
+  .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  @media (min-width: 860px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
+  .kpi { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .kpi-val   { font-size: 19px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; margin-top: 4px; line-height: 1; }
+  .kpi-sub   { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .kpi.ok    { border-color: rgba(16,185,129,.3); } .kpi.ok .kpi-val  { color: var(--ok); }
+  .kpi.warn  { border-color: rgba(245,158,11,.3); } .kpi.warn .kpi-val { color: var(--warn); }
+  .kpi.danger{ border-color: rgba(239,68,68,.3); }  .kpi.danger .kpi-val { color: var(--danger); }
 
-  /* ── Progress bar ── */
-  .progress-wrap { margin-top: 6px; }
-  .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-  .progress-bar   { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
-  .progress-fill  { height: 100%; border-radius: 4px; transition: width .4s ease; }
+  /* Progress */
+  .prog-wrap { margin-top: 12px; }
+  .prog-lbl  { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .prog-bar  { height: 7px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 4px; transition: width .4s; }
 
-  /* ── Equipment Table ── */
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; }
-  thead tr { background: var(--bg3); }
-  th {
-    text-align: left; padding: 10px 12px;
-    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
-    color: var(--muted); border-bottom: 1px solid var(--border);
-  }
-  td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
-  tbody tr:hover { background: rgba(255,255,255,.02); }
-  tbody tr:last-child td { border-bottom: none; }
-  .area-chip {
-    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
-    background: var(--bg3); padding: 2px 7px; border-radius: 4px; color: var(--gold);
-  }
-  .note-chip { font-size: 11px; color: var(--muted); font-style: italic; }
-
-  /* ── Diagram ── */
-  .diagram-container {
-    background: var(--bg3); border-radius: var(--radius);
-    padding: 16px; position: relative; overflow: hidden;
-  }
+  /* Diagram — KEY FIX: position:relative + explicit height + overflow:hidden */
+  .diagram-wrap { background: var(--bg3); border-radius: 8px; padding: 14px; }
   .diagram-canvas {
-    width: 100%; border: 2px solid var(--gold-dim);
-    border-radius: 6px; position: relative;
-    background: rgba(240,180,41,.03);
+    position: relative;          /* boxes inside use position:absolute */
+    border: 2px solid rgba(240,180,41,.35);
+    border-radius: 5px;
+    background: rgba(240,180,41,.02);
+    min-height: 80px;            /* never collapses to 0 */
+    overflow: hidden;            /* clip boxes that exceed bounds */
+    /* height is set inline via JS */
   }
   .eq-box {
-    position: absolute; border-radius: 3px;
+    position: absolute;
+    border-radius: 3px;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    font-size: 9px; text-align: center; overflow: hidden;
-    border: 1.5px solid; cursor: default;
-    transition: opacity .15s;
-    padding: 2px;
+    font-size: 9px; text-align: center;
+    border: 1.5px solid; overflow: hidden; padding: 2px;
+    /* NO transition/animation that could cause reflow issues */
   }
-  .eq-box:hover { opacity: .85; z-index: 10; }
-  .eq-label { font-weight: 600; line-height: 1.2; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
-  .eq-size  { font-size: 8px; color: rgba(255,255,255,.7); margin-top: 1px; }
-  .room-label {
-    position: absolute; top: 6px; right: 8px;
-    font-size: 10px; color: var(--gold-dim); font-family: 'IBM Plex Mono', monospace;
-  }
-  .diagram-legend {
-    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
-  }
-  .legend-item {
-    display: flex; align-items: center; gap: 5px;
-    font-size: 11px; color: var(--muted);
-  }
-  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .eq-label { font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); line-height: 1.2; font-size: 9px; word-break: break-all; }
+  .eq-size  { font-size: 8px; color: rgba(255,255,255,.65); margin-top: 1px; }
+  .room-sz-lbl { position: absolute; bottom: 4px; right: 6px; font-size: 9px; color: rgba(240,180,41,.45); font-family: 'IBM Plex Mono', monospace; pointer-events: none; }
+  .diagram-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+  .legend-dot  { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
 
-  /* ── Add equipment form ── */
-  .add-form {
-    display: grid; grid-template-columns: 1fr 80px 80px 60px 80px auto;
-    gap: 8px; align-items: center;
-    padding: 12px; background: var(--bg3);
-    border-radius: 8px; margin-top: 12px;
-  }
+  /* Table */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--bg3); }
+  th { text-align: left; padding: 9px 11px; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 9px 11px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,.02); }
+  .chip { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: var(--bg3); padding: 2px 6px; border-radius: 4px; color: var(--gold); }
 
-  /* ── Import zone ── */
-  .import-zone {
-    border: 2px dashed var(--border); border-radius: var(--radius);
-    padding: 32px; text-align: center; cursor: pointer;
-    transition: all .15s; color: var(--muted);
-  }
-  .import-zone:hover, .import-zone.drag-over {
-    border-color: var(--gold); color: var(--cream); background: rgba(240,180,41,.04);
-  }
-  .import-zone h3 { font-size: 16px; margin-bottom: 6px; color: var(--cream); }
-  .import-zone p  { font-size: 13px; }
-  #file-input     { display: none; }
+  /* Add form */
+  .add-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg3); }
+  .add-form .field { display: flex; flex-direction: column; gap: 3px; }
+  .add-form label  { font-size: 10px; color: var(--muted); }
+  .add-form .ifield { padding: 6px 8px; font-size: 12px; }
+  .f-name { width: 145px; } .f-num { width: 70px; } .f-unit { width: 64px; cursor: pointer; } .f-note { width: 115px; }
 
-  /* ── Toast ── */
-  #toast {
-    position: fixed; bottom: 24px; right: 24px;
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 12px 18px;
-    font-size: 13px; z-index: 999; opacity: 0;
-    transform: translateY(10px); transition: all .25s;
-    pointer-events: none; max-width: 320px;
-  }
-  #toast.show { opacity: 1; transform: translateY(0); }
-  #toast.ok     { border-left: 3px solid var(--ok); }
-  #toast.warn   { border-left: 3px solid var(--warn); }
-  #toast.danger { border-left: 3px solid var(--danger); }
+  /* Empty */
+  .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--muted); text-align: center; padding: 60px 20px; }
+  .empty-icon { font-size: 44px; opacity: .35; }
+  .empty h2   { font-size: 17px; color: var(--cream); }
 
-  /* ── Print ── */
+  /* Toast */
+  #toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 12px; z-index: 9999; opacity: 0; transform: translateY(8px); transition: all .22s; pointer-events: none; max-width: 300px; }
+  #toast.show  { opacity: 1; transform: translateY(0); }
+  #toast.t-ok  { border-left: 3px solid var(--ok); }
+  #toast.t-warn{ border-left: 3px solid var(--warn); }
+  #toast.t-bad { border-left: 3px solid var(--danger); }
+
   @media print {
     .topbar, .sidebar, .add-form, .btn, #toast { display: none !important; }
-    .layout { display: block; }
-    .main    { padding: 0; }
-    body     { background: #fff; color: #000; }
-    .card    { border: 1px solid #ccc; break-inside: avoid; }
-    .diagram-canvas { border-color: #999; }
+    .layout { display: block; overflow: visible; height: auto; }
+    .main   { overflow: visible; padding: 0; }
+    body    { background: #fff; color: #000; }
   }
-
-  /* ── Responsive ── */
-  @media (max-width: 768px) {
-    .layout { grid-template-columns: 1fr; }
-    .sidebar { display: none; }
-    .kpi-row { grid-template-columns: repeat(2, 1fr); }
-  }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 </style>
 </head>
 <body>
 
-<!-- Top bar -->
 <div class="topbar">
   <span class="topbar-logo">TTGPlus</span>
   <span class="topbar-sep">/</span>
-  <span class="topbar-title">Room Space Calculator</span>
-  <div class="topbar-actions">
-    <button class="btn btn-ghost btn-sm" onclick="downloadTemplate()">⬇ Download Template</button>
-    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📊 Export CSV</button>
-    <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print</button>
+  <span class="topbar-title">คำนวณพื้นที่ห้อง</span>
+  <div class="topbar-right">
+    <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Template</button>
+    <button class="btn btn-ghost" onclick="exportCSV()">📊 Export CSV</button>
+    <button class="btn btn-ghost" onclick="window.print()">🖨 Print</button>
   </div>
 </div>
 
 <div class="layout">
   <!-- Sidebar -->
   <div class="sidebar">
-    <div class="sidebar-header">
-      <h3>ห้องทั้งหมด</h3>
-      <button class="btn btn-primary btn-sm" onclick="addRoom()">+ เพิ่ม</button>
+    <div class="sb-hdr">
+      <span>ห้องทั้งหมด</span>
+      <button class="btn btn-gold btn-sm" onclick="addRoom()">+ เพิ่ม</button>
     </div>
     <div class="room-list" id="room-list"></div>
-    <div style="padding:12px;border-top:1px solid var(--border);">
-      <label class="import-zone" id="drop-zone">
-        <div style="font-size:28px;margin-bottom:8px;">📂</div>
-        <h3>Import Excel</h3>
-        <p>ลาก .xlsx มาวาง หรือคลิกเพื่อเลือกไฟล์</p>
-        <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFileInput(this)">
-      </label>
-    </div>
+    <label class="import-zone" id="drop-zone">
+      <div style="font-size:22px">📂</div>
+      <p>Import Excel<br>ลาก .xlsx มาวาง หรือคลิกเลือกไฟล์</p>
+      <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFileInput(this)">
+    </label>
   </div>
 
-  <!-- Main -->
-  <div class="main" id="main-content">
-    <div class="empty-state" id="empty-state">
-      <div class="empty-icon">🏠</div>
-      <h2>ยังไม่มีข้อมูลห้อง</h2>
-      <p>กด "+ เพิ่ม" เพื่อสร้างห้องใหม่<br>หรือ Import ข้อมูลจาก Excel Template</p>
-      <div style="margin-top:16px;display:flex;gap:8px;">
-        <button class="btn btn-primary" onclick="addRoom()">+ เพิ่มห้องแรก</button>
-        <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Download Template</button>
-      </div>
-    </div>
-  </div>
+  <!-- Main content -->
+  <div class="main" id="main"></div>
 </div>
 
 <div id="toast"></div>
 
 <script>
-// ─────────────────────────────────────────────
-//  State
-// ─────────────────────────────────────────────
-let rooms = [];          // [{ id, name, width, length, unit, equipment:[] }]
-let activeRoomId = null;
+// ────────────────────────────────────────────
+//  State & constants
+// ────────────────────────────────────────────
+let rooms = [], activeId = null;
 
 const COLORS = [
-  { bg:'rgba(240,100,80,.55)',  border:'#e06450' },
-  { bg:'rgba(80,160,240,.55)',  border:'#50a0f0' },
-  { bg:'rgba(80,200,120,.55)',  border:'#50c878' },
-  { bg:'rgba(200,120,240,.55)', border:'#c878f0' },
-  { bg:'rgba(240,200,80,.55)',  border:'#f0c850' },
-  { bg:'rgba(240,140,80,.55)',  border:'#f08c50' },
-  { bg:'rgba(80,220,220,.55)',  border:'#50dcdc' },
-  { bg:'rgba(240,80,160,.55)',  border:'#f050a0' },
+  {bg:'rgba(239,68,68,.5)',   bd:'#ef4444'},
+  {bg:'rgba(59,130,246,.5)',  bd:'#3b82f6'},
+  {bg:'rgba(16,185,129,.5)',  bd:'#10b981'},
+  {bg:'rgba(168,85,247,.5)',  bd:'#a855f7'},
+  {bg:'rgba(245,158,11,.5)',  bd:'#f59e0b'},
+  {bg:'rgba(236,72,153,.5)',  bd:'#ec4899'},
+  {bg:'rgba(6,182,212,.5)',   bd:'#06b2d4'},
+  {bg:'rgba(132,204,22,.5)',  bd:'#84cc16'},
 ];
 
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
 //  Utils
-// ─────────────────────────────────────────────
-function uid() { return '_' + Math.random().toString(36).slice(2, 9); }
+// ────────────────────────────────────────────
+function uid()       { return '_' + Math.random().toString(36).slice(2,9); }
+function toCm(v,u)   { return u === 'm' ? +v * 100 : +v; }
+function roomArea(r) { return toCm(+r.width,r.unit) * toCm(+r.length,r.unit); }
+function eqArea(e,ru){ const u=e.unit||ru; return toCm(+e.width,u)*toCm(+e.length,u)*(+e.quantity||1); }
+function totalEq(r)  { return r.equipment.reduce((s,e)=>s+eqArea(e,r.unit),0); }
+function pct(r)      { const ra=roomArea(r); return ra ? Math.min(totalEq(r)/ra*100, 999) : 0; }
+function pctCls(p)   { return p<60?'ok':p<85?'warn':'danger'; }
+function colorOf(i)  { return COLORS[i % COLORS.length]; }
+function fmtM2(cm2)  { return (cm2/10000).toFixed(2) + ' m²'; }
 
-function toCm(val, unit) { return unit === 'm' ? val * 100 : val; }
-
-function roomArea(r) {
-  const w = toCm(+r.width, r.unit);
-  const l = toCm(+r.length, r.unit);
-  return w * l;
-}
-
-function equipArea(e, roomUnit) {
-  const unit = e.unit || roomUnit;
-  const w = toCm(+e.width, unit);
-  const l = toCm(+e.length, unit);
-  return w * l * (+e.quantity || 1);
-}
-
-function totalEquipArea(room) {
-  return room.equipment.reduce((s, e) => s + equipArea(e, room.unit), 0);
-}
-
-function pctUsed(room) {
-  const ra = roomArea(room);
-  if (!ra) return 0;
-  return Math.min((totalEquipArea(room) / ra) * 100, 999);
-}
-
-function fmtArea(cm2) {
-  if (cm2 >= 1000000) return (cm2 / 10000).toFixed(2) + ' m²';
-  return (cm2 / 10000).toFixed(4).replace(/\.?0+$/, '') + ' m²';
-}
-
-function pctColor(p) {
-  if (p < 60)  return 'ok';
-  if (p < 85)  return 'warn';
-  return 'danger';
-}
-
-function colorForIdx(i) { return COLORS[i % COLORS.length]; }
-
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
 //  Toast
-// ─────────────────────────────────────────────
-let toastTimer;
+// ────────────────────────────────────────────
+let _toastTimer;
 function toast(msg, type='ok') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `show ${type}`;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.className = '', 2800);
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show t-${type==='danger'?'bad':type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.className = '', 2800);
 }
 
-// ─────────────────────────────────────────────
-//  Rooms CRUD
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
+//  Room CRUD
+// ────────────────────────────────────────────
 function addRoom() {
-  const r = { id: uid(), name: `ห้องที่ ${rooms.length+1}`, width: 400, length: 600, unit: 'cm', equipment: [] };
-  rooms.push(r);
-  renderSidebar();
-  selectRoom(r.id);
+  const r = { id:uid(), name:`ห้องที่ ${rooms.length+1}`, width:400, length:600, unit:'cm', equipment:[] };
+  rooms.push(r); activeId = r.id;
+  renderAll();
 }
-
 function deleteRoom(id) {
   if (!confirm('ลบห้องนี้?')) return;
   rooms = rooms.filter(r => r.id !== id);
-  if (activeRoomId === id) activeRoomId = rooms[0]?.id || null;
-  renderSidebar();
-  renderMain();
+  activeId = rooms[0]?.id || null;
+  renderAll();
+}
+function selectRoom(id) { activeId = id; renderAll(); }
+function setRoom(id, key, val) {
+  const r = rooms.find(x => x.id === id); if (!r) return;
+  r[key] = (key==='width'||key==='length') ? +val : val;
+  renderAll();
 }
 
-function selectRoom(id) {
-  activeRoomId = id;
-  renderSidebar();
-  renderMain();
-}
-
-function updateRoom(id, key, val) {
-  const r = rooms.find(x => x.id === id);
-  if (!r) return;
-  r[key] = val;
-  if (['width','length','unit'].includes(key)) {
-    renderSidebar();
-    renderMain();
-  } else if (key === 'name') {
-    renderSidebar();
-    document.querySelector('.room-title-area h2').textContent = val;
-  }
-}
-
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
 //  Equipment CRUD
-// ─────────────────────────────────────────────
-function addEquipment(roomId) {
-  const r = rooms.find(x => x.id === roomId);
-  if (!r) return;
-  const name = document.getElementById('eq-name').value.trim();
-  const width = parseFloat(document.getElementById('eq-width').value);
-  const length = parseFloat(document.getElementById('eq-length').value);
-  const qty = parseInt(document.getElementById('eq-qty').value) || 1;
-  const unit = document.getElementById('eq-unit').value;
-  const note = document.getElementById('eq-note').value.trim();
-  if (!name || !width || !length) { toast('กรุณากรอกชื่อและขนาด', 'warn'); return; }
-  r.equipment.push({ id: uid(), name, width, length, quantity: qty, unit, note });
-  renderMain();
-  ['eq-name','eq-note'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('eq-qty').value = '1';
-  toast(`เพิ่ม "${name}" เรียบร้อย`);
+// ────────────────────────────────────────────
+function addEquip(roomId) {
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  const name = document.getElementById('f-name').value.trim();
+  const w    = parseFloat(document.getElementById('f-w').value);
+  const l    = parseFloat(document.getElementById('f-l').value);
+  const qty  = parseInt(document.getElementById('f-qty').value) || 1;
+  const unit = document.getElementById('f-unit').value;
+  const note = document.getElementById('f-note').value.trim();
+  if (!name || !w || !l) { toast('กรุณากรอกชื่อและขนาด','warn'); return; }
+  r.equipment.push({ id:uid(), name, width:w, length:l, quantity:qty, unit, note });
+  renderAll();
+  ['f-name','f-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-qty').value = '1';
+  toast(`เพิ่ม "${name}" แล้ว`);
 }
-
-function deleteEquipment(roomId, eqId) {
-  const r = rooms.find(x => x.id === roomId);
-  if (!r) return;
+function delEquip(roomId, eqId) {
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
   r.equipment = r.equipment.filter(e => e.id !== eqId);
-  renderMain();
+  renderAll();
 }
 
-// ─────────────────────────────────────────────
-//  Render Sidebar
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
+//  Render
+// ────────────────────────────────────────────
+function renderAll() { renderSidebar(); renderMain(); }
+
 function renderSidebar() {
   const el = document.getElementById('room-list');
-  if (!rooms.length) { el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:12px;text-align:center;">ยังไม่มีห้อง</div>'; return; }
-  el.innerHTML = rooms.map((r, i) => {
-    const p = pctUsed(r);
-    const cls = pctColor(p);
-    const col = colorForIdx(i);
-    return `
-    <div class="room-item ${r.id === activeRoomId ? 'active' : ''}" onclick="selectRoom('${r.id}')">
-      <div class="room-dot" style="background:${col.border}"></div>
+  if (!rooms.length) {
+    el.innerHTML = '<div style="padding:14px;font-size:11px;color:var(--muted);text-align:center;">ยังไม่มีห้อง</div>';
+    return;
+  }
+  el.innerHTML = rooms.map((r,i) => {
+    const p = pct(r), cls = pctCls(p), col = colorOf(i);
+    return `<div class="room-item ${r.id===activeId?'active':''}" onclick="selectRoom('${r.id}')">
+      <div class="room-dot" style="background:${col.bd}"></div>
       <div class="room-info">
         <div class="room-name">${r.name}</div>
         <div class="room-meta">${r.width}×${r.length} ${r.unit} · ${r.equipment.length} รายการ</div>
       </div>
-      <div class="room-pct" style="color:var(--${cls})">${p.toFixed(0)}%</div>
+      <span class="room-pct" style="color:var(--${cls})">${p.toFixed(0)}%</span>
     </div>`;
   }).join('');
 }
 
-// ─────────────────────────────────────────────
-//  Render Main
-// ─────────────────────────────────────────────
 function renderMain() {
-  const container = document.getElementById('main-content');
-  const empty     = document.getElementById('empty-state');
+  const el = document.getElementById('main');
+  if (!rooms.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🏠</div>
+      <h2>ยังไม่มีข้อมูลห้อง</h2>
+      <p style="font-size:13px">กด "+ เพิ่ม" หรือ Import Excel</p>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-gold" onclick="addRoom()">+ เพิ่มห้องแรก</button>
+        <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Template</button>
+      </div>
+    </div>`;
+    return;
+  }
 
-  if (!rooms.length) { empty.style.display = 'flex'; return; }
-  empty.style.display = 'none';
-
-  const r = rooms.find(x => x.id === activeRoomId) || rooms[0];
-  activeRoomId = r.id;
+  const r   = rooms.find(x => x.id === activeId) || rooms[0];
+  activeId  = r.id;
   const idx = rooms.indexOf(r);
   const ra  = roomArea(r);
-  const ea  = totalEquipArea(r);
-  const p   = pctUsed(r);
-  const cls = pctColor(p);
-  const col = colorForIdx(idx);
+  const ea  = totalEq(r);
+  const p   = pct(r);
+  const cls = pctCls(p);
 
-  container.innerHTML = `
-  <!-- Room header -->
+  el.innerHTML = `
+  <!-- ① Room settings card -->
   <div class="card">
+    <div class="card-hdr">
+      <h3 style="color:var(--gold)">${r.name}</h3>
+      <button class="btn btn-red btn-sm" onclick="deleteRoom('${r.id}')">🗑 ลบห้อง</button>
+    </div>
     <div class="card-body">
-      <div class="room-detail-header">
-        <div class="room-title-area">
-          <h2>${r.name}</h2>
-          <p>แก้ไขชื่อและขนาดห้องได้ด้านล่าง</p>
-          <div class="room-edit-row">
-            <input class="input-field md" value="${r.name}" placeholder="ชื่อห้อง"
-              onchange="updateRoom('${r.id}','name',this.value)" oninput="this.nextElementSibling && null">
-            <input class="input-field sm" type="number" value="${r.width}" placeholder="กว้าง"
-              onchange="updateRoom('${r.id}','width',+this.value)">
-            <span style="color:var(--muted)">×</span>
-            <input class="input-field sm" type="number" value="${r.length}" placeholder="ยาว"
-              onchange="updateRoom('${r.id}','length',+this.value)">
-            <select class="input-field" onchange="updateRoom('${r.id}','unit',this.value)">
-              <option value="cm" ${r.unit==='cm'?'selected':''}>cm</option>
-              <option value="m"  ${r.unit==='m' ?'selected':''}>m</option>
-            </select>
-            <button class="btn btn-danger btn-sm" onclick="deleteRoom('${r.id}')">🗑 ลบห้อง</button>
-          </div>
-        </div>
+      <div style="font-size:11px;color:var(--muted)">แก้ไขชื่อและขนาดห้อง</div>
+      <div class="edit-row">
+        <input class="ifield w-name" value="${r.name}" placeholder="ชื่อห้อง"
+          onchange="setRoom('${r.id}','name',this.value)">
+        <input class="ifield w-size" type="number" value="${r.width}" placeholder="กว้าง"
+          onchange="setRoom('${r.id}','width',this.value)">
+        <span style="color:var(--muted)">×</span>
+        <input class="ifield w-size" type="number" value="${r.length}" placeholder="ยาว"
+          onchange="setRoom('${r.id}','length',this.value)">
+        <select class="ifield w-unit" onchange="setRoom('${r.id}','unit',this.value)">
+          <option value="cm" ${r.unit==='cm'?'selected':''}>cm</option>
+          <option value="m"  ${r.unit==='m' ?'selected':''}>m</option>
+        </select>
       </div>
 
       <!-- KPIs -->
-      <div class="kpi-row" style="margin-top:16px;">
+      <div class="kpi-grid">
         <div class="kpi">
           <div class="kpi-label">พื้นที่ห้อง</div>
-          <div class="kpi-value" style="color:var(--cream)">${fmtArea(ra)}</div>
-          <div class="kpi-sub">${r.width}×${r.length} ${r.unit}</div>
+          <div class="kpi-val" style="color:var(--cream)">${fmtM2(ra)}</div>
+          <div class="kpi-sub">${r.width} × ${r.length} ${r.unit}</div>
         </div>
         <div class="kpi">
           <div class="kpi-label">พื้นที่อุปกรณ์รวม</div>
-          <div class="kpi-value" style="color:var(--gold)">${fmtArea(ea)}</div>
+          <div class="kpi-val" style="color:var(--gold)">${fmtM2(ea)}</div>
           <div class="kpi-sub">${r.equipment.length} รายการ</div>
         </div>
         <div class="kpi ${cls}">
           <div class="kpi-label">% พื้นที่ที่ใช้</div>
-          <div class="kpi-value">${p.toFixed(1)}%</div>
-          <div class="kpi-sub">${p>100?'⚠️ เกินพื้นที่ห้อง':p>85?'⚠️ ใกล้เต็ม':p>60?'ปกติ':'ยังมีพื้นที่เหลือ'}</div>
+          <div class="kpi-val">${p.toFixed(1)}%</div>
+          <div class="kpi-sub">${p>100?'⚠️ เกินพื้นที่':p>85?'⚠️ ใกล้เต็ม':p>60?'ปกติ':'ยังมีพื้นที่'}</div>
         </div>
         <div class="kpi ok">
           <div class="kpi-label">พื้นที่เหลือ</div>
-          <div class="kpi-value" style="color:var(--ok)">${fmtArea(Math.max(ra-ea,0))}</div>
+          <div class="kpi-val">${fmtM2(Math.max(ra-ea,0))}</div>
           <div class="kpi-sub">${Math.max(100-p,0).toFixed(1)}% ว่าง</div>
         </div>
       </div>
 
-      <!-- Progress -->
-      <div class="progress-wrap" style="margin-top:14px;">
-        <div class="progress-label">
+      <!-- Progress bar -->
+      <div class="prog-wrap">
+        <div class="prog-lbl">
           <span>พื้นที่ที่ใช้ไป</span>
           <span style="color:var(--${cls})">${p.toFixed(1)}%</span>
         </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width:${Math.min(p,100)}%;background:var(--${cls})"></div>
+        <div class="prog-bar">
+          <div class="prog-fill" style="width:${Math.min(p,100)}%;background:var(--${cls})"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Floor Plan Diagram -->
+  <!-- ② Floor Plan card -->
   <div class="card">
-    <div class="card-header">
-      <h3>📐 Floor Plan (Scale Diagram)</h3>
-      <span style="font-size:11px;color:var(--muted)">แสดงตามสัดส่วนจริง</span>
+    <div class="card-hdr">
+      <h3>📐 Floor Plan</h3>
+      <span style="font-size:10px;color:var(--muted)">แสดงตามสัดส่วนจริง</span>
     </div>
     <div class="card-body">
-      <div class="diagram-container">
-        ${renderDiagram(r, idx)}
-      </div>
+      <div class="diagram-wrap">${buildDiagram(r)}</div>
     </div>
   </div>
 
-  <!-- Equipment Table -->
+  <!-- ③ Equipment list card -->
   <div class="card">
-    <div class="card-header">
+    <div class="card-hdr">
       <h3>📦 รายการอุปกรณ์</h3>
-      <span style="font-size:11px;color:var(--muted)">${r.equipment.length} รายการ</span>
+      <span style="font-size:10px;color:var(--muted)">${r.equipment.length} รายการ</span>
     </div>
-    <div class="card-body" style="padding:0">
-      ${renderEquipTable(r)}
+    ${buildTable(r)}
+    <!-- Add equipment form -->
+    <div class="add-form">
+      <div class="field"><label>ชื่ออุปกรณ์</label>
+        <input class="ifield f-name" id="f-name" placeholder="เช่น โต๊ะ"></div>
+      <div class="field"><label>กว้าง</label>
+        <input class="ifield f-num" id="f-w" type="number" placeholder="60"></div>
+      <div class="field"><label>ยาว</label>
+        <input class="ifield f-num" id="f-l" type="number" placeholder="120"></div>
+      <div class="field"><label>จำนวน</label>
+        <input class="ifield f-num" id="f-qty" type="number" value="1" min="1"></div>
+      <div class="field"><label>หน่วย</label>
+        <select class="ifield f-unit" id="f-unit">
+          <option value="cm">cm</option><option value="m">m</option>
+        </select></div>
+      <div class="field"><label>หมายเหตุ</label>
+        <input class="ifield f-note" id="f-note" placeholder="เช่น ติดผนัง"></div>
+      <button class="btn btn-gold" onclick="addEquip('${r.id}')" style="align-self:flex-end">+ เพิ่ม</button>
     </div>
-
-    <!-- Add form -->
-    <div style="padding:12px 18px 16px;">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:500;">+ เพิ่มอุปกรณ์</div>
-      <div class="add-form">
-        <input class="input-field" id="eq-name" placeholder="ชื่ออุปกรณ์">
-        <input class="input-field sm" id="eq-width" type="number" placeholder="กว้าง">
-        <input class="input-field sm" id="eq-length" type="number" placeholder="ยาว">
-        <input class="input-field sm" id="eq-qty" type="number" value="1" min="1" placeholder="จำนวน">
-        <select class="input-field" id="eq-unit">
-          <option value="cm">cm</option>
-          <option value="m">m</option>
-        </select>
-        <input class="input-field" id="eq-note" placeholder="หมายเหตุ">
-        <button class="btn btn-primary" onclick="addEquipment('${r.id}')">เพิ่ม</button>
-      </div>
-    </div>
-  </div>
-  `;
-}
-
-function renderEquipTable(r) {
-  if (!r.equipment.length) {
-    return `<div style="padding:32px;text-align:center;color:var(--muted)">ยังไม่มีอุปกรณ์ — เพิ่มด้านล่าง</div>`;
-  }
-  const rows = r.equipment.map((e, i) => {
-    const col = colorForIdx(i);
-    const ea  = equipArea(e, r.unit);
-    const pct = ra_cache > 0 ? (ea / ra_cache * 100).toFixed(1) : '—';
-    return `
-    <tr>
-      <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${col.border};margin-right:6px;vertical-align:middle;"></span>${e.name}</td>
-      <td><span class="area-chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
-      <td style="font-family:'IBM Plex Mono',monospace;">${e.quantity}</td>
-      <td><span class="area-chip">${fmtArea(ea)}</span></td>
-      <td style="font-family:'IBM Plex Mono',monospace;color:var(--muted)">${pct}%</td>
-      <td><span class="note-chip">${e.note||'—'}</span></td>
-      <td><button class="btn btn-danger btn-sm btn-icon" onclick="deleteEquipment('${r.id}','${e.id}')">🗑</button></td>
-    </tr>`;
-  });
-  // cache room area for pct calc
-  ra_cache = roomArea(r);
-  return `
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th>ชื่ออุปกรณ์</th><th>ขนาด</th><th>จำนวน</th>
-        <th>พื้นที่รวม</th><th>% ของห้อง</th><th>หมายเหตุ</th><th></th>
-      </tr></thead>
-      <tbody>${rows.join('')}</tbody>
-    </table>
   </div>`;
 }
-let ra_cache = 0;
 
-// ─────────────────────────────────────────────
-//  Floor Plan Diagram
-// ─────────────────────────────────────────────
-function renderDiagram(r, roomIdx) {
-  const CANVAS_W = 640;
-  const PAD = 20;
+function buildTable(r) {
+  if (!r.equipment.length) {
+    return `<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px;">ยังไม่มีอุปกรณ์ — เพิ่มด้านล่าง</div>`;
+  }
+  const ra = roomArea(r);
+  const rows = r.equipment.map((e,i) => {
+    const col = colorOf(i), ea = eqArea(e,r.unit), p = ra ? (ea/ra*100).toFixed(1) : '—';
+    return `<tr>
+      <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${col.bd};margin-right:6px;vertical-align:middle"></span>${e.name}</td>
+      <td><span class="chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
+      <td style="font-family:'IBM Plex Mono',monospace">${e.quantity}</td>
+      <td><span class="chip">${fmtM2(ea)}</span></td>
+      <td style="font-family:'IBM Plex Mono',monospace;color:var(--muted)">${p}%</td>
+      <td style="font-size:11px;color:var(--muted);font-style:italic">${e.note||'—'}</td>
+      <td><button class="btn btn-red btn-sm" onclick="delEquip('${r.id}','${e.id}')">🗑</button></td>
+    </tr>`;
+  }).join('');
+  return `<div class="tbl-wrap"><table>
+    <thead><tr>
+      <th>ชื่อ</th><th>ขนาด</th><th>จำนวน</th>
+      <th>พื้นที่</th><th>%ห้อง</th><th>หมายเหตุ</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
 
+function buildDiagram(r) {
+  const MAX_W = 620, PAD = 16;
   const rw = toCm(+r.width,  r.unit);
   const rl = toCm(+r.length, r.unit);
-  if (!rw || !rl) return '<div style="color:var(--muted);text-align:center;padding:24px;">กรอกขนาดห้องเพื่อดู Floor Plan</div>';
-
-  const scale    = (CANVAS_W - PAD*2) / rw;
-  const canvasH  = Math.round(rl * scale) + PAD*2;
-
-  // Place boxes (simple row-by-row packing — good enough for overview)
-  const placed = [];
-  let cx = PAD, cy = PAD, rowH = 0;
-
-  for (let i = 0; i < r.equipment.length; i++) {
-    const e   = r.equipment[i];
-    const col = colorForIdx(i);
-    const unit = e.unit || r.unit;
-    const ew  = toCm(+e.width,  unit) * scale;
-    const eh  = toCm(+e.length, unit) * scale;
-    const qty = +e.quantity || 1;
-
-    for (let q = 0; q < qty; q++) {
-      if (cx + ew > CANVAS_W - PAD) { cx = PAD; cy += rowH + 4; rowH = 0; }
-      if (cy + eh > canvasH - PAD)  { /* overflow — still show */ }
-      placed.push({ e, col, x: cx, y: cy, w: ew, h: eh, idx: i });
-      cx   += ew + 4;
-      rowH  = Math.max(rowH, eh);
-    }
+  if (!rw || !rl) {
+    return `<div style="color:var(--muted);font-size:12px;padding:20px;text-align:center;">กรอกขนาดห้องเพื่อดู Floor Plan</div>`;
   }
 
+  const scale = (MAX_W - PAD*2) / rw;
+  const ch    = Math.max(Math.round(rl * scale) + PAD*2, 80);
+
+  // Simple row-by-row bin packing
+  const placed = []; let cx = PAD, cy = PAD, rowH = 0;
+  r.equipment.forEach((e, i) => {
+    const col = colorOf(i), u = e.unit || r.unit;
+    const ew = toCm(+e.width, u) * scale;
+    const eh = toCm(+e.length, u) * scale;
+    for (let q = 0; q < (+e.quantity||1); q++) {
+      if (cx + ew > MAX_W - PAD) { cx = PAD; cy += rowH + 4; rowH = 0; }
+      placed.push({ e, col, x:cx, y:cy, w:ew, h:eh });
+      cx += ew + 4; rowH = Math.max(rowH, eh);
+    }
+  });
+
   const boxes = placed.map(p => {
-    const showLabel = p.w > 28 && p.h > 16;
-    const showSize  = p.w > 40 && p.h > 28;
-    return `
-    <div class="eq-box" style="
-      left:${p.x.toFixed(1)}px; top:${p.y.toFixed(1)}px;
-      width:${p.w.toFixed(1)}px; height:${p.h.toFixed(1)}px;
-      background:${p.col.bg}; border-color:${p.col.border};"
-      title="${p.e.name} (${p.e.width}×${p.e.length} ${p.e.unit||r.unit})">
-      ${showLabel ? `<span class="eq-label">${p.e.name}</span>` : ''}
-      ${showSize  ? `<span class="eq-size">${p.e.width}×${p.e.length}</span>` : ''}
+    const sl = p.w > 30 && p.h > 18;
+    const ss = p.w > 44 && p.h > 30;
+    return `<div class="eq-box"
+      style="left:${p.x.toFixed(1)}px;top:${p.y.toFixed(1)}px;width:${p.w.toFixed(1)}px;height:${p.h.toFixed(1)}px;background:${p.col.bg};border-color:${p.col.bd}"
+      title="${p.e.name} ${p.e.width}×${p.e.length}${p.e.unit||r.unit}">
+      ${sl ? `<span class="eq-label">${p.e.name}</span>` : ''}
+      ${ss ? `<span class="eq-size">${p.e.width}×${p.e.length}</span>` : ''}
     </div>`;
   }).join('');
 
-  const legend = r.equipment.map((e, i) => {
-    const col = colorForIdx(i);
-    return `<div class="legend-item"><div class="legend-dot" style="background:${col.border}"></div>${e.name}</div>`;
+  const legend = r.equipment.map((e,i) => {
+    const col = colorOf(i);
+    return `<div class="legend-item"><div class="legend-dot" style="background:${col.bd}"></div>${e.name}</div>`;
   }).join('');
 
   return `
-  <div class="diagram-canvas" style="height:${canvasH}px;">
+  <div class="diagram-canvas" style="height:${ch}px">
     ${boxes}
-    <div class="room-label">${r.width}×${r.length} ${r.unit}</div>
+    <div class="room-sz-lbl">${r.width}×${r.length} ${r.unit}</div>
   </div>
-  <div class="diagram-legend">${legend || '<span style="color:var(--muted);font-size:12px;">เพิ่มอุปกรณ์เพื่อดู diagram</span>'}</div>`;
+  <div class="diagram-legend">
+    ${legend || '<span style="color:var(--muted);font-size:11px;">เพิ่มอุปกรณ์เพื่อดู diagram</span>'}
+  </div>`;
 }
 
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
 //  Import Excel
-// ─────────────────────────────────────────────
-function handleFileInput(input) {
-  if (input.files[0]) readExcel(input.files[0]);
-}
+// ────────────────────────────────────────────
+function handleFileInput(input) { if (input.files[0]) readExcel(input.files[0]); }
 
-const dropZone = document.getElementById('drop-zone');
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault(); dropZone.classList.remove('drag-over');
-  if (e.dataTransfer.files[0]) readExcel(e.dataTransfer.files[0]);
-});
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop',      e => { e.preventDefault(); dz.classList.remove('drag-over'); if (e.dataTransfer.files[0]) readExcel(e.dataTransfer.files[0]); });
 
 function readExcel(file) {
-  const reader = new FileReader();
-  reader.onload = evt => {
+  const rd = new FileReader();
+  rd.onload = evt => {
     try {
-      const wb   = XLSX.read(evt.target.result, { type: 'array' });
-      const wsR  = wb.Sheets['rooms'];
-      const wsE  = wb.Sheets['equipment'];
-      if (!wsR || !wsE) { toast('ไม่พบ Sheet "rooms" หรือ "equipment"', 'danger'); return; }
-
-      const rRows = XLSX.utils.sheet_to_json(wsR, { defval: '' });
-      const eRows = XLSX.utils.sheet_to_json(wsE, { defval: '' });
-
-      const newRooms = rRows.filter(r => r.room_name).map(r => ({
-        id: uid(),
-        name: String(r.room_name).trim(),
-        width:  parseFloat(r.width)  || 400,
-        length: parseFloat(r.length) || 600,
-        unit:   String(r.unit || 'cm').toLowerCase().trim(),
-        equipment: []
+      const wb  = XLSX.read(evt.target.result, { type:'array' });
+      const wsR = wb.Sheets['rooms'], wsE = wb.Sheets['equipment'];
+      if (!wsR || !wsE) { toast('ไม่พบ Sheet "rooms" หรือ "equipment"','danger'); return; }
+      const rRows = XLSX.utils.sheet_to_json(wsR, { defval:'' });
+      const eRows = XLSX.utils.sheet_to_json(wsE, { defval:'' });
+      const nr = rRows.filter(r=>r.room_name).map(r=>({
+        id:uid(), name:String(r.room_name).trim(),
+        width:parseFloat(r.width)||400, length:parseFloat(r.length)||600,
+        unit:String(r.unit||'cm').toLowerCase().trim(), equipment:[]
       }));
-
-      eRows.filter(e => e.room_name && e.equipment_name).forEach(e => {
-        const rm = newRooms.find(x => x.name === String(e.room_name).trim());
-        if (!rm) return;
-        rm.equipment.push({
-          id: uid(),
-          name:     String(e.equipment_name).trim(),
-          width:    parseFloat(e.width)  || 0,
-          length:   parseFloat(e.length) || 0,
-          quantity: parseInt(e.quantity) || 1,
-          unit:     String(e.unit || rm.unit).toLowerCase().trim(),
-          note:     String(e.note || '').trim()
-        });
+      eRows.filter(e=>e.room_name&&e.equipment_name).forEach(e=>{
+        const rm = nr.find(x => x.name === String(e.room_name).trim()); if (!rm) return;
+        rm.equipment.push({ id:uid(), name:String(e.equipment_name).trim(),
+          width:parseFloat(e.width)||0, length:parseFloat(e.length)||0,
+          quantity:parseInt(e.quantity)||1, unit:String(e.unit||rm.unit).toLowerCase().trim(),
+          note:String(e.note||'').trim() });
       });
-
-      rooms = [...rooms, ...newRooms];
-      if (newRooms.length) activeRoomId = newRooms[0].id;
-      renderSidebar(); renderMain();
-      toast(`Import สำเร็จ — ${newRooms.length} ห้อง, ${eRows.length} รายการอุปกรณ์`);
-    } catch(err) {
-      toast('อ่านไฟล์ไม่ได้: ' + err.message, 'danger');
-    }
+      rooms = [...rooms, ...nr];
+      if (nr.length) activeId = nr[0].id;
+      renderAll();
+      toast(`Import สำเร็จ — ${nr.length} ห้อง`);
+    } catch(err) { toast('อ่านไฟล์ไม่ได้: ' + err.message, 'danger'); }
   };
-  reader.readAsArrayBuffer(file);
+  rd.readAsArrayBuffer(file);
 }
 
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
 //  Export CSV
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
 function exportCSV() {
-  if (!rooms.length) { toast('ยังไม่มีข้อมูล', 'warn'); return; }
-  const lines = ['ห้อง,กว้าง,ยาว,หน่วย,พื้นที่ห้อง(m²),รายการอุปกรณ์,พื้นที่อุปกรณ์รวม(m²),%ที่ใช้'];
+  if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
+  const lines = ['ห้อง,กว้าง,ยาว,หน่วย,พื้นที่ห้อง(m²),รายการ,พื้นที่อุปกรณ์(m²),%ใช้'];
   rooms.forEach(r => {
-    const ra = (roomArea(r)/10000).toFixed(4);
-    const ea = (totalEquipArea(r)/10000).toFixed(4);
-    const p  = pctUsed(r).toFixed(1);
-    lines.push(`"${r.name}",${r.width},${r.length},${r.unit},${ra},${r.equipment.length},${ea},${p}%`);
+    lines.push(`"${r.name}",${r.width},${r.length},${r.unit},${(roomArea(r)/10000).toFixed(2)},${r.equipment.length},${(totalEq(r)/10000).toFixed(2)},${pct(r).toFixed(1)}%`);
     r.equipment.forEach(e => {
-      const ea2 = (equipArea(e,r.unit)/10000).toFixed(4);
-      lines.push(`,"${e.name}",${e.width},${e.length},${e.unit||r.unit},,,${ea2},จำนวน:${e.quantity}`);
+      lines.push(`,"${e.name}",${e.width},${e.length},${e.unit||r.unit},,,${(eqArea(e,r.unit)/10000).toFixed(2)},จำนวน:${e.quantity}`);
     });
   });
-  const blob = new Blob(['\uFEFF'+lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type:'text/csv;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a'); a.href = url;
   a.download = `room-space-${new Date().toISOString().slice(0,10)}.csv`;
@@ -794,33 +563,29 @@ function exportCSV() {
   toast('Export CSV เรียบร้อย');
 }
 
-// ─────────────────────────────────────────────
-//  Download Template (generate minimal xlsx via SheetJS)
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
+//  Download Template
+// ────────────────────────────────────────────
 function downloadTemplate() {
   const wb = XLSX.utils.book_new();
-  const ws1 = XLSX.utils.aoa_to_sheet([
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
     ['room_name','width','length','unit','note'],
-    ['ห้องครัว',400,600,'cm',''],
-    ['ห้องเก็บของ',300,500,'cm',''],
-  ]);
-  const ws2 = XLSX.utils.aoa_to_sheet([
+    ['ห้องครัว',400,600,'cm',''], ['ห้องเก็บของ',300,500,'cm',''],
+  ]), 'rooms');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
     ['room_name','equipment_name','width','length','quantity','unit','note'],
     ['ห้องครัว','โต๊ะเตรียมอาหาร',60,120,2,'cm','ติดผนัง'],
     ['ห้องครัว','ตู้เย็น',65,70,1,'cm','มุมห้อง'],
     ['ห้องเก็บของ','ชั้นวางของ',40,120,3,'cm','ติดผนัง'],
-  ]);
-  XLSX.utils.book_append_sheet(wb, ws1, 'rooms');
-  XLSX.utils.book_append_sheet(wb, ws2, 'equipment');
+  ]), 'equipment');
   XLSX.writeFile(wb, 'ttgplus_room_template.xlsx');
   toast('Download template เรียบร้อย');
 }
 
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
 //  Init
-// ─────────────────────────────────────────────
-renderSidebar();
-renderMain();
+// ────────────────────────────────────────────
+renderAll();
 </script>
 </body>
 </html>
