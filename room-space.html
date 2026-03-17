@@ -505,10 +505,13 @@ function fpInit(roomId) {
   const rl = toCm(+r.length, r.unit);
   if (!rw || !rl) { fpEmpty(canvas); return; }
 
-  const PAD  = FP.PAD;
-  const cssW = Math.max(canvas.parentElement.clientWidth - 24, 200);
-  FP.scale   = (cssW - PAD * 2) / rw;
-  const cssH = Math.round(rl * FP.scale) + PAD * 2 + 28;
+  const PAD      = FP.PAD;
+  const cssW     = Math.max(canvas.parentElement.clientWidth - 24, 200);
+  const maxCssH  = Math.max(window.innerHeight - 340, 260);
+  const scaleByW = (cssW - PAD * 2) / rw;
+  const scaleByH = (maxCssH - PAD * 2 - 28) / rl;
+  FP.scale       = Math.min(scaleByW, scaleByH);
+  const cssH     = Math.round(rl * FP.scale) + PAD * 2 + 28;
 
   FP.cssW = cssW; FP.cssH = cssH;
   const {ctx, dpr} = fpSetup(canvas, cssW, cssH);
