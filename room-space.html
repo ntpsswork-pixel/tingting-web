@@ -213,24 +213,57 @@
   .eq-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
   @media print {
-    .topbar, .sidebar, .add-form, .btn, #toast, .fp-tooltip, .eq-modal-overlay { display: none !important; }
-    .layout { display: block; overflow: visible; height: auto; }
-    .main   { overflow: visible; padding: 8px; }
-    body    { background: #fff; color: #000; }
-    .card   { border: 1px solid #ccc; page-break-inside: avoid; margin-bottom: 16px; }
-    .card-hdr h3 { color: #000 !important; }
-    .kpi    { background: #f8f8f8 !important; border: 1px solid #ddd !important; }
-    .kpi-val{ color: #000 !important; }
-    .kpi-label, .kpi-sub { color: #666 !important; }
-    /* Print floor plan in white */
-    #fp-canvas { filter: invert(1) hue-rotate(180deg); border: 2px solid #333 !important; }
-    .fp-legend { background: #f8f8f8 !important; border-top: 1px solid #ccc !important; }
-    .fp-legend-item { background: #fff !important; border: 1px solid #ccc !important; color: #000 !important; }
-    table th { background: #f0f0f0 !important; color: #333 !important; }
-    td { color: #000 !important; }
-    .chip { background: #f0f0f0 !important; color: #333 !important; }
+    /* Hide UI chrome */
+    .topbar, .sidebar, .add-form, .btn, #toast,
+    .fp-tooltip, .eq-modal-overlay, .card-hdr .btn,
+    .view-only-badge { display: none !important; }
+
+    /* Single-column layout */
+    .layout { display: block !important; overflow: visible !important; height: auto !important; }
+    .main   { overflow: visible !important; padding: 6px !important; gap: 8px !important; }
+    body    { background: #fff !important; color: #000 !important; font-size: 12px; }
+
+    /* Compact cards */
+    .card         { border: 1px solid #bbb !important; margin-bottom: 8px !important;
+                    page-break-inside: avoid; box-shadow: none !important; background: #fff !important; }
+    .card-hdr     { padding: 8px 12px !important; border-bottom: 1px solid #ddd !important; background: #f5f5f5 !important; }
+    .card-hdr h3  { color: #000 !important; font-size: 12px !important; }
+    .card-body    { padding: 8px 12px !important; }
+
+    /* Hide KPI grid + progress (saves ~4cm vertical space) */
+    .kpi-grid, .prog-wrap { display: none !important; }
+
+    /* Compact room edit row */
+    .edit-row { display: none !important; }
+
+    /* Print-friendly summary line instead */
+    .print-summary { display: block !important; font-size: 11px; color: #333; padding: 4px 0; }
+
+    /* Floor plan — fit in ~45% of A4 height */
+    #fp-canvas {
+      max-height: 340px !important;
+      width: auto !important;
+      max-width: 100% !important;
+      object-fit: contain !important;
+      filter: invert(1) hue-rotate(180deg) !important;
+      border: 1.5px solid #555 !important;
+      border-radius: 4px !important;
+      display: block !important;
+    }
+    .card-body[style*="overflow:auto"] { overflow: visible !important; }
+    .fp-legend        { background: #f5f5f5 !important; padding: 6px 10px !important;
+                        flex-wrap: wrap !important; gap: 4px !important; }
+    .fp-legend-item   { background: #fff !important; border: 1px solid #ccc !important;
+                        color: #000 !important; font-size: 10px !important; padding: 2px 6px !important; }
+    .fp-legend-num    { color: #555 !important; }
+
+    /* Table */
+    table     { width: 100% !important; font-size: 10px !important; }
+    thead tr  { background: #eee !important; }
+    th        { background: #eee !important; color: #333 !important; padding: 5px 8px !important; }
+    td        { color: #000 !important; padding: 4px 8px !important; }
+    .chip     { background: #eee !important; color: #333 !important; font-size: 9px !important; }
     .tbl-wrap { overflow: visible !important; }
-    .prog-bar  { background: #e0e0e0 !important; }
   }
 </style>
 </head>
@@ -534,6 +567,12 @@ function renderMain() {
         </select>
       </div>
 
+      <!-- Print summary (shown only in print, replaces KPI grid) -->
+      <div class="print-summary" style="display:none">
+        ห้อง: <b>${r.name}</b> | ขนาด: <b>${r.width}×${r.length} ${r.unit}</b> |
+        พื้นที่ห้อง: <b>${fmtM2(ra)}</b> | พื้นที่อุปกรณ์: <b>${fmtM2(ea)}</b> |
+        ใช้ไป: <b>${p.toFixed(1)}%</b> | เหลือ: <b>${fmtM2(Math.max(ra-ea,0))}</b>
+      </div>
       <!-- KPIs -->
       <div class="kpi-grid">
         <div class="kpi">
@@ -575,13 +614,20 @@ function renderMain() {
   <div class="card">
     <div class="card-hdr">
       <h3>📐 Floor Plan</h3>
-      <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
-        <span style="font-size:10px;color:var(--muted)">ลากเพื่อย้ายอุปกรณ์</span>
+      <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:10px;color:var(--muted)">Zoom</span>
+          <input type="range" id="fp-zoom" min="0.5" max="4" step="0.1" value="1"
+            style="width:90px;accent-color:var(--gold);cursor:pointer"
+            oninput="fpSetZoom(this.value,'${r.id}')">
+          <span id="fp-zoom-label" style="font-size:10px;color:var(--gold);font-family:'IBM Plex Mono',monospace;min-width:32px">1×</span>
+        </div>
+        <span style="font-size:10px;color:var(--muted)">ลากย้ายได้</span>
         <button class="btn btn-ghost btn-sm" onclick="resetLayout('${r.id}')">↺ Reset</button>
       </div>
     </div>
-    <div class="card-body" style="padding:12px">
-      <canvas id="fp-canvas" style="width:100%;border-radius:8px 8px 0 0;cursor:grab;display:block"></canvas>
+    <div class="card-body" style="padding:12px;overflow:auto">
+      <canvas id="fp-canvas" style="border-radius:8px 8px 0 0;cursor:grab;display:block"></canvas>
     </div>
     <div class="fp-legend" id="fp-legend"></div>
   </div>
@@ -712,7 +758,7 @@ function buildDiagram(r) { /* replaced by canvas */ }
 const FP = {
   canvas: null, ctx: null, room: null,
   dpr: 1, cssW: 0, cssH: 0,
-  scale: 1, PAD: 44,
+  scale: 1, baseScale: 1, zoom: 1, PAD: 44,
   boxes: [], drag: null, hovered: -1,
   PALETTE: [
     {fill:'rgba(59,130,246,.3)',  stroke:'#60a5fa', text:'#bfdbfe'},
@@ -755,7 +801,8 @@ function fpInit(roomId) {
   const maxCssH  = Math.max(window.innerHeight - 340, 260);
   const scaleByW = (cssW - PAD * 2) / rw;
   const scaleByH = (maxCssH - PAD * 2 - 28) / rl;
-  FP.scale       = Math.min(scaleByW, scaleByH);
+  FP.baseScale   = Math.min(scaleByW, scaleByH);
+  FP.scale       = FP.baseScale * FP.zoom;
   const cssH     = Math.round(rl * FP.scale) + PAD * 2 + 28;
 
   FP.cssW = cssW; FP.cssH = cssH;
@@ -1048,8 +1095,38 @@ function fpBind() {
   canvas.addEventListener('touchend',   onUp,   sig);
 }
 
+function fpSetZoom(val, roomId) {
+  FP.zoom = parseFloat(val);
+  const lbl = document.getElementById('fp-zoom-label');
+  if (lbl) lbl.textContent = FP.zoom.toFixed(1) + '×';
+  // Recompute scale and redraw without clearing box positions
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  const rw = toCm(+r.width, r.unit), rl = toCm(+r.length, r.unit);
+  if (!rw || !rl) return;
+  const oldScale = FP.scale;
+  FP.scale = FP.baseScale * FP.zoom;
+  const ratio = FP.scale / oldScale;
+  // Rescale existing box positions
+  FP.boxes.forEach(b => {
+    b.x = FP.PAD + (b.x - FP.PAD) * ratio;
+    b.y = FP.PAD + (b.y - FP.PAD) * ratio;
+    b.w *= ratio; b.h *= ratio;
+  });
+  // Resize canvas
+  const cssW  = FP.cssW;
+  const cssH  = Math.round(rl * FP.scale) + FP.PAD * 2 + 28;
+  FP.cssH = cssH;
+  const {ctx} = fpSetup(FP.canvas, cssW, cssH);
+  FP.ctx = ctx;
+  fpDraw(); fpRenderLegend(); fpBind();
+}
+
 function resetLayout(roomId) {
-  FP.boxes = [];
+  FP.boxes = []; FP.zoom = 1;
+  const slider = document.getElementById('fp-zoom');
+  if (slider) { slider.value = 1; }
+  const lbl = document.getElementById('fp-zoom-label');
+  if (lbl) lbl.textContent = '1×';
   fpInit(roomId);
   toast('Reset layout แล้ว');
 }
