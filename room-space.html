@@ -284,7 +284,7 @@ function delEquip(roomId, eqId) {
 // ────────────────────────────────────────────
 //  Render
 // ────────────────────────────────────────────
-function renderAll() { renderSidebar(); renderMain(); }
+function renderAll() { renderSidebar(); renderMain(); if (activeId) requestAnimationFrame(() => fpInit(activeId)); }
 
 function renderSidebar() {
   const el = document.getElementById('room-list');
@@ -392,10 +392,13 @@ function renderMain() {
   <div class="card">
     <div class="card-hdr">
       <h3>📐 Floor Plan</h3>
-      <span style="font-size:10px;color:var(--muted)">แสดงตามสัดส่วนจริง</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+        <span style="font-size:10px;color:var(--muted)">ลากเพื่อย้ายอุปกรณ์</span>
+        <button class="btn btn-ghost btn-sm" onclick="resetLayout('${r.id}')">↺ Reset</button>
+      </div>
     </div>
-    <div class="card-body">
-      <div class="diagram-wrap">${buildDiagram(r)}</div>
+    <div class="card-body" style="padding:12px">
+      <canvas id="fp-canvas" style="width:100%;border-radius:8px;cursor:grab;display:block"></canvas>
     </div>
   </div>
 
@@ -453,54 +456,305 @@ function buildTable(r) {
   </table></div>`;
 }
 
-function buildDiagram(r) {
-  const MAX_W = 620, PAD = 16;
+function buildDiagram(r) { /* replaced by canvas */ }
+
+// ────────────────────────────────────────────
+//  Canvas Floor Plan — blueprint style + drag
+// ────────────────────────────────────────────
+const FP = {
+  canvas: null, ctx: null, room: null,
+  scale: 1, PAD: 40,
+  boxes: [],       // {eqId, label, x, y, w, h, color, colorBd, qi}
+  drag: null,      // {boxIdx, ox, oy}
+  hovered: -1,
+  // color palette — blueprint-friendly
+  PALETTE: [
+    {fill:'rgba(59,130,246,.28)',  stroke:'#60a5fa', text:'#bfdbfe'},
+    {fill:'rgba(16,185,129,.28)',  stroke:'#34d399', text:'#a7f3d0'},
+    {fill:'rgba(245,158,11,.28)',  stroke:'#fbbf24', text:'#fde68a'},
+    {fill:'rgba(239,68,68,.28)',   stroke:'#f87171', text:'#fecaca'},
+    {fill:'rgba(168,85,247,.28)',  stroke:'#c084fc', text:'#e9d5ff'},
+    {fill:'rgba(236,72,153,.28)',  stroke:'#f472b6', text:'#fce7f3'},
+    {fill:'rgba(6,182,212,.28)',   stroke:'#22d3ee', text:'#cffafe'},
+    {fill:'rgba(132,204,22,.28)',  stroke:'#a3e635', text:'#ecfccb'},
+  ],
+};
+
+function fpInit(roomId) {
+  const r = rooms.find(x => x.id === roomId);
+  if (!r) return;
+  FP.room = r;
+
+  const canvas = document.getElementById('fp-canvas');
+  if (!canvas) return;
+  FP.canvas = canvas;
+  FP.ctx    = canvas.getContext('2d');
+
   const rw = toCm(+r.width,  r.unit);
   const rl = toCm(+r.length, r.unit);
-  if (!rw || !rl) {
-    return `<div style="color:var(--muted);font-size:12px;padding:20px;text-align:center;">กรอกขนาดห้องเพื่อดู Floor Plan</div>`;
-  }
+  if (!rw || !rl) { fpEmpty(); return; }
 
-  const scale = (MAX_W - PAD*2) / rw;
-  const ch    = Math.max(Math.round(rl * scale) + PAD*2, 80);
+  // DPR-aware sizing
+  const dpr      = window.devicePixelRatio || 1;
+  const cssW     = canvas.parentElement.clientWidth - 24;
+  FP.scale       = (cssW - FP.PAD * 2) / rw;
+  const cssH     = Math.round(rl * FP.scale) + FP.PAD * 2 + 32; // +32 for ruler
+  canvas.width   = cssW  * dpr;
+  canvas.height  = cssH  * dpr;
+  canvas.style.height = cssH + 'px';
+  FP.ctx.scale(dpr, dpr);
+  FP.cssW = cssW; FP.cssH = cssH;
 
-  // Simple row-by-row bin packing
-  const placed = []; let cx = PAD, cy = PAD, rowH = 0;
-  r.equipment.forEach((e, i) => {
-    const col = colorOf(i), u = e.unit || r.unit;
-    const ew = toCm(+e.width, u) * scale;
-    const eh = toCm(+e.length, u) * scale;
-    for (let q = 0; q < (+e.quantity||1); q++) {
-      if (cx + ew > MAX_W - PAD) { cx = PAD; cy += rowH + 4; rowH = 0; }
-      placed.push({ e, col, x:cx, y:cy, w:ew, h:eh });
-      cx += ew + 4; rowH = Math.max(rowH, eh);
+  // Build boxes (keep existing positions if already placed)
+  const existingMap = {};
+  (FP.boxes || []).forEach(b => { existingMap[b.eqId + '_' + b.qi] = {x: b.x, y: b.y}; });
+
+  FP.boxes = [];
+  let cx = FP.PAD, cy = FP.PAD, rowH = 0;
+  let colorIdx = 0;
+
+  r.equipment.forEach((e, ei) => {
+    const pal  = FP.PALETTE[colorIdx % FP.PALETTE.length]; colorIdx++;
+    const u    = e.unit || r.unit;
+    const bw   = toCm(+e.width,  u) * FP.scale;
+    const bh   = toCm(+e.length, u) * FP.scale;
+    const qty  = +e.quantity || 1;
+
+    for (let qi = 0; qi < qty; qi++) {
+      const key = e.id + '_' + qi;
+      let bx, by;
+      if (existingMap[key]) {
+        bx = existingMap[key].x; by = existingMap[key].y;
+      } else {
+        if (cx + bw > cssW - FP.PAD) { cx = FP.PAD; cy += rowH + 6; rowH = 0; }
+        bx = cx; by = cy;
+        cx += bw + 6; rowH = Math.max(rowH, bh);
+      }
+      FP.boxes.push({ eqId: e.id, qi, label: e.name, sublabel: `${e.width}×${e.length}${u}`, x: bx, y: by, w: bw, h: bh, pal });
     }
   });
 
-  const boxes = placed.map(p => {
-    const sl = p.w > 30 && p.h > 18;
-    const ss = p.w > 44 && p.h > 30;
-    return `<div class="eq-box"
-      style="left:${p.x.toFixed(1)}px;top:${p.y.toFixed(1)}px;width:${p.w.toFixed(1)}px;height:${p.h.toFixed(1)}px;background:${p.col.bg};border-color:${p.col.bd}"
-      title="${p.e.name} ${p.e.width}×${p.e.length}${p.e.unit||r.unit}">
-      ${sl ? `<span class="eq-label">${p.e.name}</span>` : ''}
-      ${ss ? `<span class="eq-size">${p.e.width}×${p.e.length}</span>` : ''}
-    </div>`;
-  }).join('');
+  fpDraw();
+  fpBindEvents();
+}
 
-  const legend = r.equipment.map((e,i) => {
-    const col = colorOf(i);
-    return `<div class="legend-item"><div class="legend-dot" style="background:${col.bd}"></div>${e.name}</div>`;
-  }).join('');
+function fpEmpty() {
+  const c = FP.canvas; if (!c) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = c.parentElement.clientWidth - 24;
+  c.width = cssW * dpr; c.height = 120 * dpr;
+  c.style.height = '120px';
+  const ctx = FP.ctx; ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#1e2d4a';
+  ctx.fillRect(0, 0, cssW, 120);
+  ctx.fillStyle = '#64748b'; ctx.font = '13px Prompt,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('กรอกขนาดห้องเพื่อดู Floor Plan', cssW/2, 62);
+}
 
-  return `
-  <div class="diagram-canvas" style="height:${ch}px">
-    ${boxes}
-    <div class="room-sz-lbl">${r.width}×${r.length} ${r.unit}</div>
-  </div>
-  <div class="diagram-legend">
-    ${legend || '<span style="color:var(--muted);font-size:11px;">เพิ่มอุปกรณ์เพื่อดู diagram</span>'}
-  </div>`;
+function fpDraw() {
+  const {ctx, cssW, cssH, PAD, scale, room, boxes, hovered} = FP;
+  const rw = toCm(+room.width,  room.unit);
+  const rl = toCm(+room.length, room.unit);
+  const roomPxW = rw * scale, roomPxH = rl * scale;
+
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  // ── Background ──
+  ctx.fillStyle = '#0a1628';
+  ctx.fillRect(0, 0, cssW, cssH);
+
+  // ── Grid lines (subtle) ──
+  const gridCm = rw > 1000 ? 100 : rw > 300 ? 50 : 20;
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth   = 1;
+  for (let x = 0; x <= rw; x += gridCm) {
+    const px = PAD + x * scale;
+    ctx.beginPath(); ctx.moveTo(px, PAD); ctx.lineTo(px, PAD + roomPxH); ctx.stroke();
+  }
+  for (let y = 0; y <= rl; y += gridCm) {
+    const py = PAD + y * scale;
+    ctx.beginPath(); ctx.moveTo(PAD, py); ctx.lineTo(PAD + roomPxW, py); ctx.stroke();
+  }
+
+  // ── Room border (thick blueprint wall) ──
+  const wallW = 6;
+  ctx.strokeStyle = '#f0b429';
+  ctx.lineWidth   = wallW;
+  ctx.lineJoin    = 'miter';
+  ctx.strokeRect(PAD, PAD, roomPxW, roomPxH);
+
+  // ── Room fill ──
+  ctx.fillStyle = 'rgba(240,180,41,0.03)';
+  ctx.fillRect(PAD, PAD, roomPxW, roomPxH);
+
+  // ── Dimension labels ──
+  ctx.fillStyle   = 'rgba(240,180,41,0.7)';
+  ctx.font        = `bold 11px 'IBM Plex Mono',monospace`;
+  ctx.textAlign   = 'center';
+  ctx.textBaseline = 'middle';
+  // width label (top)
+  ctx.fillText(`${room.width} ${room.unit}`, PAD + roomPxW/2, PAD - 14);
+  // height label (left, rotated)
+  ctx.save();
+  ctx.translate(PAD - 14, PAD + roomPxH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText(`${room.length} ${room.unit}`, 0, 0);
+  ctx.restore();
+
+  // ── Corner ticks ──
+  ctx.strokeStyle = 'rgba(240,180,41,0.5)';
+  ctx.lineWidth   = 1;
+  [[PAD, PAD],[PAD+roomPxW, PAD],[PAD, PAD+roomPxH],[PAD+roomPxW, PAD+roomPxH]].forEach(([x,y]) => {
+    ctx.beginPath(); ctx.moveTo(x-8,y); ctx.lineTo(x+8,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x,y-8); ctx.lineTo(x,y+8); ctx.stroke();
+  });
+
+  // ── Equipment boxes ──
+  boxes.forEach((b, idx) => {
+    const isHov  = idx === hovered;
+    const isDrag = FP.drag && FP.drag.boxIdx === idx;
+    const alpha  = isDrag ? 0.95 : isHov ? 0.85 : 1;
+    ctx.globalAlpha = alpha;
+
+    // Shadow
+    if (isHov || isDrag) {
+      ctx.shadowColor = b.pal.stroke; ctx.shadowBlur = 12;
+    }
+
+    // Fill
+    ctx.fillStyle = isDrag ? b.pal.stroke.replace(')', ',0.45)').replace('rgb','rgba') : b.pal.fill;
+    roundRect(ctx, b.x, b.y, b.w, b.h, 4);
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = b.pal.stroke;
+    ctx.lineWidth   = isHov || isDrag ? 2 : 1.5;
+    ctx.shadowBlur  = 0;
+    roundRect(ctx, b.x, b.y, b.w, b.h, 4);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+
+    // Label — only if big enough
+    if (b.w > 22 && b.h > 14) {
+      ctx.fillStyle    = b.pal.text;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      const maxW = b.w - 8;
+
+      if (b.h > 32) {
+        // Two lines: name + size
+        ctx.font = `600 ${Math.min(11, b.w/6+4)}px Prompt,sans-serif`;
+        const name = truncateText(ctx, b.label, maxW);
+        ctx.fillText(name, b.x + b.w/2, b.y + b.h/2 - 7);
+        ctx.font = `10px 'IBM Plex Mono',monospace`;
+        ctx.fillStyle = b.pal.stroke;
+        ctx.fillText(b.sublabel, b.x + b.w/2, b.y + b.h/2 + 8);
+      } else {
+        ctx.font = `600 ${Math.min(10, b.w/7+3)}px Prompt,sans-serif`;
+        const name = truncateText(ctx, b.label, maxW);
+        ctx.fillText(name, b.x + b.w/2, b.y + b.h/2);
+      }
+    }
+  });
+
+  // ── Scale bar ──
+  const barCm  = gridCm;
+  const barPx  = barCm * scale;
+  const bx     = PAD, by = PAD + roomPxH + 14;
+  ctx.strokeStyle = 'rgba(240,180,41,0.5)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + barPx, by); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx,         by-4); ctx.lineTo(bx,         by+4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx + barPx, by-4); ctx.lineTo(bx + barPx, by+4); ctx.stroke();
+  ctx.fillStyle = 'rgba(240,180,41,0.5)'; ctx.font = '10px IBM Plex Mono,monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${barCm} ${room.unit}`, bx + barPx + 6, by);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y,   x+w, y+r,   r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h); ctx.arcTo(x,   y+h, x,   y+h-r, r);
+  ctx.lineTo(x, y+r);   ctx.arcTo(x,   y,   x+r, y,     r);
+  ctx.closePath();
+}
+
+function truncateText(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0,-1);
+  return text + '…';
+}
+
+function fpBoxAt(mx, my) {
+  // iterate in reverse so top-painted boxes are hit first
+  for (let i = FP.boxes.length - 1; i >= 0; i--) {
+    const b = FP.boxes[i];
+    if (mx >= b.x && mx <= b.x+b.w && my >= b.y && my <= b.y+b.h) return i;
+  }
+  return -1;
+}
+
+function fpBindEvents() {
+  const canvas = FP.canvas; if (!canvas) return;
+  // Remove previous listeners by cloning
+  const fresh = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(fresh, canvas);
+  FP.canvas = fresh;
+  FP.ctx    = fresh.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  FP.ctx.scale(dpr, dpr);
+  fpDraw(); // redraw on fresh canvas
+
+  const getPos = (e) => {
+    const rect = fresh.getBoundingClientRect();
+    const scaleX = FP.cssW / rect.width;
+    const t = e.touches ? e.touches[0] : e;
+    return { mx: (t.clientX - rect.left) * scaleX, my: (t.clientY - rect.top) * scaleX };
+  };
+
+  const onDown = (e) => {
+    const {mx, my} = getPos(e);
+    const idx = fpBoxAt(mx, my);
+    if (idx < 0) return;
+    e.preventDefault();
+    FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
+    fresh.style.cursor = 'grabbing';
+  };
+  const onMove = (e) => {
+    const {mx, my} = getPos(e);
+    if (FP.drag) {
+      e.preventDefault();
+      const b = FP.boxes[FP.drag.boxIdx];
+      const PAD = FP.PAD;
+      const rw = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
+      const rl = toCm(+FP.room.length, FP.room.unit) * FP.scale;
+      b.x = Math.max(PAD, Math.min(mx - FP.drag.ox, PAD + rw - b.w));
+      b.y = Math.max(PAD, Math.min(my - FP.drag.oy, PAD + rl - b.h));
+      fpDraw();
+    } else {
+      const prev = FP.hovered;
+      FP.hovered = fpBoxAt(mx, my);
+      fresh.style.cursor = FP.hovered >= 0 ? 'grab' : 'default';
+      if (prev !== FP.hovered) fpDraw();
+    }
+  };
+  const onUp = () => { FP.drag = null; fresh.style.cursor = 'grab'; };
+
+  fresh.addEventListener('mousedown',  onDown);
+  fresh.addEventListener('mousemove',  onMove);
+  fresh.addEventListener('mouseup',    onUp);
+  fresh.addEventListener('mouseleave', onUp);
+  fresh.addEventListener('touchstart', onDown, { passive: false });
+  fresh.addEventListener('touchmove',  onMove, { passive: false });
+  fresh.addEventListener('touchend',   onUp);
+}
+
+function resetLayout(roomId) {
+  FP.boxes = []; // clear positions → fpInit will redo auto-pack
+  fpInit(roomId);
+  toast('Reset layout แล้ว');
 }
 
 // ────────────────────────────────────────────
