@@ -152,6 +152,16 @@
   #toast.t-warn{ border-left: 3px solid var(--warn); }
   #toast.t-bad { border-left: 3px solid var(--danger); }
 
+  /* View-only mode for non-admin */
+  body.view-only .add-form       { display: none !important; }
+  body.view-only .btn-red        { display: none !important; }
+  body.view-only .edit-row       { pointer-events: none; opacity: .45; }
+  body.view-only #sb-add-btn     { display: none !important; }
+  body.view-only .view-only-badge{ display: inline-flex !important; }
+  .view-only-badge { display: none; align-items: center; gap: 4px;
+    font-size: 11px; color: #64748b; background: rgba(100,116,139,.1);
+    border: 1px solid rgba(100,116,139,.2); border-radius: 5px; padding: 3px 8px; }
+
   @media print {
     .topbar, .sidebar, .add-form, .btn, #toast { display: none !important; }
     .layout { display: block; overflow: visible; height: auto; }
@@ -166,6 +176,8 @@
   <span class="topbar-logo">TTGPlus</span>
   <span class="topbar-sep">/</span>
   <span class="topbar-title">คำนวณพื้นที่ห้อง</span>
+  <span class="view-only-badge">👁 ดูอย่างเดียว</span>
+  <span id="sync-status" style="font-size:11px;color:#64748b;margin-right:4px;"></span>
   <div class="topbar-right">
     <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Template</button>
     <button class="btn btn-ghost" onclick="exportCSV()">📊 Export CSV</button>
@@ -178,7 +190,7 @@
   <div class="sidebar">
     <div class="sb-hdr">
       <span>ห้องทั้งหมด</span>
-      <button class="btn btn-gold btn-sm" onclick="addRoom()">+ เพิ่ม</button>
+      <button class="btn btn-gold btn-sm" id="sb-add-btn" onclick="addRoom()">+ เพิ่ม</button>
     </div>
     <div class="room-list" id="room-list"></div>
     <label class="import-zone" id="drop-zone">
@@ -240,11 +252,13 @@ function toast(msg, type='ok') {
 //  Room CRUD
 // ────────────────────────────────────────────
 function addRoom() {
+  if (!guardEdit()) return;
   const r = { id:uid(), name:`ห้องที่ ${rooms.length+1}`, width:400, length:600, unit:'cm', equipment:[] };
   rooms.push(r); activeId = r.id;
   renderAll();
 }
 function deleteRoom(id) {
+  if (!guardEdit()) return;
   if (!confirm('ลบห้องนี้?')) return;
   rooms = rooms.filter(r => r.id !== id);
   activeId = rooms[0]?.id || null;
@@ -252,6 +266,7 @@ function deleteRoom(id) {
 }
 function selectRoom(id) { activeId = id; renderAll(); }
 function setRoom(id, key, val) {
+  if (!guardEdit()) return;
   const r = rooms.find(x => x.id === id); if (!r) return;
   r[key] = (key==='width'||key==='length') ? +val : val;
   renderAll();
@@ -261,6 +276,7 @@ function setRoom(id, key, val) {
 //  Equipment CRUD
 // ────────────────────────────────────────────
 function addEquip(roomId) {
+  if (!guardEdit()) return;
   const r = rooms.find(x => x.id === roomId); if (!r) return;
   const name = document.getElementById('f-name').value.trim();
   const w    = parseFloat(document.getElementById('f-w').value);
@@ -276,6 +292,7 @@ function addEquip(roomId) {
   toast(`เพิ่ม "${name}" แล้ว`);
 }
 function delEquip(roomId, eqId) {
+  if (!guardEdit()) return;
   const r = rooms.find(x => x.id === roomId); if (!r) return;
   r.equipment = r.equipment.filter(e => e.id !== eqId);
   renderAll();
@@ -284,7 +301,104 @@ function delEquip(roomId, eqId) {
 // ────────────────────────────────────────────
 //  Render
 // ────────────────────────────────────────────
-function renderAll() { renderSidebar(); renderMain(); if (activeId) requestAnimationFrame(() => fpInit(activeId)); }
+
+// ────────────────────────────────────────────
+//  Firestore sync
+// ────────────────────────────────────────────
+const FIRESTORE_DOC = 'config/roomSpace';
+let _db = null, _savePending = false, _saveTimer = null;
+
+async function getDb() {
+  if (_db) return _db;
+  // Reuse Firebase from home.html if opened via TTGPlus, else init standalone
+  if (window.db) { _db = window.db; return _db; }
+  try {
+    const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+    const { getFirestore } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const cfg = {
+      apiKey: "AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",
+      authDomain: "tingting-3d57f.firebaseapp.com",
+      projectId: "tingting-3d57f",
+      storageBucket: "tingting-3d57f.firebasestorage.app",
+      messagingSenderId: "998609441304",
+      appId: "1:998609441304:web:0c7fbedf869fa2335d296d"
+    };
+    const app = getApps().length ? getApps()[0] : initializeApp(cfg);
+    _db = getFirestore(app);
+  } catch(e) { console.error('Firebase init failed:', e); }
+  return _db;
+}
+
+function isAdmin() {
+  try {
+    const u = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    return u && u.role === 'admin';
+  } catch(e) { return false; }
+}
+
+function guardEdit() {
+  if (!isAdmin()) {
+    toast('เฉพาะ Admin เท่านั้นที่แก้ไขได้', 'warn');
+    return false;
+  }
+  return true;
+}
+
+function saveData() {
+  // Debounce — save 800ms after last change
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async () => {
+    const db = await getDb(); if (!db) return;
+    try {
+      const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      await setDoc(doc(db, FIRESTORE_DOC), { rooms, activeId, updatedAt: Date.now() });
+    } catch(e) { console.error('Save failed:', e); }
+  }, 800);
+}
+
+async function loadData() {
+  setStatus('กำลังโหลด...');
+  const db = await getDb(); if (!db) { setStatus(''); return; }
+  try {
+    const { doc, getDoc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const ref = doc(db, FIRESTORE_DOC);
+    // Initial load
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const d = snap.data();
+      if (Array.isArray(d.rooms)) { rooms = d.rooms; activeId = d.activeId || null; }
+    }
+    renderAll_noSave();
+    setStatus('');
+    // Real-time listener — update when others save
+    onSnapshot(ref, snap => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      if (Array.isArray(d.rooms)) {
+        rooms = d.rooms; activeId = d.activeId || (rooms[0]?.id || null);
+        renderAll_noSave();
+      }
+    });
+  } catch(e) {
+    console.error('Load failed:', e);
+    setStatus('⚠️ โหลดไม่ได้ — ตรวจสอบการเชื่อมต่อ');
+  }
+}
+
+function setStatus(msg) {
+  const el = document.getElementById('sync-status');
+  if (el) el.textContent = msg;
+}
+
+// renderAll without triggering save (used by onSnapshot)
+function renderAll_noSave() {
+  // Apply view-only mode on body
+  document.body.classList.toggle('view-only', !isAdmin());
+  renderSidebar(); renderMain();
+  if (activeId) requestAnimationFrame(() => fpInit(activeId));
+}
+
+function renderAll() { saveData(); renderAll_noSave(); }
 
 function renderSidebar() {
   const el = document.getElementById('room-list');
@@ -409,7 +523,7 @@ function renderMain() {
       <span style="font-size:10px;color:var(--muted)">${r.equipment.length} รายการ</span>
     </div>
     ${buildTable(r)}
-    <!-- Add equipment form -->
+    <!-- Add equipment form (admin only) -->
     <div class="add-form">
       <div class="field"><label>ชื่ออุปกรณ์</label>
         <input class="ifield f-name" id="f-name" placeholder="เช่น โต๊ะ"></div>
@@ -844,7 +958,7 @@ function downloadTemplate() {
 // ────────────────────────────────────────────
 //  Init
 // ────────────────────────────────────────────
-renderAll();
+loadData(); // loads from Firestore then calls renderAll
 </script>
 </body>
 </html>
