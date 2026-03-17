@@ -461,24 +461,37 @@ function buildDiagram(r) { /* replaced by canvas */ }
 // ────────────────────────────────────────────
 //  Canvas Floor Plan — blueprint style + drag
 // ────────────────────────────────────────────
+// ────────────────────────────────────────────
+//  Canvas Floor Plan — blueprint style + drag
+// ────────────────────────────────────────────
 const FP = {
   canvas: null, ctx: null, room: null,
-  scale: 1, PAD: 40,
-  boxes: [],       // {eqId, label, x, y, w, h, color, colorBd, qi}
-  drag: null,      // {boxIdx, ox, oy}
-  hovered: -1,
-  // color palette — blueprint-friendly
+  dpr: 1, cssW: 0, cssH: 0,
+  scale: 1, PAD: 44,
+  boxes: [], drag: null, hovered: -1,
   PALETTE: [
-    {fill:'rgba(59,130,246,.28)',  stroke:'#60a5fa', text:'#bfdbfe'},
-    {fill:'rgba(16,185,129,.28)',  stroke:'#34d399', text:'#a7f3d0'},
-    {fill:'rgba(245,158,11,.28)',  stroke:'#fbbf24', text:'#fde68a'},
-    {fill:'rgba(239,68,68,.28)',   stroke:'#f87171', text:'#fecaca'},
-    {fill:'rgba(168,85,247,.28)',  stroke:'#c084fc', text:'#e9d5ff'},
-    {fill:'rgba(236,72,153,.28)',  stroke:'#f472b6', text:'#fce7f3'},
-    {fill:'rgba(6,182,212,.28)',   stroke:'#22d3ee', text:'#cffafe'},
-    {fill:'rgba(132,204,22,.28)',  stroke:'#a3e635', text:'#ecfccb'},
+    {fill:'rgba(59,130,246,.3)',  stroke:'#60a5fa', text:'#bfdbfe'},
+    {fill:'rgba(16,185,129,.3)',  stroke:'#34d399', text:'#a7f3d0'},
+    {fill:'rgba(245,158,11,.3)',  stroke:'#fbbf24', text:'#fde68a'},
+    {fill:'rgba(239,68,68,.3)',   stroke:'#f87171', text:'#fecaca'},
+    {fill:'rgba(168,85,247,.3)',  stroke:'#c084fc', text:'#e9d5ff'},
+    {fill:'rgba(236,72,153,.3)',  stroke:'#f472b6', text:'#fce7f3'},
+    {fill:'rgba(6,182,212,.3)',   stroke:'#22d3ee', text:'#cffafe'},
+    {fill:'rgba(132,204,22,.3)',  stroke:'#a3e635', text:'#ecfccb'},
   ],
 };
+
+function fpSetup(canvas, cssW, cssH) {
+  // Set canvas physical pixels and return a fresh ctx — called ONCE per init
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // clean scale, no accumulation
+  return { ctx, dpr };
+}
 
 function fpInit(roomId) {
   const r = rooms.find(x => x.id === roomId);
@@ -487,208 +500,200 @@ function fpInit(roomId) {
 
   const canvas = document.getElementById('fp-canvas');
   if (!canvas) return;
-  FP.canvas = canvas;
-  FP.ctx    = canvas.getContext('2d');
 
   const rw = toCm(+r.width,  r.unit);
   const rl = toCm(+r.length, r.unit);
-  if (!rw || !rl) { fpEmpty(); return; }
+  if (!rw || !rl) { fpEmpty(canvas); return; }
 
-  // DPR-aware sizing
-  const dpr      = window.devicePixelRatio || 1;
-  const cssW     = canvas.parentElement.clientWidth - 24;
-  FP.scale       = (cssW - FP.PAD * 2) / rw;
-  const cssH     = Math.round(rl * FP.scale) + FP.PAD * 2 + 32; // +32 for ruler
-  canvas.width   = cssW  * dpr;
-  canvas.height  = cssH  * dpr;
-  canvas.style.height = cssH + 'px';
-  FP.ctx.scale(dpr, dpr);
+  const PAD  = FP.PAD;
+  const cssW = Math.max(canvas.parentElement.clientWidth - 24, 200);
+  FP.scale   = (cssW - PAD * 2) / rw;
+  const cssH = Math.round(rl * FP.scale) + PAD * 2 + 28;
+
   FP.cssW = cssW; FP.cssH = cssH;
+  const {ctx, dpr} = fpSetup(canvas, cssW, cssH);
+  FP.canvas = canvas; FP.ctx = ctx; FP.dpr = dpr;
 
-  // Build boxes (keep existing positions if already placed)
-  const existingMap = {};
-  (FP.boxes || []).forEach(b => { existingMap[b.eqId + '_' + b.qi] = {x: b.x, y: b.y}; });
+  // Keep existing drag positions
+  const saved = {};
+  (FP.boxes || []).forEach(b => { saved[b.eqId + '_' + b.qi] = {x: b.x, y: b.y}; });
 
   FP.boxes = [];
-  let cx = FP.PAD, cy = FP.PAD, rowH = 0;
-  let colorIdx = 0;
+  let cx = PAD, cy = PAD, rowH = 0;
 
   r.equipment.forEach((e, ei) => {
-    const pal  = FP.PALETTE[colorIdx % FP.PALETTE.length]; colorIdx++;
-    const u    = e.unit || r.unit;
-    const bw   = toCm(+e.width,  u) * FP.scale;
-    const bh   = toCm(+e.length, u) * FP.scale;
-    const qty  = +e.quantity || 1;
-
+    const pal = FP.PALETTE[ei % FP.PALETTE.length];
+    const u   = e.unit || r.unit;
+    const bw  = Math.max(toCm(+e.width, u)  * FP.scale, 8);
+    const bh  = Math.max(toCm(+e.length, u) * FP.scale, 8);
+    const qty = +e.quantity || 1;
     for (let qi = 0; qi < qty; qi++) {
       const key = e.id + '_' + qi;
-      let bx, by;
-      if (existingMap[key]) {
-        bx = existingMap[key].x; by = existingMap[key].y;
-      } else {
-        if (cx + bw > cssW - FP.PAD) { cx = FP.PAD; cy += rowH + 6; rowH = 0; }
-        bx = cx; by = cy;
+      let bx = cx, by = cy;
+      if (saved[key]) { bx = saved[key].x; by = saved[key].y; }
+      else {
+        if (cx + bw > cssW - PAD) { cx = PAD; cy += rowH + 6; rowH = 0; bx = cx; by = cy; }
         cx += bw + 6; rowH = Math.max(rowH, bh);
       }
-      FP.boxes.push({ eqId: e.id, qi, label: e.name, sublabel: `${e.width}×${e.length}${u}`, x: bx, y: by, w: bw, h: bh, pal });
+      FP.boxes.push({ eqId: e.id, qi, label: e.name,
+        sub: `${e.width}×${e.length} ${u}`, x: bx, y: by, w: bw, h: bh, pal });
     }
   });
 
   fpDraw();
-  fpBindEvents();
+  fpBind();
 }
 
-function fpEmpty() {
-  const c = FP.canvas; if (!c) return;
-  const dpr = window.devicePixelRatio || 1;
-  const cssW = c.parentElement.clientWidth - 24;
-  c.width = cssW * dpr; c.height = 120 * dpr;
-  c.style.height = '120px';
-  const ctx = FP.ctx; ctx.scale(dpr, dpr);
-  ctx.fillStyle = '#1e2d4a';
-  ctx.fillRect(0, 0, cssW, 120);
-  ctx.fillStyle = '#64748b'; ctx.font = '13px Prompt,sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('กรอกขนาดห้องเพื่อดู Floor Plan', cssW/2, 62);
+function fpEmpty(canvas) {
+  const cssW = Math.max(canvas.parentElement.clientWidth - 24, 200);
+  const {ctx} = fpSetup(canvas, cssW, 110);
+  FP.canvas = canvas; FP.ctx = ctx; FP.cssW = cssW; FP.cssH = 110;
+  ctx.fillStyle = '#0d1b36'; ctx.fillRect(0, 0, cssW, 110);
+  ctx.fillStyle = '#475569'; ctx.font = '13px Prompt,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('กรอกขนาดห้องเพื่อดู Floor Plan', cssW / 2, 55);
 }
 
 function fpDraw() {
   const {ctx, cssW, cssH, PAD, scale, room, boxes, hovered} = FP;
+  if (!ctx) return;
   const rw = toCm(+room.width,  room.unit);
   const rl = toCm(+room.length, room.unit);
-  const roomPxW = rw * scale, roomPxH = rl * scale;
+  const rpw = rw * scale, rph = rl * scale;
 
   ctx.clearRect(0, 0, cssW, cssH);
 
-  // ── Background ──
-  ctx.fillStyle = '#0a1628';
+  // Background
+  ctx.fillStyle = '#0d1b36';
   ctx.fillRect(0, 0, cssW, cssH);
 
-  // ── Grid lines (subtle) ──
-  const gridCm = rw > 1000 ? 100 : rw > 300 ? 50 : 20;
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-  ctx.lineWidth   = 1;
-  for (let x = 0; x <= rw; x += gridCm) {
-    const px = PAD + x * scale;
-    ctx.beginPath(); ctx.moveTo(px, PAD); ctx.lineTo(px, PAD + roomPxH); ctx.stroke();
-  }
-  for (let y = 0; y <= rl; y += gridCm) {
-    const py = PAD + y * scale;
-    ctx.beginPath(); ctx.moveTo(PAD, py); ctx.lineTo(PAD + roomPxW, py); ctx.stroke();
+  // Dot grid
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  const gCm = rw > 800 ? 100 : rw > 200 ? 50 : 20;
+  for (let x = 0; x <= rw; x += gCm) {
+    for (let y = 0; y <= rl; y += gCm) {
+      const px = PAD + x * scale, py = PAD + y * scale;
+      ctx.beginPath(); ctx.arc(px, py, 1, 0, Math.PI*2); ctx.fill();
+    }
   }
 
-  // ── Room border (thick blueprint wall) ──
-  const wallW = 6;
+  // Room fill
+  ctx.fillStyle = 'rgba(240,180,41,0.04)';
+  ctx.fillRect(PAD, PAD, rpw, rph);
+
+  // Room wall — thick gold
   ctx.strokeStyle = '#f0b429';
-  ctx.lineWidth   = wallW;
+  ctx.lineWidth   = 5;
   ctx.lineJoin    = 'miter';
-  ctx.strokeRect(PAD, PAD, roomPxW, roomPxH);
+  ctx.strokeRect(PAD, PAD, rpw, rph);
 
-  // ── Room fill ──
-  ctx.fillStyle = 'rgba(240,180,41,0.03)';
-  ctx.fillRect(PAD, PAD, roomPxW, roomPxH);
+  // Corner marks
+  ctx.strokeStyle = '#f0b429';
+  ctx.lineWidth   = 1.5;
+  [[PAD,PAD],[PAD+rpw,PAD],[PAD,PAD+rph],[PAD+rpw,PAD+rph]].forEach(([x,y]) => {
+    const s = 10;
+    ctx.beginPath(); ctx.moveTo(x-s,y); ctx.lineTo(x+s,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x,y-s); ctx.lineTo(x,y+s); ctx.stroke();
+  });
 
-  // ── Dimension labels ──
-  ctx.fillStyle   = 'rgba(240,180,41,0.7)';
-  ctx.font        = `bold 11px 'IBM Plex Mono',monospace`;
-  ctx.textAlign   = 'center';
-  ctx.textBaseline = 'middle';
-  // width label (top)
-  ctx.fillText(`${room.width} ${room.unit}`, PAD + roomPxW/2, PAD - 14);
-  // height label (left, rotated)
+  // Dimension: width (top)
   ctx.save();
-  ctx.translate(PAD - 14, PAD + roomPxH/2);
+  ctx.strokeStyle = 'rgba(240,180,41,0.6)'; ctx.lineWidth = 1;
+  // arrow line top
+  const ay = PAD - 16;
+  ctx.beginPath(); ctx.moveTo(PAD,ay); ctx.lineTo(PAD+rpw,ay); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD,ay-4); ctx.lineTo(PAD,ay+4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD+rpw,ay-4); ctx.lineTo(PAD+rpw,ay+4); ctx.stroke();
+  ctx.fillStyle = '#f0b429'; ctx.font = 'bold 11px "IBM Plex Mono",monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${room.width} ${room.unit}`, PAD + rpw/2, ay);
+  ctx.restore();
+
+  // Dimension: length (left)
+  ctx.save();
+  ctx.translate(PAD - 18, PAD + rph/2);
   ctx.rotate(-Math.PI/2);
+  ctx.strokeStyle = 'rgba(240,180,41,0.6)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-rph/2,0); ctx.lineTo(rph/2,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-rph/2,-4); ctx.lineTo(-rph/2,4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rph/2,-4);  ctx.lineTo(rph/2,4);  ctx.stroke();
+  ctx.fillStyle = '#f0b429'; ctx.font = 'bold 11px "IBM Plex Mono",monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(`${room.length} ${room.unit}`, 0, 0);
   ctx.restore();
 
-  // ── Corner ticks ──
-  ctx.strokeStyle = 'rgba(240,180,41,0.5)';
-  ctx.lineWidth   = 1;
-  [[PAD, PAD],[PAD+roomPxW, PAD],[PAD, PAD+roomPxH],[PAD+roomPxW, PAD+roomPxH]].forEach(([x,y]) => {
-    ctx.beginPath(); ctx.moveTo(x-8,y); ctx.lineTo(x+8,y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x,y-8); ctx.lineTo(x,y+8); ctx.stroke();
-  });
-
-  // ── Equipment boxes ──
+  // Equipment boxes
   boxes.forEach((b, idx) => {
     const isHov  = idx === hovered;
     const isDrag = FP.drag && FP.drag.boxIdx === idx;
-    const alpha  = isDrag ? 0.95 : isHov ? 0.85 : 1;
-    ctx.globalAlpha = alpha;
 
-    // Shadow
+    // Glow
     if (isHov || isDrag) {
-      ctx.shadowColor = b.pal.stroke; ctx.shadowBlur = 12;
+      ctx.shadowColor = b.pal.stroke; ctx.shadowBlur = 14;
     }
 
-    // Fill
-    ctx.fillStyle = isDrag ? b.pal.stroke.replace(')', ',0.45)').replace('rgb','rgba') : b.pal.fill;
-    roundRect(ctx, b.x, b.y, b.w, b.h, 4);
+    ctx.fillStyle = isDrag
+      ? b.pal.stroke + '80'
+      : b.pal.fill;
+    fpRoundRect(ctx, b.x, b.y, b.w, b.h, 4);
     ctx.fill();
 
-    // Border
-    ctx.strokeStyle = b.pal.stroke;
-    ctx.lineWidth   = isHov || isDrag ? 2 : 1.5;
     ctx.shadowBlur  = 0;
-    roundRect(ctx, b.x, b.y, b.w, b.h, 4);
+    ctx.strokeStyle = b.pal.stroke;
+    ctx.lineWidth   = isHov || isDrag ? 2.5 : 1.5;
+    fpRoundRect(ctx, b.x, b.y, b.w, b.h, 4);
     ctx.stroke();
 
-    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-
-    // Label — only if big enough
-    if (b.w > 22 && b.h > 14) {
-      ctx.fillStyle    = b.pal.text;
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      const maxW = b.w - 8;
-
-      if (b.h > 32) {
-        // Two lines: name + size
-        ctx.font = `600 ${Math.min(11, b.w/6+4)}px Prompt,sans-serif`;
-        const name = truncateText(ctx, b.label, maxW);
-        ctx.fillText(name, b.x + b.w/2, b.y + b.h/2 - 7);
-        ctx.font = `10px 'IBM Plex Mono',monospace`;
+    // Labels
+    if (b.w > 20 && b.h > 14) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const mx = b.x + b.w/2, my = b.y + b.h/2;
+      if (b.h > 34) {
+        ctx.font = `600 ${Math.min(11,b.w/5+3)}px Prompt,sans-serif`;
+        ctx.fillStyle = b.pal.text;
+        ctx.fillText(fpTrunc(ctx, b.label, b.w-8), mx, my - 8);
+        ctx.font = '9px "IBM Plex Mono",monospace';
         ctx.fillStyle = b.pal.stroke;
-        ctx.fillText(b.sublabel, b.x + b.w/2, b.y + b.h/2 + 8);
+        ctx.fillText(b.sub, mx, my + 8);
       } else {
-        ctx.font = `600 ${Math.min(10, b.w/7+3)}px Prompt,sans-serif`;
-        const name = truncateText(ctx, b.label, maxW);
-        ctx.fillText(name, b.x + b.w/2, b.y + b.h/2);
+        ctx.font = `600 ${Math.min(10,b.w/6+3)}px Prompt,sans-serif`;
+        ctx.fillStyle = b.pal.text;
+        ctx.fillText(fpTrunc(ctx, b.label, b.w-6), mx, my);
       }
     }
   });
 
-  // ── Scale bar ──
-  const barCm  = gridCm;
-  const barPx  = barCm * scale;
-  const bx     = PAD, by = PAD + roomPxH + 14;
-  ctx.strokeStyle = 'rgba(240,180,41,0.5)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + barPx, by); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(bx,         by-4); ctx.lineTo(bx,         by+4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(bx + barPx, by-4); ctx.lineTo(bx + barPx, by+4); ctx.stroke();
-  ctx.fillStyle = 'rgba(240,180,41,0.5)'; ctx.font = '10px IBM Plex Mono,monospace';
+  // Scale bar (bottom)
+  const bx = PAD, by2 = PAD + rph + 14;
+  const barPx = gCm * scale;
+  ctx.strokeStyle = 'rgba(240,180,41,0.45)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(bx, by2); ctx.lineTo(bx+barPx, by2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx,      by2-4); ctx.lineTo(bx,      by2+4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx+barPx,by2-4); ctx.lineTo(bx+barPx,by2+4); ctx.stroke();
+  ctx.fillStyle = 'rgba(240,180,41,0.5)';
+  ctx.font = '10px "IBM Plex Mono",monospace';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText(`${barCm} ${room.unit}`, bx + barPx + 6, by);
+  ctx.fillText(`${gCm} ${room.unit}`, bx + barPx + 6, by2);
 }
 
-function roundRect(ctx, x, y, w, h, r) {
+function fpRoundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w/2, h/2);
   ctx.beginPath();
   ctx.moveTo(x+r, y);
-  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y,   x+w, y+r,   r);
+  ctx.lineTo(x+w-r, y);   ctx.arcTo(x+w, y,   x+w, y+r,   r);
   ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
-  ctx.lineTo(x+r, y+h); ctx.arcTo(x,   y+h, x,   y+h-r, r);
-  ctx.lineTo(x, y+r);   ctx.arcTo(x,   y,   x+r, y,     r);
+  ctx.lineTo(x+r, y+h);   ctx.arcTo(x,   y+h, x,   y+h-r, r);
+  ctx.lineTo(x, y+r);     ctx.arcTo(x,   y,   x+r, y,     r);
   ctx.closePath();
 }
 
-function truncateText(ctx, text, maxW) {
+function fpTrunc(ctx, text, maxW) {
   if (ctx.measureText(text).width <= maxW) return text;
-  while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0,-1);
+  while (text.length > 1 && ctx.measureText(text+'…').width > maxW) text = text.slice(0,-1);
   return text + '…';
 }
 
-function fpBoxAt(mx, my) {
-  // iterate in reverse so top-painted boxes are hit first
+function fpHitTest(mx, my) {
   for (let i = FP.boxes.length - 1; i >= 0; i--) {
     const b = FP.boxes[i];
     if (mx >= b.x && mx <= b.x+b.w && my >= b.y && my <= b.y+b.h) return i;
@@ -696,150 +701,61 @@ function fpBoxAt(mx, my) {
   return -1;
 }
 
-function fpBindEvents() {
+function fpBind() {
   const canvas = FP.canvas; if (!canvas) return;
-  // Remove previous listeners by cloning
-  const fresh = canvas.cloneNode(true);
-  canvas.parentNode.replaceChild(fresh, canvas);
-  FP.canvas = fresh;
-  FP.ctx    = fresh.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  FP.ctx.scale(dpr, dpr);
-  fpDraw(); // redraw on fresh canvas
+  // Remove old listeners cleanly via AbortController
+  if (FP._ac) FP._ac.abort();
+  FP._ac = new AbortController();
+  const sig = { signal: FP._ac.signal };
 
-  const getPos = (e) => {
-    const rect = fresh.getBoundingClientRect();
+  const pos = (e) => {
+    const rect = canvas.getBoundingClientRect();
     const scaleX = FP.cssW / rect.width;
     const t = e.touches ? e.touches[0] : e;
     return { mx: (t.clientX - rect.left) * scaleX, my: (t.clientY - rect.top) * scaleX };
   };
 
   const onDown = (e) => {
-    const {mx, my} = getPos(e);
-    const idx = fpBoxAt(mx, my);
+    const {mx, my} = pos(e);
+    const idx = fpHitTest(mx, my);
     if (idx < 0) return;
     e.preventDefault();
     FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
-    fresh.style.cursor = 'grabbing';
+    canvas.style.cursor = 'grabbing';
   };
+
   const onMove = (e) => {
-    const {mx, my} = getPos(e);
-    if (FP.drag) {
+    const {mx, my} = pos(e);
+    if (FP.drag !== null) {
       e.preventDefault();
-      const b = FP.boxes[FP.drag.boxIdx];
+      const b   = FP.boxes[FP.drag.boxIdx];
       const PAD = FP.PAD;
-      const rw = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
-      const rl = toCm(+FP.room.length, FP.room.unit) * FP.scale;
+      const rw  = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
+      const rl  = toCm(+FP.room.length, FP.room.unit) * FP.scale;
       b.x = Math.max(PAD, Math.min(mx - FP.drag.ox, PAD + rw - b.w));
       b.y = Math.max(PAD, Math.min(my - FP.drag.oy, PAD + rl - b.h));
       fpDraw();
     } else {
       const prev = FP.hovered;
-      FP.hovered = fpBoxAt(mx, my);
-      fresh.style.cursor = FP.hovered >= 0 ? 'grab' : 'default';
+      FP.hovered = fpHitTest(mx, my);
+      canvas.style.cursor = FP.hovered >= 0 ? 'grab' : 'default';
       if (prev !== FP.hovered) fpDraw();
     }
   };
-  const onUp = () => { FP.drag = null; fresh.style.cursor = 'grab'; };
 
-  fresh.addEventListener('mousedown',  onDown);
-  fresh.addEventListener('mousemove',  onMove);
-  fresh.addEventListener('mouseup',    onUp);
-  fresh.addEventListener('mouseleave', onUp);
-  fresh.addEventListener('touchstart', onDown, { passive: false });
-  fresh.addEventListener('touchmove',  onMove, { passive: false });
-  fresh.addEventListener('touchend',   onUp);
+  const onUp = () => { FP.drag = null; canvas.style.cursor = 'default'; };
+
+  canvas.addEventListener('mousedown',  onDown, sig);
+  canvas.addEventListener('mousemove',  onMove, sig);
+  canvas.addEventListener('mouseup',    onUp,   sig);
+  canvas.addEventListener('mouseleave', onUp,   sig);
+  canvas.addEventListener('touchstart', onDown, { ...sig, passive: false });
+  canvas.addEventListener('touchmove',  onMove, { ...sig, passive: false });
+  canvas.addEventListener('touchend',   onUp,   sig);
 }
 
 function resetLayout(roomId) {
-  FP.boxes = []; // clear positions → fpInit will redo auto-pack
+  FP.boxes = [];
   fpInit(roomId);
   toast('Reset layout แล้ว');
 }
-
-// ────────────────────────────────────────────
-//  Import Excel
-// ────────────────────────────────────────────
-function handleFileInput(input) { if (input.files[0]) readExcel(input.files[0]); }
-
-const dz = document.getElementById('drop-zone');
-dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
-dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-dz.addEventListener('drop',      e => { e.preventDefault(); dz.classList.remove('drag-over'); if (e.dataTransfer.files[0]) readExcel(e.dataTransfer.files[0]); });
-
-function readExcel(file) {
-  const rd = new FileReader();
-  rd.onload = evt => {
-    try {
-      const wb  = XLSX.read(evt.target.result, { type:'array' });
-      const wsR = wb.Sheets['rooms'], wsE = wb.Sheets['equipment'];
-      if (!wsR || !wsE) { toast('ไม่พบ Sheet "rooms" หรือ "equipment"','danger'); return; }
-      const rRows = XLSX.utils.sheet_to_json(wsR, { defval:'' });
-      const eRows = XLSX.utils.sheet_to_json(wsE, { defval:'' });
-      const nr = rRows.filter(r=>r.room_name).map(r=>({
-        id:uid(), name:String(r.room_name).trim(),
-        width:parseFloat(r.width)||400, length:parseFloat(r.length)||600,
-        unit:String(r.unit||'cm').toLowerCase().trim(), equipment:[]
-      }));
-      eRows.filter(e=>e.room_name&&e.equipment_name).forEach(e=>{
-        const rm = nr.find(x => x.name === String(e.room_name).trim()); if (!rm) return;
-        rm.equipment.push({ id:uid(), name:String(e.equipment_name).trim(),
-          width:parseFloat(e.width)||0, length:parseFloat(e.length)||0,
-          quantity:parseInt(e.quantity)||1, unit:String(e.unit||rm.unit).toLowerCase().trim(),
-          note:String(e.note||'').trim() });
-      });
-      rooms = [...rooms, ...nr];
-      if (nr.length) activeId = nr[0].id;
-      renderAll();
-      toast(`Import สำเร็จ — ${nr.length} ห้อง`);
-    } catch(err) { toast('อ่านไฟล์ไม่ได้: ' + err.message, 'danger'); }
-  };
-  rd.readAsArrayBuffer(file);
-}
-
-// ────────────────────────────────────────────
-//  Export CSV
-// ────────────────────────────────────────────
-function exportCSV() {
-  if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
-  const lines = ['ห้อง,กว้าง,ยาว,หน่วย,พื้นที่ห้อง(m²),รายการ,พื้นที่อุปกรณ์(m²),%ใช้'];
-  rooms.forEach(r => {
-    lines.push(`"${r.name}",${r.width},${r.length},${r.unit},${(roomArea(r)/10000).toFixed(2)},${r.equipment.length},${(totalEq(r)/10000).toFixed(2)},${pct(r).toFixed(1)}%`);
-    r.equipment.forEach(e => {
-      lines.push(`,"${e.name}",${e.width},${e.length},${e.unit||r.unit},,,${(eqArea(e,r.unit)/10000).toFixed(2)},จำนวน:${e.quantity}`);
-    });
-  });
-  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type:'text/csv;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a'); a.href = url;
-  a.download = `room-space-${new Date().toISOString().slice(0,10)}.csv`;
-  a.click(); URL.revokeObjectURL(url);
-  toast('Export CSV เรียบร้อย');
-}
-
-// ────────────────────────────────────────────
-//  Download Template
-// ────────────────────────────────────────────
-function downloadTemplate() {
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-    ['room_name','width','length','unit','note'],
-    ['ห้องครัว',400,600,'cm',''], ['ห้องเก็บของ',300,500,'cm',''],
-  ]), 'rooms');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-    ['room_name','equipment_name','width','length','quantity','unit','note'],
-    ['ห้องครัว','โต๊ะเตรียมอาหาร',60,120,2,'cm','ติดผนัง'],
-    ['ห้องครัว','ตู้เย็น',65,70,1,'cm','มุมห้อง'],
-    ['ห้องเก็บของ','ชั้นวางของ',40,120,3,'cm','ติดผนัง'],
-  ]), 'equipment');
-  XLSX.writeFile(wb, 'ttgplus_room_template.xlsx');
-  toast('Download template เรียบร้อย');
-}
-
-// ────────────────────────────────────────────
-//  Init
-// ────────────────────────────────────────────
-renderAll();
-</script>
-</body>
-</html>
