@@ -847,6 +847,7 @@ function fpInit(roomId) {
       const key = e.id + '_' + qi;
       let bx = cx, by = cy;
       // Restore from Firestore-persisted position if available
+      // Restore position + rotation from persisted _fp data
       const fp_ = e._fp && e._fp[qi];
       if (fp_) {
         const rw_ = toCm(+r.width,  r.unit) * FP.scale;
@@ -859,12 +860,12 @@ function fpInit(roomId) {
         if (cx + bw > cssW - PAD) { cx = PAD; cy += rowH + 6; rowH = 0; bx = cx; by = cy; }
         cx += bw + 6; rowH = Math.max(rowH, bh);
       }
-      const fp_ = e._fp && e._fp[qi];
-      let finalW = bw, finalH = bh, isRotated = fp_ && fp_.rotated;
-      if (isRotated) { finalW = bh; finalH = bw; }
+      const isRotated = fp_ && fp_.rotated;
+      const finalW = isRotated ? bh : bw;
+      const finalH = isRotated ? bw : bh;
+      const sub_ = isRotated ? `${e.length}×${e.width} ${u}` : `${e.width}×${e.length} ${u}`;
       FP.boxes.push({ eqId: e.id, qi, idx: FP.boxes.length, label: e.name,
-        sub: isRotated ? `\${e.length}×\${e.width} \${u}` : `\${e.width}×\${e.length} \${u}`,
-        x: bx, y: by, w: finalW, h: finalH, pal, rotated: isRotated });
+        sub: sub_, x: bx, y: by, w: finalW, h: finalH, pal, rotated: isRotated });
     }
   });
 
