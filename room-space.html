@@ -672,12 +672,12 @@ function buildTable(r) {
   const ra = roomArea(r);
   const rows = r.equipment.map((e,i) => {
     const col = colorOf(i), ea = eqArea(e,r.unit), p = ra ? (ea/ra*100).toFixed(1) : '—';
-    const numBadge = `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:3px;background:${col.bd};color:#fff;font-size:9px;font-weight:700;margin-right:6px;flex-shrink:0">${i+1}</span>`;
+    const numBadge = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:3px;background:${col.bd};color:#fff;font-size:9px;font-weight:700;margin-right:7px;flex-shrink:0;vertical-align:middle">${i+1}</span>`;
     const adminBtns = isAdmin() ? `
       <button class="btn btn-ghost btn-sm" onclick="openEditEquip('${r.id}','${e.id}')" title="แก้ไข">✏️</button>
       <button class="btn btn-red btn-sm" onclick="delEquip('${r.id}','${e.id}')" title="ลบ">🗑</button>` : '';
     return `<tr>
-      <td style="overflow:hidden">${numBadge}${e.name}</td>
+      <td style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:1px">${numBadge}${e.name}</td>
       <td><span class="chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;text-align:center">${e.quantity}</td>
       <td><span class="chip">${fmtM2(ea)}</span></td>
@@ -688,14 +688,14 @@ function buildTable(r) {
   }).join('');
   return `<div class="tbl-wrap"><table style="width:100%;table-layout:auto">
     <colgroup>
-      <col style="width:32px">
-      <col>
-      <col style="width:100px">
-      <col style="width:56px">
-      <col style="width:82px">
-      <col style="width:56px">
-      <col style="width:90px">
-      <col style="width:68px">
+      <col style="width:30px">
+      <col style="min-width:160px">
+      <col style="width:95px">
+      <col style="width:52px">
+      <col style="width:78px">
+      <col style="width:52px">
+      <col style="width:80px">
+      <col style="width:64px">
     </colgroup>
     <thead><tr>
       <th style="text-align:center">#</th>
