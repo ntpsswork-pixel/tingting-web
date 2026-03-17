@@ -213,57 +213,61 @@
   .eq-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
   @media print {
-    /* Hide UI chrome */
+    /* ── Hide UI chrome ── */
     .topbar, .sidebar, .add-form, .btn, #toast,
     .fp-tooltip, .eq-modal-overlay, .card-hdr .btn,
     .view-only-badge { display: none !important; }
 
-    /* Single-column layout */
+    /* ── Page setup — A4 portrait ── */
+    @page { size: A4 portrait; margin: 10mm 10mm 10mm 10mm; }
+
+    /* ── Layout ── */
     .layout { display: block !important; overflow: visible !important; height: auto !important; }
-    .main   { overflow: visible !important; padding: 6px !important; gap: 8px !important; }
-    body    { background: #fff !important; color: #000 !important; font-size: 12px; }
+    .main   { overflow: visible !important; padding: 0 !important; gap: 6px !important; display: flex !important; flex-direction: column !important; }
+    body    { background: #fff !important; color: #000 !important; font-size: 11px; }
 
-    /* Compact cards */
-    .card         { border: 1px solid #bbb !important; margin-bottom: 8px !important;
-                    page-break-inside: avoid; box-shadow: none !important; background: #fff !important; }
-    .card-hdr     { padding: 8px 12px !important; border-bottom: 1px solid #ddd !important; background: #f5f5f5 !important; }
-    .card-hdr h3  { color: #000 !important; font-size: 12px !important; }
-    .card-body    { padding: 8px 12px !important; }
+    /* ── All cards together, no page break inside ── */
+    .card { border: 1px solid #bbb !important; margin-bottom: 6px !important;
+            box-shadow: none !important; background: #fff !important;
+            break-inside: avoid; page-break-inside: avoid; }
+    .card-hdr     { padding: 5px 10px !important; border-bottom: 1px solid #ddd !important; background: #f0f0f0 !important; }
+    .card-hdr h3  { color: #000 !important; font-size: 11px !important; }
+    .card-body    { padding: 6px 10px !important; overflow: visible !important; }
 
-    /* Hide KPI grid + progress (saves ~4cm vertical space) */
-    .kpi-grid, .prog-wrap { display: none !important; }
+    /* ── Hide KPI, progress, edit row — save vertical space ── */
+    .kpi-grid, .prog-wrap, .edit-row { display: none !important; }
 
-    /* Compact room edit row */
-    .edit-row { display: none !important; }
+    /* ── Show compact summary line ── */
+    .print-summary { display: block !important; font-size: 10px; color: #333; padding: 2px 0 4px; }
 
-    /* Print-friendly summary line instead */
-    .print-summary { display: block !important; font-size: 11px; color: #333; padding: 4px 0; }
-
-    /* Floor plan — fit in ~45% of A4 height */
+    /* ── Floor plan canvas: respect zoom, scale-to-fit width ── */
     #fp-canvas {
-      max-height: 340px !important;
-      width: auto !important;
-      max-width: 100% !important;
+      width: 100% !important;
+      height: auto !important;
+      max-height: 50vh !important;
       object-fit: contain !important;
       filter: invert(1) hue-rotate(180deg) !important;
-      border: 1.5px solid #555 !important;
-      border-radius: 4px !important;
+      border: 1px solid #666 !important;
+      border-radius: 3px !important;
       display: block !important;
     }
-    .card-body[style*="overflow:auto"] { overflow: visible !important; }
-    .fp-legend        { background: #f5f5f5 !important; padding: 6px 10px !important;
-                        flex-wrap: wrap !important; gap: 4px !important; }
-    .fp-legend-item   { background: #fff !important; border: 1px solid #ccc !important;
-                        color: #000 !important; font-size: 10px !important; padding: 2px 6px !important; }
-    .fp-legend-num    { color: #555 !important; }
+    .fp-legend { background: #f5f5f5 !important; padding: 4px 8px !important;
+                 flex-wrap: wrap !important; gap: 3px !important; border-top: 1px solid #ddd !important; }
+    .fp-legend-item { background: #fff !important; border: 1px solid #ccc !important;
+                      color: #000 !important; font-size: 9px !important; padding: 2px 5px !important; }
+    .fp-legend-num { color: #666 !important; }
 
-    /* Table */
-    table     { width: 100% !important; font-size: 10px !important; }
-    thead tr  { background: #eee !important; }
-    th        { background: #eee !important; color: #333 !important; padding: 5px 8px !important; }
-    td        { color: #000 !important; padding: 4px 8px !important; }
-    .chip     { background: #eee !important; color: #333 !important; font-size: 9px !important; }
+    /* ── Compact table — fits more rows per page ── */
+    table   { width: 100% !important; font-size: 9px !important; border-collapse: collapse !important; }
+    thead tr { background: #e8e8e8 !important; }
+    th  { background: #e8e8e8 !important; color: #222 !important;
+          padding: 3px 6px !important; border: 1px solid #ccc !important; font-size: 9px !important; }
+    td  { color: #000 !important; padding: 3px 6px !important;
+          border: 1px solid #e0e0e0 !important; vertical-align: middle !important; }
+    .chip  { background: #f0f0f0 !important; color: #333 !important;
+             font-size: 8px !important; padding: 1px 4px !important; border-radius: 2px !important; }
     .tbl-wrap { overflow: visible !important; }
+    tbody tr:hover { background: transparent !important; }
   }
 </style>
 </head>
@@ -673,7 +677,7 @@ function buildTable(r) {
       <button class="btn btn-ghost btn-sm" onclick="openEditEquip('${r.id}','${e.id}')" title="แก้ไข">✏️</button>
       <button class="btn btn-red btn-sm" onclick="delEquip('${r.id}','${e.id}')" title="ลบ">🗑</button>` : '';
     return `<tr>
-      <td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0">${numBadge}${e.name}</td>
+      <td style="overflow:hidden">${numBadge}${e.name}</td>
       <td><span class="chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;text-align:center">${e.quantity}</td>
       <td><span class="chip">${fmtM2(ea)}</span></td>
@@ -682,16 +686,16 @@ function buildTable(r) {
       <td style="white-space:nowrap">${adminBtns}</td>
     </tr>`;
   }).join('');
-  return `<div class="tbl-wrap"><table style="table-layout:fixed;width:100%">
+  return `<div class="tbl-wrap"><table style="width:100%;table-layout:auto">
     <colgroup>
-      <col style="width:36px">
-      <col style="width:auto">
-      <col style="width:110px">
-      <col style="width:64px">
-      <col style="width:90px">
-      <col style="width:64px">
+      <col style="width:32px">
+      <col>
       <col style="width:100px">
-      <col style="width:72px">
+      <col style="width:56px">
+      <col style="width:82px">
+      <col style="width:56px">
+      <col style="width:90px">
+      <col style="width:68px">
     </colgroup>
     <thead><tr>
       <th style="text-align:center">#</th>
@@ -842,13 +846,25 @@ function fpInit(roomId) {
     for (let qi = 0; qi < qty; qi++) {
       const key = e.id + '_' + qi;
       let bx = cx, by = cy;
-      if (saved[key]) { bx = saved[key].x; by = saved[key].y; }
-      else {
+      // Restore from Firestore-persisted position if available
+      const fp_ = e._fp && e._fp[qi];
+      if (fp_) {
+        const rw_ = toCm(+r.width,  r.unit) * FP.scale;
+        const rl_ = toCm(+r.length, r.unit) * FP.scale;
+        bx = PAD + fp_.nx * rw_;
+        by = PAD + fp_.ny * rl_;
+      } else if (saved[key]) {
+        bx = saved[key].x; by = saved[key].y;
+      } else {
         if (cx + bw > cssW - PAD) { cx = PAD; cy += rowH + 6; rowH = 0; bx = cx; by = cy; }
         cx += bw + 6; rowH = Math.max(rowH, bh);
       }
+      const fp_ = e._fp && e._fp[qi];
+      let finalW = bw, finalH = bh, isRotated = fp_ && fp_.rotated;
+      if (isRotated) { finalW = bh; finalH = bw; }
       FP.boxes.push({ eqId: e.id, qi, idx: FP.boxes.length, label: e.name,
-        sub: `${e.width}×${e.length} ${u}`, x: bx, y: by, w: bw, h: bh, pal });
+        sub: isRotated ? `\${e.length}×\${e.width} \${u}` : `\${e.width}×\${e.length} \${u}`,
+        x: bx, y: by, w: finalW, h: finalH, pal, rotated: isRotated });
     }
   });
 
@@ -1064,6 +1080,26 @@ function fpRenderLegend() {
   ).join('');
 }
 
+function fpSavePositions() {
+  // Save each box position back to equipment._fp so it persists in Firestore
+  if (!FP.room) return;
+  FP.boxes.forEach(b => {
+    const r = rooms.find(x => x.id === FP.room.id); if (!r) return;
+    const e = r.equipment.find(x => x.id === b.eqId); if (!e) return;
+    if (!e._fp) e._fp = {};
+    if (!e._fp[b.qi]) e._fp[b.qi] = {};
+    // Store normalised position (0-1 ratio of room size) so it survives zoom/resize
+    const rw = toCm(+r.width, r.unit) * FP.scale;
+    const rl = toCm(+r.length, r.unit) * FP.scale;
+    e._fp[b.qi] = {
+      nx: (b.x - FP.PAD) / rw,
+      ny: (b.y - FP.PAD) / rl,
+      rotated: !!b.rotated
+    };
+  });
+  saveData();
+}
+
 function fpRotateBox(idx) {
   const b = FP.boxes[idx]; if (!b) return;
   // Swap w <-> h, keep center position
@@ -1084,6 +1120,7 @@ function fpRotateBox(idx) {
   }
   b.rotated = !b.rotated;
   fpDraw(); fpRenderLegend();
+  fpSavePositions();
   toast('หมุน 90° แล้ว');
 }
 
@@ -1142,7 +1179,13 @@ function fpBind() {
     }
   };
 
-  const onUp = () => { FP.drag = null; canvas.style.cursor = 'default'; fpHideTooltip(); };
+  const onUp = () => {
+    if (FP.drag !== null) {
+      // Persist position back to equipment data
+      fpSavePositions();
+    }
+    FP.drag = null; canvas.style.cursor = 'default'; fpHideTooltip();
+  };
 
   canvas.addEventListener('mousedown',  onDown, sig);
   canvas.addEventListener('mousemove',  onMove, sig);
@@ -1180,6 +1223,9 @@ function fpSetZoom(val, roomId) {
 }
 
 function resetLayout(roomId) {
+  // Clear persisted positions
+  const rr = rooms.find(x=>x.id===roomId);
+  if (rr) rr.equipment.forEach(e => { delete e._fp; });
   FP.boxes = []; FP.zoom = 1;
   const slider = document.getElementById('fp-zoom');
   if (slider) { slider.value = 1; }
@@ -1278,47 +1324,9 @@ function exportExcel() {
 // ────────────────────────────────────────────
 function exportRoomPDF() {
   if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
-  // Save current zoom, reset to 1×, print, restore
-  const savedZoom = FP.zoom;
-  const savedActiveId = activeId;
-  if (savedZoom !== 1) {
-    const slider = document.getElementById('fp-zoom');
-    if (slider) slider.value = 1;
-    const lbl = document.getElementById('fp-zoom-label');
-    if (lbl) lbl.textContent = '1×';
-    FP.zoom = 1;
-    // Recompute scale
-    if (FP.baseScale) {
-      const oldScale = FP.scale;
-      FP.scale = FP.baseScale;
-      const ratio = FP.scale / oldScale;
-      FP.boxes.forEach(b => {
-        b.x = FP.PAD + (b.x - FP.PAD) * ratio;
-        b.y = FP.PAD + (b.y - FP.PAD) * ratio;
-        b.w *= ratio; b.h *= ratio;
-      });
-      const r = rooms.find(x=>x.id===activeId);
-      if (r) {
-        const rl = toCm(+r.length, r.unit);
-        const cssH = Math.round(rl * FP.scale) + FP.PAD*2 + 28;
-        FP.cssH = cssH;
-        const {ctx} = fpSetup(FP.canvas, FP.cssW, cssH);
-        FP.ctx = ctx;
-        fpDraw(); fpRenderLegend();
-      }
-    }
-  }
+  // Print at current zoom — CSS scales canvas to fit page width automatically
   toast('กำลังเตรียม PDF...');
-  setTimeout(() => {
-    window.print();
-    // Restore zoom after print dialog
-    if (savedZoom !== 1) {
-      setTimeout(() => {
-        const slider = document.getElementById('fp-zoom');
-        if (slider) { slider.value = savedZoom; fpSetZoom(savedZoom, savedActiveId); }
-      }, 500);
-    }
-  }, 300);
+  setTimeout(() => window.print(), 300);
 }
 
 // ────────────────────────────────────────────
