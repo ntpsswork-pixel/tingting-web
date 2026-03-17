@@ -162,11 +162,75 @@
     font-size: 11px; color: #64748b; background: rgba(100,116,139,.1);
     border: 1px solid rgba(100,116,139,.2); border-radius: 5px; padding: 3px 8px; }
 
+  /* Tooltip */
+  .fp-tooltip {
+    position: fixed; z-index: 9999; pointer-events: none;
+    background: #0f172a; border: 1px solid var(--gold);
+    border-radius: 8px; padding: 8px 12px; font-size: 12px;
+    color: var(--cream); box-shadow: 0 4px 20px rgba(0,0,0,.6);
+    max-width: 200px; display: none;
+  }
+  .fp-tooltip.show { display: block; }
+  .fp-tooltip-name { font-weight: 600; color: var(--gold); margin-bottom: 3px; }
+  .fp-tooltip-row  { color: var(--muted); font-size: 11px; line-height: 1.6; }
+
+  /* Legend */
+  .fp-legend {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 10px 14px; border-top: 1px solid var(--border);
+    background: var(--bg3); border-radius: 0 0 8px 8px;
+  }
+  .fp-legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--cream); background: var(--bg2);
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 3px 8px; white-space: nowrap;
+  }
+  .fp-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .fp-legend-num { font-size: 9px; color: var(--muted); margin-left: 2px; }
+
+  /* Edit modal */
+  .eq-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    backdrop-filter: blur(4px); z-index: 5000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .eq-modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; width: 420px;
+    max-width: 95vw; box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  }
+  .eq-modal h3 { font-size: 15px; font-weight: 700; color: var(--gold); margin-bottom: 18px; }
+  .eq-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .eq-modal-full { grid-column: 1/-1; }
+  .eq-modal label { font-size: 10px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
+  .eq-modal input, .eq-modal select {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--cream); border-radius: 6px; padding: 8px 10px;
+    font-family: inherit; font-size: 13px; outline: none;
+  }
+  .eq-modal input:focus, .eq-modal select:focus { border-color: var(--gold); }
+  .eq-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
   @media print {
-    .topbar, .sidebar, .add-form, .btn, #toast { display: none !important; }
+    .topbar, .sidebar, .add-form, .btn, #toast, .fp-tooltip, .eq-modal-overlay { display: none !important; }
     .layout { display: block; overflow: visible; height: auto; }
-    .main   { overflow: visible; padding: 0; }
+    .main   { overflow: visible; padding: 8px; }
     body    { background: #fff; color: #000; }
+    .card   { border: 1px solid #ccc; page-break-inside: avoid; margin-bottom: 16px; }
+    .card-hdr h3 { color: #000 !important; }
+    .kpi    { background: #f8f8f8 !important; border: 1px solid #ddd !important; }
+    .kpi-val{ color: #000 !important; }
+    .kpi-label, .kpi-sub { color: #666 !important; }
+    /* Print floor plan in white */
+    #fp-canvas { filter: invert(1) hue-rotate(180deg); border: 2px solid #333 !important; }
+    .fp-legend { background: #f8f8f8 !important; border-top: 1px solid #ccc !important; }
+    .fp-legend-item { background: #fff !important; border: 1px solid #ccc !important; color: #000 !important; }
+    table th { background: #f0f0f0 !important; color: #333 !important; }
+    td { color: #000 !important; }
+    .chip { background: #f0f0f0 !important; color: #333 !important; }
+    .tbl-wrap { overflow: visible !important; }
+    .prog-bar  { background: #e0e0e0 !important; }
   }
 </style>
 </head>
@@ -181,6 +245,7 @@
   <div class="topbar-right">
     <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Template</button>
     <button class="btn btn-ghost" onclick="exportCSV()">📊 Export CSV</button>
+    <button class="btn btn-ghost" onclick="exportPDF()">📄 Export PDF</button>
     <button class="btn btn-ghost" onclick="window.print()">🖨 Print</button>
   </div>
 </div>
@@ -205,6 +270,10 @@
 </div>
 
 <div id="toast"></div>
+<div class="fp-tooltip" id="fp-tooltip">
+  <div class="fp-tooltip-name" id="fp-tt-name"></div>
+  <div class="fp-tooltip-row" id="fp-tt-info"></div>
+</div>
 
 <script>
 // ────────────────────────────────────────────
@@ -512,8 +581,9 @@ function renderMain() {
       </div>
     </div>
     <div class="card-body" style="padding:12px">
-      <canvas id="fp-canvas" style="width:100%;border-radius:8px;cursor:grab;display:block"></canvas>
+      <canvas id="fp-canvas" style="width:100%;border-radius:8px 8px 0 0;cursor:grab;display:block"></canvas>
     </div>
+    <div class="fp-legend" id="fp-legend"></div>
   </div>
 
   <!-- ③ Equipment list card -->
@@ -551,23 +621,84 @@ function buildTable(r) {
   const ra = roomArea(r);
   const rows = r.equipment.map((e,i) => {
     const col = colorOf(i), ea = eqArea(e,r.unit), p = ra ? (ea/ra*100).toFixed(1) : '—';
+    const numBadge = `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:3px;background:${col.bd};color:#fff;font-size:9px;font-weight:700;margin-right:6px;flex-shrink:0">${i+1}</span>`;
+    const adminBtns = isAdmin() ? `
+      <button class="btn btn-ghost btn-sm" onclick="openEditEquip('${r.id}','${e.id}')" title="แก้ไข">✏️</button>
+      <button class="btn btn-red btn-sm" onclick="delEquip('${r.id}','${e.id}')" title="ลบ">🗑</button>` : '';
     return `<tr>
-      <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${col.bd};margin-right:6px;vertical-align:middle"></span>${e.name}</td>
+      <td style="display:flex;align-items:center">${numBadge}${e.name}</td>
       <td><span class="chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace">${e.quantity}</td>
       <td><span class="chip">${fmtM2(ea)}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;color:var(--muted)">${p}%</td>
       <td style="font-size:11px;color:var(--muted);font-style:italic">${e.note||'—'}</td>
-      <td><button class="btn btn-red btn-sm" onclick="delEquip('${r.id}','${e.id}')">🗑</button></td>
+      <td style="white-space:nowrap">${adminBtns}</td>
     </tr>`;
   }).join('');
   return `<div class="tbl-wrap"><table>
     <thead><tr>
-      <th>ชื่อ</th><th>ขนาด</th><th>จำนวน</th>
+      <th>#</th><th>ชื่อ</th><th>ขนาด</th><th>จำนวน</th>
       <th>พื้นที่</th><th>%ห้อง</th><th>หมายเหตุ</th><th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
+}
+
+// Edit equipment modal
+function openEditEquip(roomId, eqId) {
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  const e = r.equipment.find(x => x.id === eqId); if (!e) return;
+  const existing = document.getElementById('eq-edit-modal');
+  if (existing) existing.remove();
+  const m = document.createElement('div');
+  m.className = 'eq-modal-overlay'; m.id = 'eq-edit-modal';
+  m.innerHTML = `
+    <div class="eq-modal" onclick="event.stopPropagation()">
+      <h3>✏️ แก้ไขอุปกรณ์</h3>
+      <div class="eq-modal-grid">
+        <div class="eq-modal-full">
+          <label>ชื่ออุปกรณ์</label>
+          <input id="em-name" value="${e.name}" placeholder="ชื่ออุปกรณ์">
+        </div>
+        <div><label>กว้าง</label><input id="em-w" type="number" value="${e.width}"></div>
+        <div><label>ยาว</label><input id="em-l" type="number" value="${e.length}"></div>
+        <div><label>จำนวน</label><input id="em-qty" type="number" value="${e.quantity}" min="1"></div>
+        <div><label>หน่วย</label>
+          <select id="em-unit">
+            <option value="cm" ${(e.unit||'cm')==='cm'?'selected':''}>cm</option>
+            <option value="m"  ${e.unit==='m'?'selected':''}>m</option>
+          </select>
+        </div>
+        <div class="eq-modal-full">
+          <label>หมายเหตุ</label>
+          <input id="em-note" value="${e.note||''}" placeholder="เช่น ติดผนัง">
+        </div>
+      </div>
+      <div class="eq-modal-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('eq-edit-modal').remove()">ยกเลิก</button>
+        <button class="btn btn-gold" onclick="saveEditEquip('${roomId}','${eqId}')">💾 บันทึก</button>
+      </div>
+    </div>`;
+  m.addEventListener('click', () => m.remove());
+  document.body.appendChild(m);
+  setTimeout(() => document.getElementById('em-name')?.focus(), 50);
+}
+
+function saveEditEquip(roomId, eqId) {
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  const e = r.equipment.find(x => x.id === eqId); if (!e) return;
+  const name = document.getElementById('em-name').value.trim();
+  const w    = parseFloat(document.getElementById('em-w').value);
+  const l    = parseFloat(document.getElementById('em-l').value);
+  const qty  = parseInt(document.getElementById('em-qty').value) || 1;
+  const unit = document.getElementById('em-unit').value;
+  const note = document.getElementById('em-note').value.trim();
+  if (!name || !w || !l) { toast('กรุณากรอกชื่อและขนาด','warn'); return; }
+  Object.assign(e, { name, width:w, length:l, quantity:qty, unit, note });
+  document.getElementById('eq-edit-modal')?.remove();
+  FP.boxes = []; // reset positions so new size re-packs
+  renderAll();
+  toast(`แก้ไข "${name}" เรียบร้อย`);
 }
 
 function buildDiagram(r) { /* replaced by canvas */ }
@@ -652,12 +783,13 @@ function fpInit(roomId) {
         if (cx + bw > cssW - PAD) { cx = PAD; cy += rowH + 6; rowH = 0; bx = cx; by = cy; }
         cx += bw + 6; rowH = Math.max(rowH, bh);
       }
-      FP.boxes.push({ eqId: e.id, qi, label: e.name,
+      FP.boxes.push({ eqId: e.id, qi, idx: FP.boxes.length, label: e.name,
         sub: `${e.width}×${e.length} ${u}`, x: bx, y: by, w: bw, h: bh, pal });
     }
   });
 
   fpDraw();
+  fpRenderLegend();
   fpBind();
 }
 
@@ -761,22 +893,27 @@ function fpDraw() {
     fpRoundRect(ctx, b.x, b.y, b.w, b.h, 4);
     ctx.stroke();
 
-    // Labels
-    if (b.w > 20 && b.h > 14) {
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const mx = b.x + b.w/2, my = b.y + b.h/2;
-      if (b.h > 34) {
-        ctx.font = `600 ${Math.min(11,b.w/5+3)}px Prompt,sans-serif`;
-        ctx.fillStyle = b.pal.text;
-        ctx.fillText(fpTrunc(ctx, b.label, b.w-8), mx, my - 8);
-        ctx.font = '9px "IBM Plex Mono",monospace';
-        ctx.fillStyle = b.pal.stroke;
-        ctx.fillText(b.sub, mx, my + 8);
-      } else {
-        ctx.font = `600 ${Math.min(10,b.w/6+3)}px Prompt,sans-serif`;
-        ctx.fillStyle = b.pal.text;
-        ctx.fillText(fpTrunc(ctx, b.label, b.w-6), mx, my);
-      }
+    // Labels — show number index when too small, full name when big enough
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const mx = b.x + b.w/2, my = b.y + b.h/2;
+    if (b.w < 22 || b.h < 16) {
+      // Too small: show index number only
+      ctx.font = `700 ${Math.min(9, b.w-2)}px Prompt,sans-serif`;
+      ctx.fillStyle = '#fff';
+      ctx.fillText(String(b.idx+1), mx, my);
+    } else if (b.h > 36) {
+      // Big enough: name + size
+      ctx.font = `600 ${Math.min(11,b.w/5+3)}px Prompt,sans-serif`;
+      ctx.fillStyle = b.pal.text;
+      ctx.fillText(fpTrunc(ctx, b.label, b.w-8), mx, my - 8);
+      ctx.font = '9px "IBM Plex Mono",monospace';
+      ctx.fillStyle = b.pal.stroke;
+      ctx.fillText(b.sub, mx, my + 8);
+    } else {
+      // Medium: name only
+      ctx.font = `600 ${Math.min(10,b.w/5+3)}px Prompt,sans-serif`;
+      ctx.fillStyle = b.pal.text;
+      ctx.fillText(fpTrunc(ctx, b.label, b.w-6), mx, my);
     }
   });
 
@@ -818,6 +955,40 @@ function fpHitTest(mx, my) {
   return -1;
 }
 
+function fpShowTooltip(b, evt) {
+  const tt = document.getElementById('fp-tooltip'); if (!tt) return;
+  document.getElementById('fp-tt-name').textContent = `${b.idx+1}. ${b.label}`;
+  document.getElementById('fp-tt-info').innerHTML =
+    `ขนาด: ${b.sub}<br>พื้นที่: ${fmtM2(b.w/FP.scale * b.h/FP.scale)}`;
+  tt.classList.add('show');
+  fpMoveTooltip(evt);
+}
+function fpMoveTooltip(evt) {
+  const tt = document.getElementById('fp-tooltip'); if (!tt) return;
+  const t = evt.touches ? evt.touches[0] : evt;
+  tt.style.left = (t.clientX + 14) + 'px';
+  tt.style.top  = (t.clientY - 10) + 'px';
+}
+function fpHideTooltip() {
+  const tt = document.getElementById('fp-tooltip'); if (tt) tt.classList.remove('show');
+}
+
+function fpRenderLegend() {
+  const el = document.getElementById('fp-legend'); if (!el || !FP.room) return;
+  if (!FP.room.equipment.length) { el.innerHTML = ''; return; }
+  // Deduplicate by eqId (show each equipment once)
+  const seen = new Set();
+  const items = FP.boxes.filter(b => { if (seen.has(b.eqId)) return false; seen.add(b.eqId); return true; });
+  el.innerHTML = items.map(b =>
+    `<div class="fp-legend-item">
+      <div class="fp-legend-dot" style="background:${b.pal.stroke}"></div>
+      <span>${b.idx+1}</span>
+      <span>${b.label}</span>
+      <span class="fp-legend-num">${b.sub}</span>
+    </div>`
+  ).join('');
+}
+
 function fpBind() {
   const canvas = FP.canvas; if (!canvas) return;
   // Remove old listeners cleanly via AbortController
@@ -851,16 +1022,22 @@ function fpBind() {
       const rl  = toCm(+FP.room.length, FP.room.unit) * FP.scale;
       b.x = Math.max(PAD, Math.min(mx - FP.drag.ox, PAD + rw - b.w));
       b.y = Math.max(PAD, Math.min(my - FP.drag.oy, PAD + rl - b.h));
-      fpDraw();
+      fpDraw(); fpHideTooltip();
     } else {
       const prev = FP.hovered;
       FP.hovered = fpHitTest(mx, my);
       canvas.style.cursor = FP.hovered >= 0 ? 'grab' : 'default';
-      if (prev !== FP.hovered) fpDraw();
+      if (prev !== FP.hovered) {
+        fpDraw();
+        if (FP.hovered >= 0) fpShowTooltip(FP.boxes[FP.hovered], e);
+        else fpHideTooltip();
+      } else if (FP.hovered >= 0) {
+        fpMoveTooltip(e);
+      }
     }
   };
 
-  const onUp = () => { FP.drag = null; canvas.style.cursor = 'default'; };
+  const onUp = () => { FP.drag = null; canvas.style.cursor = 'default'; fpHideTooltip(); };
 
   canvas.addEventListener('mousedown',  onDown, sig);
   canvas.addEventListener('mousemove',  onMove, sig);
@@ -914,6 +1091,15 @@ function readExcel(file) {
     } catch(err) { toast('อ่านไฟล์ไม่ได้: ' + err.message, 'danger'); }
   };
   rd.readAsArrayBuffer(file);
+}
+
+// ────────────────────────────────────────────
+//  Export PDF (print-optimised)
+// ────────────────────────────────────────────
+function exportPDF() {
+  // Show a brief message then print
+  toast('กำลังเตรียม PDF...');
+  setTimeout(() => window.print(), 400);
 }
 
 // ────────────────────────────────────────────
