@@ -532,6 +532,7 @@
                 </div>
             </div>
             <div class="nav-item" onclick="window.open('delivery.html','_blank')" style="color:#00c9ff;border-top:1px solid rgba(255,255,255,0.05);">🚛 ระบบขนส่ง (Delivery)</div>
+            <div class="nav-item" onclick="window.open('room-space.html','_blank')" style="color:#34d399;">📐 คำนวณพื้นที่ห้อง</div>
             <div class="nav-item" onclick="openHelpGuide()" data-tool="help" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=help','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=help','_blank');" style="color:#7c3aed;">📖 คู่มือการใช้งาน</div>
         </div>
         <div onclick="logout()" style="margin:8px 10px 12px;padding:11px 14px;border-radius:9px;cursor:pointer;color:#ef4444;font-size:13px;font-weight:500;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);text-align:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.12)'" onmouseout="this.style.background='rgba(239,68,68,0.06)'">🚪 ออกจากระบบ</div>
@@ -843,6 +844,7 @@
                 {icon:'📈', label:'รายงาน',            sub:'Analytics',      fn:'openStockSummary()',        tool:'stock-summary', color:'linear-gradient(135deg,#0c2a4a,#0369a1)', show:isAdmin},
                 {icon:'⚙️', label:'ตั้งค่า',            sub:'Settings',       fn:'openWarehouseManager()',    tool:'warehouse-mgr', color:'linear-gradient(135deg,#1c1917,#44403c)', show:isAdmin},
                 {icon:'🏷️', label:'ทรัพย์สิน',         sub:'Asset Mgmt',     fn:'openAssetManagement()',     tool:'asset-registry',color:'linear-gradient(135deg,#451a03,#b45309)', show:true},
+                {icon:'📐', label:'พื้นที่ห้อง',         sub:'Room Space',     fn:"window.open('room-space.html','_blank')", tool:'', color:'linear-gradient(135deg,#064e3b,#059669)', show:true},
             ];
             const ar = document.getElementById('dashActionRow');
             if(ar) {
