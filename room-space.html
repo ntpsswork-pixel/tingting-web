@@ -128,7 +128,7 @@
   table { width: 100%; border-collapse: collapse; }
   thead tr { background: var(--bg3); }
   th { text-align: left; padding: 9px 11px; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  td { padding: 9px 11px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  td { padding: 9px 11px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
   tbody tr:last-child td { border-bottom: none; }
   tbody tr:hover { background: rgba(255,255,255,.02); }
   .chip { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: var(--bg3); padding: 2px 6px; border-radius: 4px; color: var(--gold); }
@@ -277,8 +277,9 @@
   <span id="sync-status" style="font-size:11px;color:#64748b;margin-right:4px;"></span>
   <div class="topbar-right">
     <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Template</button>
-    <button class="btn btn-ghost" onclick="exportCSV()">📊 Export CSV</button>
-    <button class="btn btn-ghost" onclick="exportPDF()">📄 Export PDF</button>
+    <button class="btn btn-ghost" onclick="exportCSV()">📊 CSV</button>
+    <button class="btn btn-ghost" onclick="exportExcel()">📋 Excel</button>
+    <button class="btn btn-ghost" onclick="exportRoomPDF()">📄 PDF รายห้อง</button>
     <button class="btn btn-ghost" onclick="window.print()">🖨 Print</button>
   </div>
 </div>
@@ -622,7 +623,7 @@ function renderMain() {
             oninput="fpSetZoom(this.value,'${r.id}')">
           <span id="fp-zoom-label" style="font-size:10px;color:var(--gold);font-family:'IBM Plex Mono',monospace;min-width:32px">1×</span>
         </div>
-        <span style="font-size:10px;color:var(--muted)">ลากย้ายได้</span>
+        <span style="font-size:10px;color:var(--muted)">ลากย้าย · ดับเบิลคลิกหมุน</span>
         <button class="btn btn-ghost btn-sm" onclick="resetLayout('${r.id}')">↺ Reset</button>
       </div>
     </div>
@@ -672,19 +673,35 @@ function buildTable(r) {
       <button class="btn btn-ghost btn-sm" onclick="openEditEquip('${r.id}','${e.id}')" title="แก้ไข">✏️</button>
       <button class="btn btn-red btn-sm" onclick="delEquip('${r.id}','${e.id}')" title="ลบ">🗑</button>` : '';
     return `<tr>
-      <td style="display:flex;align-items:center">${numBadge}${e.name}</td>
+      <td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0">${numBadge}${e.name}</td>
       <td><span class="chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
-      <td style="font-family:'IBM Plex Mono',monospace">${e.quantity}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;text-align:center">${e.quantity}</td>
       <td><span class="chip">${fmtM2(ea)}</span></td>
-      <td style="font-family:'IBM Plex Mono',monospace;color:var(--muted)">${p}%</td>
+      <td style="font-family:'IBM Plex Mono',monospace;color:var(--muted);text-align:center">${p}%</td>
       <td style="font-size:11px;color:var(--muted);font-style:italic">${e.note||'—'}</td>
       <td style="white-space:nowrap">${adminBtns}</td>
     </tr>`;
   }).join('');
-  return `<div class="tbl-wrap"><table>
+  return `<div class="tbl-wrap"><table style="table-layout:fixed;width:100%">
+    <colgroup>
+      <col style="width:36px">
+      <col style="width:auto">
+      <col style="width:110px">
+      <col style="width:64px">
+      <col style="width:90px">
+      <col style="width:64px">
+      <col style="width:100px">
+      <col style="width:72px">
+    </colgroup>
     <thead><tr>
-      <th>#</th><th>ชื่อ</th><th>ขนาด</th><th>จำนวน</th>
-      <th>พื้นที่</th><th>%ห้อง</th><th>หมายเหตุ</th><th></th>
+      <th style="text-align:center">#</th>
+      <th>ชื่อ</th>
+      <th>ขนาด</th>
+      <th style="text-align:center">จำนวน</th>
+      <th>พื้นที่</th>
+      <th style="text-align:center">%ห้อง</th>
+      <th>หมายเหตุ</th>
+      <th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
@@ -759,7 +776,7 @@ const FP = {
   canvas: null, ctx: null, room: null,
   dpr: 1, cssW: 0, cssH: 0,
   scale: 1, baseScale: 1, zoom: 1, PAD: 44,
-  boxes: [], drag: null, hovered: -1,
+  boxes: [], drag: null, hovered: -1, lastClick: 0,
   PALETTE: [
     {fill:'rgba(59,130,246,.3)',  stroke:'#60a5fa', text:'#bfdbfe'},
     {fill:'rgba(16,185,129,.3)',  stroke:'#34d399', text:'#a7f3d0'},
@@ -940,6 +957,17 @@ function fpDraw() {
     fpRoundRect(ctx, b.x, b.y, b.w, b.h, 4);
     ctx.stroke();
 
+    // Rotate hint icon on hover
+    if (isHov && !isDrag && b.w > 20 && b.h > 20) {
+      const iconSize = Math.min(14, b.w * 0.3, b.h * 0.3);
+      const ix = b.x + b.w - iconSize - 3, iy = b.y + 3;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath(); ctx.arc(ix + iconSize/2, iy + iconSize/2, iconSize/2 + 2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = `${iconSize}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('↻', ix + iconSize/2, iy + iconSize/2 + 1);
+    }
+
     // Labels — show number index when too small, full name when big enough
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const mx = b.x + b.w/2, my = b.y + b.h/2;
@@ -1031,9 +1059,32 @@ function fpRenderLegend() {
       <div class="fp-legend-dot" style="background:${b.pal.stroke}"></div>
       <span>${b.idx+1}</span>
       <span>${b.label}</span>
-      <span class="fp-legend-num">${b.sub}</span>
+      <span class="fp-legend-num">${b.sub}${b.rotated?' ↻':''}</span>
     </div>`
   ).join('');
+}
+
+function fpRotateBox(idx) {
+  const b = FP.boxes[idx]; if (!b) return;
+  // Swap w <-> h, keep center position
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  [b.w, b.h] = [b.h, b.w];
+  b.x = cx - b.w / 2; b.y = cy - b.h / 2;
+  // Clamp inside room
+  const PAD = FP.PAD;
+  const rw = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
+  const rl = toCm(+FP.room.length, FP.room.unit) * FP.scale;
+  b.x = Math.max(PAD, Math.min(b.x, PAD + rw - b.w));
+  b.y = Math.max(PAD, Math.min(b.y, PAD + rl - b.h));
+  // Toggle sub label (swap dimensions display)
+  const parts = b.sub.split('×');
+  if (parts.length >= 2) {
+    const unit = parts[1].replace(/[0-9.]/g,'').trim();
+    b.sub = parts[1].replace(/[^0-9.]/g,'').trim() + '×' + parts[0].trim() + ' ' + unit;
+  }
+  b.rotated = !b.rotated;
+  fpDraw(); fpRenderLegend();
+  toast('หมุน 90° แล้ว');
 }
 
 function fpBind() {
@@ -1055,6 +1106,13 @@ function fpBind() {
     const idx = fpHitTest(mx, my);
     if (idx < 0) return;
     e.preventDefault();
+    // Double-click/tap = rotate 90°
+    const now = Date.now();
+    if (now - FP.lastClick < 300 && FP.lastClickIdx === idx) {
+      fpRotateBox(idx);
+      FP.lastClick = 0; return;
+    }
+    FP.lastClick = now; FP.lastClickIdx = idx;
     FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
     canvas.style.cursor = 'grabbing';
   };
@@ -1173,10 +1231,94 @@ function readExcel(file) {
 // ────────────────────────────────────────────
 //  Export PDF (print-optimised)
 // ────────────────────────────────────────────
-function exportPDF() {
-  // Show a brief message then print
+// ────────────────────────────────────────────
+//  Export Excel — per-room sheets
+// ────────────────────────────────────────────
+function exportExcel() {
+  if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Summary
+  const sumHdr = ['ห้อง','กว้าง','ยาว','หน่วย','พื้นที่ห้อง(m²)','จำนวนอุปกรณ์','พื้นที่อุปกรณ์(m²)','%พื้นที่ใช้'];
+  const sumRows = rooms.map(r => [
+    r.name, r.width, r.length, r.unit,
+    +(roomArea(r)/10000).toFixed(2),
+    r.equipment.length,
+    +(totalEq(r)/10000).toFixed(2),
+    +pct(r).toFixed(1)
+  ]);
+  const wsSum = XLSX.utils.aoa_to_sheet([sumHdr, ...sumRows]);
+  wsSum['!cols'] = [22,8,8,6,16,14,18,12].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, wsSum, 'สรุปทุกห้อง');
+
+  // One sheet per room
+  rooms.forEach(r => {
+    const ra = roomArea(r);
+    const hdr = ['#','ชื่ออุปกรณ์','กว้าง','ยาว','หน่วย','จำนวน','พื้นที่(m²)','%ห้อง','หมายเหตุ'];
+    const rows = r.equipment.map((e,i) => {
+      const ea = eqArea(e,r.unit);
+      return [i+1, e.name, e.width, e.length, e.unit||r.unit, e.quantity,
+              +(ea/10000).toFixed(2), ra?(+(ea/ra*100).toFixed(1)):0, e.note||''];
+    });
+    // Summary footer
+    rows.push(['','รวม','','','','',+(totalEq(r)/10000).toFixed(2),+pct(r).toFixed(1),'']);
+    const ws = XLSX.utils.aoa_to_sheet([hdr, ...rows]);
+    ws['!cols'] = [4,24,8,8,6,8,12,8,16].map(w=>({wch:w}));
+    // Safe sheet name (max 31 chars, no special chars)
+    const sheetName = r.name.replace(/[\/:*?[\]]/g,'').slice(0,31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  XLSX.writeFile(wb, `room-space-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Export Excel เรียบร้อย');
+}
+
+// ────────────────────────────────────────────
+//  Export PDF per-room (print with reset zoom)
+// ────────────────────────────────────────────
+function exportRoomPDF() {
+  if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
+  // Save current zoom, reset to 1×, print, restore
+  const savedZoom = FP.zoom;
+  const savedActiveId = activeId;
+  if (savedZoom !== 1) {
+    const slider = document.getElementById('fp-zoom');
+    if (slider) slider.value = 1;
+    const lbl = document.getElementById('fp-zoom-label');
+    if (lbl) lbl.textContent = '1×';
+    FP.zoom = 1;
+    // Recompute scale
+    if (FP.baseScale) {
+      const oldScale = FP.scale;
+      FP.scale = FP.baseScale;
+      const ratio = FP.scale / oldScale;
+      FP.boxes.forEach(b => {
+        b.x = FP.PAD + (b.x - FP.PAD) * ratio;
+        b.y = FP.PAD + (b.y - FP.PAD) * ratio;
+        b.w *= ratio; b.h *= ratio;
+      });
+      const r = rooms.find(x=>x.id===activeId);
+      if (r) {
+        const rl = toCm(+r.length, r.unit);
+        const cssH = Math.round(rl * FP.scale) + FP.PAD*2 + 28;
+        FP.cssH = cssH;
+        const {ctx} = fpSetup(FP.canvas, FP.cssW, cssH);
+        FP.ctx = ctx;
+        fpDraw(); fpRenderLegend();
+      }
+    }
+  }
   toast('กำลังเตรียม PDF...');
-  setTimeout(() => window.print(), 400);
+  setTimeout(() => {
+    window.print();
+    // Restore zoom after print dialog
+    if (savedZoom !== 1) {
+      setTimeout(() => {
+        const slider = document.getElementById('fp-zoom');
+        if (slider) { slider.value = savedZoom; fpSetZoom(savedZoom, savedActiveId); }
+      }, 500);
+    }
+  }, 300);
 }
 
 // ────────────────────────────────────────────
