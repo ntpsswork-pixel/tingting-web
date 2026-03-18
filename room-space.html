@@ -1350,7 +1350,7 @@ function exportExcel() {
 
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
     ws['!cols'] = [4, 28, 8, 8, 7, 8, 14, 8, 20].map(w=>({wch:w}));
-    const sheetName = r.name.replace(/[/\:*?[\]]/g,'').slice(0, 31) || 'Sheet';
+    const sheetName = r.name.replace(/[^a-zA-Z0-9ก-๙ ._-]/g,'').trim().slice(0, 31) || 'Sheet';
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
