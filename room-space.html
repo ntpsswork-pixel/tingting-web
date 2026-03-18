@@ -128,7 +128,7 @@
   table { width: 100%; border-collapse: collapse; }
   thead tr { background: var(--bg3); }
   th { text-align: left; padding: 9px 11px; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  td { padding: 9px 11px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
+  td { padding: 9px 8px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
   tbody tr:last-child td { border-bottom: none; }
   tbody tr:hover { background: rgba(255,255,255,.02); }
   .chip { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: var(--bg3); padding: 2px 6px; border-radius: 4px; color: var(--gold); }
@@ -685,26 +685,16 @@ function buildTable(r) {
       <td style="white-space:nowrap">${adminBtns}</td>
     </tr>`;
   }).join('');
-  return `<div class="tbl-wrap"><table style="width:100%;table-layout:auto">
-    <colgroup>
-      <col style="width:30px">
-      <col>
-      <col style="width:100px">
-      <col style="width:52px">
-      <col style="width:80px">
-      <col style="width:52px">
-      <col style="width:85px">
-      <col style="width:68px">
-    </colgroup>
+  return `<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse">
     <thead><tr>
-      <th style="text-align:center">#</th>
-      <th>ชื่อ</th>
-      <th>ขนาด</th>
-      <th style="text-align:center">จำนวน</th>
-      <th>พื้นที่</th>
-      <th style="text-align:center">%ห้อง</th>
-      <th>หมายเหตุ</th>
-      <th></th>
+      <th style="width:34px;text-align:center;padding:9px 8px">#</th>
+      <th style="padding:9px 8px">ชื่อ</th>
+      <th style="width:106px;padding:9px 8px">ขนาด</th>
+      <th style="width:54px;text-align:center;padding:9px 8px">จำนวน</th>
+      <th style="width:82px;padding:9px 8px">พื้นที่</th>
+      <th style="width:54px;text-align:center;padding:9px 8px">%ห้อง</th>
+      <th style="width:88px;padding:9px 8px">หมายเหตุ</th>
+      <th style="width:70px;padding:9px 8px"></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
@@ -847,12 +837,15 @@ function fpInit(roomId) {
       let bx = cx, by = cy;
       // Restore from Firestore-persisted position if available
       // Restore position + rotation from persisted _fp data
-      const fp_ = e._fp && e._fp[qi];
-      if (fp_) {
+      const fp_ = e._fp && (e._fp['q' + qi] || e._fp[qi]);
+      if (fp_ && typeof fp_.nx === 'number') {
         const rw_ = toCm(+r.width,  r.unit) * FP.scale;
         const rl_ = toCm(+r.length, r.unit) * FP.scale;
         bx = PAD + fp_.nx * rw_;
         by = PAD + fp_.ny * rl_;
+        // Clamp to room bounds
+        bx = Math.max(PAD, Math.min(bx, PAD + rw_ - bw));
+        by = Math.max(PAD, Math.min(by, PAD + rl_ - bh));
       } else if (saved[key]) {
         bx = saved[key].x; by = saved[key].y;
       } else {
@@ -1081,19 +1074,20 @@ function fpRenderLegend() {
 }
 
 function fpSavePositions() {
-  // Save each box position back to equipment._fp so it persists in Firestore
-  if (!FP.room) return;
+  if (!FP.room || !FP.scale) return;
+  const r = rooms.find(x => x.id === FP.room.id); if (!r) return;
+  const rw = toCm(+r.width,  r.unit); // room size in cm (not scaled)
+  const rl = toCm(+r.length, r.unit);
+  if (!rw || !rl) return;
+
   FP.boxes.forEach(b => {
-    const r = rooms.find(x => x.id === FP.room.id); if (!r) return;
     const e = r.equipment.find(x => x.id === b.eqId); if (!e) return;
     if (!e._fp) e._fp = {};
-    if (!e._fp[b.qi]) e._fp[b.qi] = {};
-    // Store normalised position (0-1 ratio of room size) so it survives zoom/resize
-    const rw = toCm(+r.width, r.unit) * FP.scale;
-    const rl = toCm(+r.length, r.unit) * FP.scale;
-    e._fp[b.qi] = {
-      nx: (b.x - FP.PAD) / rw,
-      ny: (b.y - FP.PAD) / rl,
+    // Use string key to avoid Firestore array conversion
+    // Store position as fraction of room size in cm (scale-independent)
+    e._fp['q' + b.qi] = {
+      nx: (b.x - FP.PAD) / (rw * FP.scale),   // 0-1 fraction
+      ny: (b.y - FP.PAD) / (rl * FP.scale),
       rotated: !!b.rotated
     };
   });
@@ -1225,7 +1219,7 @@ function fpSetZoom(val, roomId) {
 function resetLayout(roomId) {
   // Clear persisted positions
   const rr = rooms.find(x=>x.id===roomId);
-  if (rr) rr.equipment.forEach(e => { delete e._fp; });
+  if (rr) rr.equipment.forEach(e => { e._fp = {}; });
   FP.boxes = []; FP.zoom = 1;
   const slider = document.getElementById('fp-zoom');
   if (slider) { slider.value = 1; }
@@ -1284,34 +1278,62 @@ function exportExcel() {
   if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
   const wb = XLSX.utils.book_new();
 
-  // Sheet 1: Summary
-  const sumHdr = ['ห้อง','กว้าง','ยาว','หน่วย','พื้นที่ห้อง(m²)','จำนวนอุปกรณ์','พื้นที่อุปกรณ์(m²)','%พื้นที่ใช้'];
-  const sumRows = rooms.map(r => [
-    r.name, r.width, r.length, r.unit,
-    +(roomArea(r)/10000).toFixed(2),
-    r.equipment.length,
-    +(totalEq(r)/10000).toFixed(2),
-    +pct(r).toFixed(1)
-  ]);
-  const wsSum = XLSX.utils.aoa_to_sheet([sumHdr, ...sumRows]);
-  wsSum['!cols'] = [22,8,8,6,16,14,18,12].map(w=>({wch:w}));
+  // ── Sheet 1: สรุปทุกห้อง (flat, no indent) ──
+  const sumData = [
+    ['ห้อง','กว้าง','ยาว','หน่วย','พื้นที่ห้อง(m²)','รายการ','พื้นที่อุปกรณ์(m²)','%ใช้']
+  ];
+  rooms.forEach(r => {
+    sumData.push([
+      r.name, +r.width, +r.length, r.unit,
+      +(roomArea(r)/10000).toFixed(2),
+      r.equipment.length,
+      +(totalEq(r)/10000).toFixed(2),
+      +(pct(r)).toFixed(1)
+    ]);
+  });
+  const wsSum = XLSX.utils.aoa_to_sheet(sumData);
+  wsSum['!cols'] = [24,8,8,7,18,10,20,8].map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb, wsSum, 'สรุปทุกห้อง');
 
-  // One sheet per room
+  // ── Sheet per room: header ชัดเจน ตรง column ──
   rooms.forEach(r => {
     const ra = roomArea(r);
-    const hdr = ['#','ชื่ออุปกรณ์','กว้าง','ยาว','หน่วย','จำนวน','พื้นที่(m²)','%ห้อง','หมายเหตุ'];
-    const rows = r.equipment.map((e,i) => {
-      const ea = eqArea(e,r.unit);
-      return [i+1, e.name, e.width, e.length, e.unit||r.unit, e.quantity,
-              +(ea/10000).toFixed(2), ra?(+(ea/ra*100).toFixed(1)):0, e.note||''];
+    const sheetData = [
+      // Row 1: ข้อมูลห้อง
+      ['ห้อง', r.name, '', 'ขนาดห้อง', `${r.width}×${r.length} ${r.unit}`,
+       'พื้นที่', +(ra/10000).toFixed(2), 'm²'],
+      // Row 2: ว่าง
+      [],
+      // Row 3: header อุปกรณ์
+      ['#','ชื่ออุปกรณ์','กว้าง','ยาว','หน่วย','จำนวน','พื้นที่(m²)','%ห้อง','หมายเหตุ'],
+    ];
+    // rows อุปกรณ์
+    r.equipment.forEach((e,i) => {
+      const ea = eqArea(e, r.unit);
+      sheetData.push([
+        i+1,
+        e.name,
+        +e.width,
+        +e.length,
+        e.unit || r.unit,
+        +e.quantity,
+        +(ea/10000).toFixed(2),
+        ra ? +(ea/ra*100).toFixed(1) : 0,
+        e.note || ''
+      ]);
     });
-    // Summary footer
-    rows.push(['','รวม','','','','',+(totalEq(r)/10000).toFixed(2),+pct(r).toFixed(1),'']);
-    const ws = XLSX.utils.aoa_to_sheet([hdr, ...rows]);
-    ws['!cols'] = [4,24,8,8,6,8,12,8,16].map(w=>({wch:w}));
-    // Safe sheet name (max 31 chars, no special chars)
-    const sheetName = r.name.replace(/[\/:*?[\]]/g,'').slice(0,31);
+    // footer รวม
+    sheetData.push([
+      '', 'รวม', '', '', '',
+      r.equipment.reduce((s,e) => s + (+e.quantity||1), 0),
+      +(totalEq(r)/10000).toFixed(2),
+      +(pct(r)).toFixed(1),
+      ''
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    ws['!cols'] = [4, 26, 8, 8, 7, 8, 13, 8, 18].map(w=>({wch:w}));
+    const sheetName = r.name.replace(/[\/:*?[\]]/g,'').slice(0, 31) || 'Sheet';
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
