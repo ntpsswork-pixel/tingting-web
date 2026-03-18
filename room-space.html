@@ -676,25 +676,28 @@ function buildTable(r) {
       <button class="btn btn-ghost btn-sm" onclick="openEditEquip('${r.id}','${e.id}')" title="แก้ไข">✏️</button>
       <button class="btn btn-red btn-sm" onclick="delEquip('${r.id}','${e.id}')" title="ลบ">🗑</button>` : '';
     return `<tr>
-      <td><div style="display:flex;align-items:center;min-width:0"><span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:3px;background:${col.bd};color:#fff;font-size:9px;font-weight:700;margin-right:7px;flex-shrink:0">${i+1}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</span></div></td>
+      <td style="text-align:center;padding:9px 6px">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:3px;background:${col.bd};color:#fff;font-size:9px;font-weight:700">${i+1}</span>
+      </td>
+      <td style="overflow:hidden;max-width:0;white-space:nowrap;text-overflow:ellipsis">${e.name}</td>
       <td><span class="chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;text-align:center">${e.quantity}</td>
       <td><span class="chip">${fmtM2(ea)}</span></td>
       <td style="font-family:'IBM Plex Mono',monospace;color:var(--muted);text-align:center">${p}%</td>
-      <td style="font-size:11px;color:var(--muted);font-style:italic">${e.note||'—'}</td>
-      <td style="white-space:nowrap">${adminBtns}</td>
+      <td style="font-size:11px;color:var(--muted);font-style:italic;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:0">${e.note||'—'}</td>
+      <td style="white-space:nowrap;text-align:right">${adminBtns}</td>
     </tr>`;
   }).join('');
-  return `<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse">
+  return `<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;table-layout:fixed">
     <thead><tr>
-      <th style="width:34px;text-align:center;padding:9px 8px">#</th>
+      <th style="width:34px;text-align:center;padding:9px 6px">#</th>
       <th style="padding:9px 8px">ชื่อ</th>
-      <th style="width:106px;padding:9px 8px">ขนาด</th>
+      <th style="width:108px;padding:9px 8px">ขนาด</th>
       <th style="width:54px;text-align:center;padding:9px 8px">จำนวน</th>
       <th style="width:82px;padding:9px 8px">พื้นที่</th>
       <th style="width:54px;text-align:center;padding:9px 8px">%ห้อง</th>
-      <th style="width:88px;padding:9px 8px">หมายเหตุ</th>
-      <th style="width:70px;padding:9px 8px"></th>
+      <th style="width:90px;padding:9px 8px">หมายเหตุ</th>
+      <th style="width:72px;padding:9px 8px;text-align:right"></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
@@ -1278,13 +1281,18 @@ function exportExcel() {
   if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
   const wb = XLSX.utils.book_new();
 
-  // ── Sheet 1: สรุปทุกห้อง (flat, no indent) ──
+  // ══ Sheet 1: สรุปทุกห้อง ══
+  // header: ห้อง | กว้าง | ยาว | หน่วย | พื้นที่ห้อง | รายการ | พื้นที่อุปกรณ์ | %ใช้
   const sumData = [
     ['ห้อง','กว้าง','ยาว','หน่วย','พื้นที่ห้อง(m²)','รายการ','พื้นที่อุปกรณ์(m²)','%ใช้']
   ];
   rooms.forEach(r => {
+    // row ห้อง — ทุก column ตรงกับ header
     sumData.push([
-      r.name, +r.width, +r.length, r.unit,
+      r.name,
+      +r.width,
+      +r.length,
+      r.unit,
       +(roomArea(r)/10000).toFixed(2),
       r.equipment.length,
       +(totalEq(r)/10000).toFixed(2),
@@ -1292,37 +1300,46 @@ function exportExcel() {
     ]);
   });
   const wsSum = XLSX.utils.aoa_to_sheet(sumData);
-  wsSum['!cols'] = [24,8,8,7,18,10,20,8].map(w=>({wch:w}));
+  wsSum['!cols'] = [26,8,8,7,18,10,20,8].map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb, wsSum, 'สรุปทุกห้อง');
 
-  // ── Sheet per room: header ชัดเจน ตรง column ──
+  // ══ Sheet per room ══
+  // 9 columns: # | ชื่ออุปกรณ์ | กว้าง | ยาว | หน่วย | จำนวน | พื้นที่(m²) | %ห้อง | หมายเหตุ
   rooms.forEach(r => {
     const ra = roomArea(r);
+    const HDR = ['#','ชื่ออุปกรณ์','กว้าง','ยาว','หน่วย','จำนวน','พื้นที่(m²)','%ห้อง','หมายเหตุ'];
     const sheetData = [
-      // Row 1: ข้อมูลห้อง
-      ['ห้อง', r.name, '', 'ขนาดห้อง', `${r.width}×${r.length} ${r.unit}`,
-       'พื้นที่', +(ra/10000).toFixed(2), 'm²'],
+      // Row 1: info ห้อง (merge-friendly — ใช้ cell แรกสองช่อง)
+      [`ห้อง: ${r.name}`, `ขนาด: ${r.width}×${r.length} ${r.unit}`,
+       '', '',
+       `พื้นที่: ${+(ra/10000).toFixed(2)} m²`,
+       `อุปกรณ์: ${r.equipment.length} รายการ`,
+       `รวมพื้นที่: ${+(totalEq(r)/10000).toFixed(2)} m²`,
+       `ใช้ไป: ${+(pct(r)).toFixed(1)}%`,
+       ''],
       // Row 2: ว่าง
-      [],
-      // Row 3: header อุปกรณ์
-      ['#','ชื่ออุปกรณ์','กว้าง','ยาว','หน่วย','จำนวน','พื้นที่(m²)','%ห้อง','หมายเหตุ'],
+      Array(9).fill(''),
+      // Row 3: header
+      HDR,
     ];
-    // rows อุปกรณ์
-    r.equipment.forEach((e,i) => {
+
+    r.equipment.forEach((e, i) => {
       const ea = eqArea(e, r.unit);
+      // แต่ละ cell ตรงกับ HDR ทุก column
       sheetData.push([
-        i+1,
-        e.name,
-        +e.width,
-        +e.length,
-        e.unit || r.unit,
-        +e.quantity,
-        +(ea/10000).toFixed(2),
-        ra ? +(ea/ra*100).toFixed(1) : 0,
-        e.note || ''
+        i + 1,                                    // # 
+        e.name,                                   // ชื่ออุปกรณ์
+        +e.width,                                 // กว้าง
+        +e.length,                                // ยาว
+        e.unit || r.unit,                         // หน่วย
+        +e.quantity,                              // จำนวน
+        +(ea/10000).toFixed(2),                   // พื้นที่(m²)
+        ra ? +(ea/ra*100).toFixed(1) : 0,         // %ห้อง
+        e.note || ''                              // หมายเหตุ
       ]);
     });
-    // footer รวม
+
+    // footer
     sheetData.push([
       '', 'รวม', '', '', '',
       r.equipment.reduce((s,e) => s + (+e.quantity||1), 0),
@@ -1332,8 +1349,8 @@ function exportExcel() {
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    ws['!cols'] = [4, 26, 8, 8, 7, 8, 13, 8, 18].map(w=>({wch:w}));
-    const sheetName = r.name.replace(/[\/:*?[\]]/g,'').slice(0, 31) || 'Sheet';
+    ws['!cols'] = [4, 28, 8, 8, 7, 8, 14, 8, 20].map(w=>({wch:w}));
+    const sheetName = r.name.replace(/[/\:*?[\]]/g,'').slice(0, 31) || 'Sheet';
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
