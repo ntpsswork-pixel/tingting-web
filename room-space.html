@@ -655,8 +655,8 @@ function saveData() {
       const ts = Date.now();
       // Don't save activeId — each user tracks their own locally
       await setDoc(doc(db, FIRESTORE_DOC), { rooms, updatedAt: ts });
-      // Mark this timestamp so onSnapshot can skip our own echo
-      if (window._onSnapshotSetLastSaved) window._onSnapshotSetLastSaved(ts);
+      // Signal onSnapshot to skip the echo of this save
+      if (window._onSnapshotSetLastSaved) window._onSnapshotSetLastSaved();
     } catch(e) { console.error('Save failed:', e); }
   }, 800);
 }
@@ -671,24 +671,26 @@ async function loadData() {
     const snap = await getDoc(ref);
     if (snap.exists()) {
       const d = snap.data();
-      if (Array.isArray(d.rooms)) { rooms = d.rooms; activeId = d.activeId || null; }
+      if (Array.isArray(d.rooms) && d.rooms.length) {
+        rooms = d.rooms;
+        // activeId is local — pick first room, don't read from Firestore
+        activeId = rooms[0]?.id || null;
+      }
     }
     renderAll_noSave();
     setStatus('');
-    // Expose setter for saveData to mark own timestamps
-    window._onSnapshotSetLastSaved = (ts) => { _lastSavedAt = ts; };
+    // Expose setter for saveData to mark own saves
+    let _skipNextSnapshot = false;
+    window._onSnapshotSetLastSaved = () => { _skipNextSnapshot = true; };
 
     // Real-time listener — update when others save
-    // Track last updatedAt to avoid re-rendering our own saves
-    let _lastSavedAt = 0;
     onSnapshot(ref, snap => {
       if (!snap.exists()) return;
       const d = snap.data();
       if (!Array.isArray(d.rooms)) return;
 
-      // Skip if this is our own save echoing back
-      if (d.updatedAt && d.updatedAt <= _lastSavedAt) return;
-      _lastSavedAt = d.updatedAt || 0;
+      // Skip echo of our own save (fired once after each saveData)
+      if (_skipNextSnapshot) { _skipNextSnapshot = false; return; }
 
       // Check if only _fp (box positions) changed — if so, just redraw canvas, no full re-render
       const onlyPositionsChanged = (() => {
@@ -708,16 +710,14 @@ async function loadData() {
         return true;
       })();
 
-      // Always update rooms data
+      // Always update rooms data, keep local activeId intact
       rooms = d.rooms;
-      // NEVER override local activeId from Firestore — each user picks their own room
-      // activeId stays as-is
 
       if (onlyPositionsChanged) {
-        // Just re-init canvas with new positions, no DOM re-render
         if (activeId) requestAnimationFrame(() => fpInit(activeId));
       } else {
-        // Structural change (add/delete room or equipment) — full re-render needed
+        // Structural change — full re-render, but keep current activeId if still valid
+        if (!rooms.find(r => r.id === activeId)) activeId = rooms[0]?.id || null;
         renderAll_noSave();
       }
     });
