@@ -565,15 +565,19 @@ function setStatus(msg) {
 
 // renderAll without triggering save (used by onSnapshot)
 function renderAll_noSave() {
-  // Apply view-only mode on body
   document.body.classList.toggle('view-only', !isAdmin());
   renderSidebar();
-  // Preserve scroll position before/after re-render to stop page jumping to top
+  // Save scroll BEFORE innerHTML wipes it
   const mainEl = document.getElementById('main');
   const savedScroll = mainEl ? mainEl.scrollTop : 0;
   renderMain();
-  if (mainEl) requestAnimationFrame(() => { mainEl.scrollTop = savedScroll; });
-  if (activeId) requestAnimationFrame(() => fpInit(activeId));
+  // Double rAF: 1st frame = browser parses new DOM, 2nd frame = after reflow
+  requestAnimationFrame(() => {
+    if (mainEl && savedScroll > 0) mainEl.scrollTop = savedScroll;
+    requestAnimationFrame(() => {
+      if (activeId) fpInit(activeId);
+    });
+  });
 }
 
 function renderAll() { saveData(); renderAll_noSave(); }
