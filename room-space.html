@@ -212,7 +212,70 @@
   .eq-modal input:focus, .eq-modal select:focus { border-color: var(--gold); }
   .eq-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
+  /* Share modal */
+  .share-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    backdrop-filter: blur(4px); z-index: 6000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .share-modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 26px; width: 460px; max-width: 95vw;
+    box-shadow: 0 24px 60px rgba(0,0,0,.55);
+  }
+  .share-modal h3 { font-size: 15px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+  .share-modal p  { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .share-url-box  { display: flex; gap: 6px; align-items: center; }
+  .share-url-input {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--cream); border-radius: 6px; padding: 8px 10px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; outline: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .share-url-input:focus { border-color: var(--gold); }
+  .share-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .share-badge { font-size: 10px; color: var(--ok); background: rgba(16,185,129,.1);
+    border: 1px solid rgba(16,185,129,.25); border-radius: 4px; padding: 2px 7px;
+    display: inline-block; margin-bottom: 10px; }
+
+  /* Notes panel — shown next to floor plan */
+  .fp-notes-panel {
+    width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 0;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden;
+  }
+  .fp-notes-hdr {
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .fp-notes-textarea {
+    flex: 1; width: 100%; min-height: 180px;
+    background: transparent; border: none; outline: none; resize: none;
+    color: var(--cream); font-family: 'Prompt', sans-serif; font-size: 12px;
+    line-height: 1.65; padding: 10px 12px;
+  }
+  .fp-notes-textarea::placeholder { color: var(--muted); }
+  .fp-notes-footer {
+    padding: 5px 10px; border-top: 1px solid var(--border);
+    font-size: 10px; color: var(--muted); text-align: right;
+  }
+  /* Wrapper that places canvas + notes side by side */
+  .fp-body-wrap {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 12px; overflow: auto;
+  }
+  .fp-canvas-wrap { flex: 1; min-width: 0; }
+
+  @media (max-width: 760px) {
+    .fp-body-wrap { flex-direction: column; }
+    .fp-notes-panel { width: 100%; }
+  }
+
   @media print {
+    .fp-notes-panel { display: none !important; }
+  }
     /* ── Hide UI chrome ── */
     .topbar, .sidebar, .add-form, .btn, #toast,
     .fp-tooltip, .eq-modal-overlay, .card-hdr .btn,
@@ -280,6 +343,7 @@
   <span class="view-only-badge">👁 ดูอย่างเดียว</span>
   <span id="sync-status" style="font-size:11px;color:#64748b;margin-right:4px;"></span>
   <div class="topbar-right">
+    <button class="btn btn-ghost" onclick="shareViewOnly()" title="แชร์ลิงก์ให้คนอื่นดูได้เฉยๆ">🔗 แชร์</button>
     <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Template</button>
     <button class="btn btn-ghost" onclick="exportCSV()">📊 CSV</button>
     <button class="btn btn-ghost" onclick="exportExcel()">📋 Excel</button>
@@ -437,6 +501,7 @@ async function getDb() {
 }
 
 function isAdmin() {
+  if (window._forceViewOnly) return false;
   try {
     const u = JSON.parse(localStorage.getItem('currentUser') || 'null');
     return u && u.role === 'admin';
@@ -501,7 +566,12 @@ function setStatus(msg) {
 function renderAll_noSave() {
   // Apply view-only mode on body
   document.body.classList.toggle('view-only', !isAdmin());
-  renderSidebar(); renderMain();
+  renderSidebar();
+  // Preserve scroll position before/after re-render to stop page jumping to top
+  const mainEl = document.getElementById('main');
+  const savedScroll = mainEl ? mainEl.scrollTop : 0;
+  renderMain();
+  if (mainEl) requestAnimationFrame(() => { mainEl.scrollTop = savedScroll; });
   if (activeId) requestAnimationFrame(() => fpInit(activeId));
 }
 
@@ -631,8 +701,18 @@ function renderMain() {
         <button class="btn btn-ghost btn-sm" onclick="resetLayout('${r.id}')">↺ Reset</button>
       </div>
     </div>
-    <div class="card-body" style="padding:12px;overflow:auto">
-      <canvas id="fp-canvas" style="border-radius:8px 8px 0 0;cursor:grab;display:block"></canvas>
+    <div class="fp-body-wrap">
+      <div class="fp-canvas-wrap">
+        <canvas id="fp-canvas" style="border-radius:6px;cursor:grab;display:block"></canvas>
+      </div>
+      <div class="fp-notes-panel">
+        <div class="fp-notes-hdr">📝 หมายเหตุ</div>
+        <textarea class="fp-notes-textarea" id="fp-notes-area"
+          placeholder="เขียนรายละเอียดเพิ่มเติม&#10;เช่น ทิศทางประตู, ตำแหน่งเสา,&#10;จุดระวัง, หมายเหตุพิเศษ..."
+          ${!isAdmin() ? 'readonly' : ''}
+          oninput="fpSaveNote('${r.id}', this.value)">${r.note ? r.note.replace(/</g,'&lt;') : ''}</textarea>
+        <div class="fp-notes-footer" id="fp-notes-status">—</div>
+      </div>
     </div>
     <div class="fp-legend" id="fp-legend"></div>
   </div>
@@ -1410,7 +1490,84 @@ function downloadTemplate() {
 // ────────────────────────────────────────────
 //  Init
 // ────────────────────────────────────────────
+// ────────────────────────────────────────────
+//  Notes panel — per-room note
+// ────────────────────────────────────────────
+let _noteTimer = null;
+function fpSaveNote(roomId, val) {
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  r.note = val;
+  const status = document.getElementById('fp-notes-status');
+  if (status) status.textContent = 'กำลังบันทึก…';
+  clearTimeout(_noteTimer);
+  _noteTimer = setTimeout(() => {
+    saveData();
+    if (status) status.textContent = '✓ บันทึกแล้ว';
+    setTimeout(() => { if (status) status.textContent = '—'; }, 2000);
+  }, 800);
+}
+
+// ────────────────────────────────────────────
+//  Share view-only link
+// ────────────────────────────────────────────
+function shareViewOnly() {
+  const url = new URL(window.location.href);
+  url.searchParams.set('view', '1');
+  const shareUrl = url.toString();
+
+  const existing = document.getElementById('share-modal-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'share-modal-overlay';
+  overlay.id = 'share-modal-overlay';
+  overlay.innerHTML = `
+    <div class="share-modal" onclick="event.stopPropagation()">
+      <h3>🔗 แชร์ Floor Plan</h3>
+      <span class="share-badge">👁 ดูอย่างเดียว · ไม่สามารถแก้ไขได้</span>
+      <p>ลิงก์นี้ใช้ดูแปลนและข้อมูลห้องได้เฉยๆ — zoom in ได้ · แก้ไขไม่ได้ · ไม่ต้อง login</p>
+      <div class="share-url-box">
+        <input class="share-url-input" id="share-url-val" value="${shareUrl}" readonly>
+        <button class="btn btn-gold btn-sm" onclick="copyShareUrl()">📋 คัดลอก</button>
+      </div>
+      <div class="share-modal-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('share-modal-overlay').remove()">ปิด</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('share-url-val')?.select(), 80);
+}
+
+function copyShareUrl() {
+  const inp = document.getElementById('share-url-val'); if (!inp) return;
+  inp.select();
+  try {
+    navigator.clipboard.writeText(inp.value).then(() => toast('คัดลอกลิงก์แล้ว ✓', 'ok'));
+  } catch(e) {
+    document.execCommand('copy');
+    toast('คัดลอกลิงก์แล้ว ✓', 'ok');
+  }
+}
+
+// ────────────────────────────────────────────
+//  Detect ?view=1 share mode — force view-only
+// ────────────────────────────────────────────
+function initShareMode() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('view') === '1') {
+    window._forceViewOnly = true;
+    document.body.classList.add('view-only');
+    // Replace topbar buttons with a clean share badge
+    const topRight = document.querySelector('.topbar-right');
+    if (topRight) {
+      topRight.innerHTML = '<span class="view-only-badge" style="display:inline-flex">👁 ลิงก์แชร์ — ดูอย่างเดียว</span>';
+    }
+  }
+}
+
 loadData(); // loads from Firestore then calls renderAll
+initShareMode();
 </script>
 </body>
 </html>
