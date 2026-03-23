@@ -212,7 +212,40 @@
   .eq-modal input:focus, .eq-modal select:focus { border-color: var(--gold); }
   .eq-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-  /* Share modal */
+  /* Merge modal */
+  .merge-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    backdrop-filter: blur(4px); z-index: 5500;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .merge-modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; width: 480px; max-width: 95vw;
+    max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  }
+  .merge-modal h3 { font-size: 15px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+  .merge-modal p  { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .merge-room-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .merge-room-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg3);
+    cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .merge-room-item:hover { border-color: var(--gold); background: rgba(240,180,41,.06); }
+  .merge-room-item.selected { border-color: var(--gold); background: rgba(240,180,41,.12); }
+  .merge-room-item input[type=checkbox] { accent-color: var(--gold); width:15px; height:15px; flex-shrink:0; cursor:pointer; }
+  .merge-room-info { flex:1; min-width:0; }
+  .merge-room-name { font-size:13px; font-weight:500; }
+  .merge-room-meta { font-size:10px; color:var(--muted); margin-top:1px; }
+  .merge-room-dot  { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .merge-layout-row { display:flex; gap:8px; margin-bottom:14px; align-items:flex-end; }
+  .merge-layout-row .field { display:flex; flex-direction:column; gap:3px; }
+  .merge-layout-row label  { font-size:10px; color:var(--muted); }
+  .merge-actions { display:flex; gap:8px; justify-content:flex-end; }
+  /* hide merge btn in view-only */
+  body.view-only #sb-merge-btn { display:none !important; }
   .share-modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.65);
     backdrop-filter: blur(4px); z-index: 6000;
@@ -423,7 +456,10 @@
   <div class="sidebar">
     <div class="sb-hdr">
       <span>ห้องทั้งหมด</span>
-      <button class="btn btn-gold btn-sm" id="sb-add-btn" onclick="addRoom()">+ เพิ่ม</button>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-sm" id="sb-merge-btn" onclick="openMergeModal()" title="สร้างห้องรวมจากหลายห้อง">⊕ รวม</button>
+        <button class="btn btn-gold btn-sm" id="sb-add-btn" onclick="addRoom()">+ เพิ่ม</button>
+      </div>
     </div>
     <div class="room-list" id="room-list"></div>
     <label class="import-zone" id="drop-zone">
@@ -616,7 +652,11 @@ function saveData() {
     const db = await getDb(); if (!db) return;
     try {
       const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-      await setDoc(doc(db, FIRESTORE_DOC), { rooms, activeId, updatedAt: Date.now() });
+      const ts = Date.now();
+      // Don't save activeId — each user tracks their own locally
+      await setDoc(doc(db, FIRESTORE_DOC), { rooms, updatedAt: ts });
+      // Mark this timestamp so onSnapshot can skip our own echo
+      if (window._onSnapshotSetLastSaved) window._onSnapshotSetLastSaved(ts);
     } catch(e) { console.error('Save failed:', e); }
   }, 800);
 }
@@ -635,12 +675,49 @@ async function loadData() {
     }
     renderAll_noSave();
     setStatus('');
+    // Expose setter for saveData to mark own timestamps
+    window._onSnapshotSetLastSaved = (ts) => { _lastSavedAt = ts; };
+
     // Real-time listener — update when others save
+    // Track last updatedAt to avoid re-rendering our own saves
+    let _lastSavedAt = 0;
     onSnapshot(ref, snap => {
       if (!snap.exists()) return;
       const d = snap.data();
-      if (Array.isArray(d.rooms)) {
-        rooms = d.rooms; activeId = d.activeId || (rooms[0]?.id || null);
+      if (!Array.isArray(d.rooms)) return;
+
+      // Skip if this is our own save echoing back
+      if (d.updatedAt && d.updatedAt <= _lastSavedAt) return;
+      _lastSavedAt = d.updatedAt || 0;
+
+      // Check if only _fp (box positions) changed — if so, just redraw canvas, no full re-render
+      const onlyPositionsChanged = (() => {
+        if (d.rooms.length !== rooms.length) return false;
+        for (let i = 0; i < d.rooms.length; i++) {
+          const nr = d.rooms[i], or = rooms[i];
+          if (nr.name !== or.name || nr.width !== or.width || nr.length !== or.length ||
+              nr.unit !== or.unit || nr.note !== or.note) return false;
+          if (nr.equipment.length !== or.equipment.length) return false;
+          for (let j = 0; j < nr.equipment.length; j++) {
+            const ne = nr.equipment[j], oe = or.equipment[j];
+            if (ne.id !== oe.id || ne.name !== oe.name ||
+                ne.width !== oe.width || ne.length !== oe.length ||
+                ne.quantity !== oe.quantity) return false;
+          }
+        }
+        return true;
+      })();
+
+      // Always update rooms data
+      rooms = d.rooms;
+      // NEVER override local activeId from Firestore — each user picks their own room
+      // activeId stays as-is
+
+      if (onlyPositionsChanged) {
+        // Just re-init canvas with new positions, no DOM re-render
+        if (activeId) requestAnimationFrame(() => fpInit(activeId));
+      } else {
+        // Structural change (add/delete room or equipment) — full re-render needed
         renderAll_noSave();
       }
     });
@@ -680,10 +757,13 @@ function renderSidebar() {
   }
   el.innerHTML = rooms.map((r,i) => {
     const p = pct(r), cls = pctCls(p), col = colorOf(i);
+    const mergedBadge = r._mergedFrom
+      ? `<span style="font-size:9px;background:rgba(240,180,41,.15);color:var(--gold);border:1px solid rgba(240,180,41,.3);border-radius:3px;padding:1px 4px;margin-left:4px">รวม</span>`
+      : '';
     return `<div class="room-item ${r.id===activeId?'active':''}" onclick="selectRoom('${r.id}')">
       <div class="room-dot" style="background:${col.bd}"></div>
       <div class="room-info">
-        <div class="room-name">${r.name}</div>
+        <div class="room-name">${r.name}${mergedBadge}</div>
         <div class="room-meta">${r.width}×${r.length} ${r.unit} · ${r.equipment.length} รายการ</div>
       </div>
       <span class="room-pct" style="color:var(--${cls})">${p.toFixed(0)}%</span>
@@ -719,6 +799,7 @@ function renderMain() {
   <div class="card">
     <div class="card-hdr">
       <h3 style="color:var(--gold)">${r.name}</h3>
+      ${r._mergedFrom ? `<span style="font-size:10px;color:var(--muted);background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.2);border-radius:4px;padding:2px 7px">⊕ รวมจาก: ${rooms.filter(x=>r._mergedFrom.includes(x.id)).map(x=>x.name).join(', ') || r.note?.replace('รวมจาก: ','') || '—'}</span>` : ''}
       <button class="btn btn-red btn-sm" onclick="deleteRoom('${r.id}')">🗑 ลบห้อง</button>
     </div>
     <div class="card-body">
@@ -1787,7 +1868,153 @@ function initShareMode() {
   }
 }
 
-loadData(); // loads from Firestore then calls renderAll
+// ────────────────────────────────────────────
+//  Merge rooms
+// ────────────────────────────────────────────
+function openMergeModal() {
+  if (!guardEdit()) return;
+  if (rooms.length < 2) { toast('ต้องมีอย่างน้อย 2 ห้องก่อนรวม', 'warn'); return; }
+
+  const existing = document.getElementById('merge-modal-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'merge-modal-overlay';
+  overlay.id = 'merge-modal-overlay';
+
+  const roomItems = rooms.map((r, i) => {
+    const col = colorOf(i);
+    const eq = r.equipment.length;
+    const area = (roomArea(r)/10000).toFixed(2);
+    return `<label class="merge-room-item" id="mri-${r.id}">
+      <input type="checkbox" id="mchk-${r.id}" value="${r.id}"
+        onchange="this.closest('.merge-room-item').classList.toggle('selected',this.checked);_updateMergePreview()">
+      <div class="merge-room-dot" style="background:${col.bd}"></div>
+      <div class="merge-room-info">
+        <div class="merge-room-name">${r.name}</div>
+        <div class="merge-room-meta">${r.width}×${r.length} ${r.unit} · ${eq} รายการ · ${area} m²</div>
+      </div>
+    </label>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="merge-modal" onclick="event.stopPropagation()">
+      <h3>⊕ สร้างห้องรวม</h3>
+      <p>เลือกห้องที่ต้องการนำอุปกรณ์มารวม — ระบบจะสร้างห้องใหม่และจัดอุปกรณ์ทั้งหมดไว้ด้วยกัน</p>
+      <div class="merge-room-list">${roomItems}</div>
+      <div class="merge-layout-row">
+        <div class="field">
+          <label>ชื่อห้องรวม</label>
+          <input class="ifield" id="merge-name" value="ห้องรวม" style="width:160px">
+        </div>
+        <div class="field">
+          <label>กว้าง (cm)</label>
+          <input class="ifield" id="merge-w" type="number" value="800" style="width:80px">
+        </div>
+        <div class="field">
+          <label>ยาว (cm)</label>
+          <input class="ifield" id="merge-l" type="number" value="600" style="width:80px">
+        </div>
+        <div class="field">
+          <label>หน่วย</label>
+          <select class="ifield" id="merge-unit" style="width:65px">
+            <option value="cm">cm</option><option value="m">m</option>
+          </select>
+        </div>
+      </div>
+      <div id="merge-preview" style="font-size:11px;color:var(--muted);margin-bottom:12px;min-height:16px"></div>
+      <div class="merge-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('merge-modal-overlay').remove()">ยกเลิก</button>
+        <button class="btn btn-gold" onclick="createMergedRoom()">⊕ สร้างห้องรวม</button>
+      </div>
+    </div>`;
+
+  overlay.addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('merge-name')?.focus(), 60);
+}
+
+function _updateMergePreview() {
+  const selected = rooms.filter(r => {
+    const chk = document.getElementById('mchk-' + r.id);
+    return chk && chk.checked;
+  });
+  const preview = document.getElementById('merge-preview');
+  if (!preview) return;
+  if (!selected.length) { preview.textContent = 'เลือกอย่างน้อย 1 ห้อง'; return; }
+  const totalEqCount = selected.reduce((s,r) => s + r.equipment.length, 0);
+  const names = selected.map(r => r.name).join(', ');
+  preview.innerHTML = `รวมจาก: <b style="color:var(--cream)">${names}</b> · อุปกรณ์รวม <b style="color:var(--gold)">${totalEqCount} รายการ</b>`;
+}
+
+function createMergedRoom() {
+  const selected = rooms.filter(r => {
+    const chk = document.getElementById('mchk-' + r.id);
+    return chk && chk.checked;
+  });
+  if (!selected.length) { toast('เลือกอย่างน้อย 1 ห้อง', 'warn'); return; }
+
+  const name  = document.getElementById('merge-name').value.trim() || 'ห้องรวม';
+  const w     = parseFloat(document.getElementById('merge-w').value) || 800;
+  const l     = parseFloat(document.getElementById('merge-l').value) || 600;
+  const unit  = document.getElementById('merge-unit').value || 'cm';
+
+  // Build merged equipment list — copy from each source room
+  // Preserve _fp positions scaled to new room dimensions
+  const mergedEquip = [];
+  selected.forEach((srcRoom, roomIdx) => {
+    // Offset each room's equipment in X direction to avoid overlap
+    // Each source room gets a horizontal slice of the merged room
+    const sliceW = w / selected.length;
+    const offsetX_fraction = roomIdx / selected.length;
+
+    srcRoom.equipment.forEach(e => {
+      const clone = JSON.parse(JSON.stringify(e)); // deep clone
+      clone.id = uid(); // new id to avoid conflict
+      clone._sourceRoom = srcRoom.name; // track origin
+      clone.note = [e.note, `(จาก: ${srcRoom.name})`].filter(Boolean).join(' ');
+
+      // Remap _fp positions: shift x by slice offset, scale to new room
+      if (clone._fp) {
+        Object.keys(clone._fp).forEach(k => {
+          const fp = clone._fp[k];
+          if (typeof fp.nx === 'number') {
+            // Scale nx from [0,1] within source slice to [0,1] within merged room
+            // Source room width ratio vs merged room
+            const srcW = toCm(+srcRoom.width, srcRoom.unit);
+            const merW = toCm(+w, unit);
+            const srcL = toCm(+srcRoom.length, srcRoom.unit);
+            const merL = toCm(+l, unit);
+            // Place slice at offsetX_fraction, scale proportionally
+            fp.nx = offsetX_fraction + (fp.nx * srcW / merW) * (sliceW / (merW / selected.length > 0 ? 1 : 1));
+            fp.ny = fp.ny * (srcL / merL);
+            // Clamp
+            fp.nx = Math.max(0, Math.min(fp.nx, 0.99));
+            fp.ny = Math.max(0, Math.min(fp.ny, 0.99));
+          }
+        });
+      }
+      mergedEquip.push(clone);
+    });
+  });
+
+  const merged = {
+    id: uid(),
+    name,
+    width: w,
+    length: l,
+    unit,
+    equipment: mergedEquip,
+    _mergedFrom: selected.map(r => r.id), // track source rooms
+    note: `รวมจาก: ${selected.map(r=>r.name).join(', ')}`
+  };
+
+  rooms.push(merged);
+  activeId = merged.id;
+  document.getElementById('merge-modal-overlay')?.remove();
+  renderAll();
+  toast(`สร้างห้องรวม "${name}" (${mergedEquip.length} รายการ) สำเร็จ`);
+}
 initShareMode();
 </script>
 </body>
