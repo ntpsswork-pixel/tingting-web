@@ -264,9 +264,16 @@
   /* Wrapper that places canvas + notes side by side */
   .fp-body-wrap {
     display: flex; gap: 12px; align-items: flex-start;
-    padding: 12px; overflow: auto;
+    padding: 12px;
   }
-  .fp-canvas-wrap { flex: 1; min-width: 0; }
+  /* Canvas scroll container — scrollable in both axes after zoom */
+  .fp-canvas-wrap {
+    flex: 1; min-width: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch; /* smooth momentum scroll on iOS */
+    cursor: grab;
+  }
+  .fp-canvas-wrap:active { cursor: grabbing; }
 
   .mobile-hint { display: none; }
   @media (max-width: 760px) {
@@ -792,7 +799,7 @@ function renderMain() {
     </div>
     <div class="fp-body-wrap">
       <div class="fp-canvas-wrap">
-        <canvas id="fp-canvas" style="border-radius:6px;cursor:grab;display:block"></canvas>
+        <canvas id="fp-canvas" style="border-radius:6px;cursor:grab;display:block;flex-shrink:0"></canvas>
       </div>
       <div class="fp-notes-panel">
         <div class="fp-notes-hdr">📝 หมายเหตุ</div>
@@ -984,14 +991,17 @@ function fpInit(roomId) {
   const rl = toCm(+r.length, r.unit);
   if (!rw || !rl) { fpEmpty(canvas); return; }
 
-  const PAD      = FP.PAD;
-  const cssW     = Math.max(canvas.parentElement.clientWidth - 24, 200);
-  const maxCssH  = Math.max(window.innerHeight - 340, 260);
-  const scaleByW = (cssW - PAD * 2) / rw;
-  const scaleByH = (maxCssH - PAD * 2 - 28) / rl;
-  FP.baseScale   = Math.min(scaleByW, scaleByH);
-  FP.scale       = FP.baseScale * FP.zoom;
-  const cssH     = Math.round(rl * FP.scale) + PAD * 2 + 28;
+  const PAD       = FP.PAD;
+  const wrapW     = Math.max(canvas.parentElement.clientWidth - 24, 200);
+  // baseScale fits the room inside the wrap at zoom=1
+  const scaleByW  = (wrapW  - PAD * 2) / rw;
+  const maxCssH   = Math.max(window.innerHeight - 340, 260);
+  const scaleByH  = (maxCssH - PAD * 2 - 28) / rl;
+  FP.baseScale    = Math.min(scaleByW, scaleByH);
+  FP.scale        = FP.baseScale * FP.zoom;
+  // Canvas size follows actual scaled room — may be wider than wrap (scroll handles it)
+  const cssW      = Math.round(rw * FP.scale) + PAD * 2;
+  const cssH      = Math.round(rl * FP.scale) + PAD * 2 + 28;
 
   FP.cssW = cssW; FP.cssH = cssH;
   const {ctx, dpr} = fpSetup(canvas, cssW, cssH);
@@ -1432,8 +1442,9 @@ function fpBind() {
         b.w *= ratio2; b.h *= ratio2;
       });
       const cssH = Math.round(rl * FP.scale) + FP.PAD * 2 + 28;
-      FP.cssH = cssH;
-      const {ctx} = fpSetup(FP.canvas, FP.cssW, cssH);
+      const cssW2 = Math.round(rw * FP.scale) + FP.PAD * 2;
+      FP.cssW = cssW2; FP.cssH = cssH;
+      const {ctx} = fpSetup(FP.canvas, cssW2, cssH);
       FP.ctx = ctx;
       // Sync slider
       const slider = document.getElementById('fp-zoom');
@@ -1500,10 +1511,10 @@ function fpSetZoom(val, roomId) {
     b.y = FP.PAD + (b.y - FP.PAD) * ratio;
     b.w *= ratio; b.h *= ratio;
   });
-  // Resize canvas
-  const cssW  = FP.cssW;
-  const cssH  = Math.round(rl * FP.scale) + FP.PAD * 2 + 28;
-  FP.cssH = cssH;
+  // Canvas size follows room size at new zoom — may overflow wrap (scroll handles it)
+  const cssW = Math.round(rw * FP.scale) + FP.PAD * 2;
+  const cssH = Math.round(rl * FP.scale) + FP.PAD * 2 + 28;
+  FP.cssW = cssW; FP.cssH = cssH;
   const {ctx} = fpSetup(FP.canvas, cssW, cssH);
   FP.ctx = ctx;
   fpDraw(); fpRenderLegend(); fpBind();
