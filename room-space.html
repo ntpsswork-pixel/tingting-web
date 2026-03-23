@@ -441,7 +441,34 @@ function setRoom(id, key, val) {
   if (!guardEdit()) return;
   const r = rooms.find(x => x.id === id); if (!r) return;
   r[key] = (key==='width'||key==='length') ? +val : val;
-  renderAll();
+  // Surgical update — only refresh KPIs, progress bar, canvas; do NOT re-render whole page
+  _updateKPI(r);
+  saveData();
+  if (activeId === id) requestAnimationFrame(() => fpInit(id));
+}
+
+function _updateKPI(r) {
+  const ra = roomArea(r), ea = totalEq(r), p = pct(r), cls = pctCls(p);
+  // KPI values
+  const kpis = document.querySelectorAll('.kpi');
+  if (kpis[0]) { kpis[0].querySelector('.kpi-val').textContent = fmtM2(ra); kpis[0].querySelector('.kpi-sub').textContent = `${r.width} × ${r.length} ${r.unit}`; }
+  if (kpis[1]) { kpis[1].querySelector('.kpi-val').textContent = fmtM2(ea); kpis[1].querySelector('.kpi-sub').textContent = `${r.equipment.length} รายการ`; }
+  if (kpis[2]) {
+    kpis[2].className = `kpi ${cls}`;
+    kpis[2].querySelector('.kpi-val').textContent = `${p.toFixed(1)}%`;
+    kpis[2].querySelector('.kpi-sub').textContent = p>100?'⚠️ เกินพื้นที่':p>85?'⚠️ ใกล้เต็ม':p>60?'ปกติ':'ยังมีพื้นที่';
+  }
+  if (kpis[3]) { kpis[3].querySelector('.kpi-val').textContent = fmtM2(Math.max(ra-ea,0)); kpis[3].querySelector('.kpi-sub').textContent = `${Math.max(100-p,0).toFixed(1)}% ว่าง`; }
+  // Progress bar
+  const fill = document.querySelector('.prog-fill');
+  if (fill) { fill.style.width = `${Math.min(p,100)}%`; fill.style.background = `var(--${cls})`; }
+  const progPct = document.querySelector('.prog-lbl span:last-child');
+  if (progPct) { progPct.style.color = `var(--${cls})`; progPct.textContent = `${p.toFixed(1)}%`; }
+  // Room title in card header
+  const hdr = document.querySelector('.card-hdr h3[style*="gold"]');
+  if (hdr) hdr.textContent = r.name;
+  // Sidebar
+  renderSidebar();
 }
 
 // ────────────────────────────────────────────
@@ -567,17 +594,15 @@ function setStatus(msg) {
 function renderAll_noSave() {
   document.body.classList.toggle('view-only', !isAdmin());
   renderSidebar();
-  // Save scroll BEFORE innerHTML wipes it
   const mainEl = document.getElementById('main');
   const savedScroll = mainEl ? mainEl.scrollTop : 0;
   renderMain();
-  // Double rAF: 1st frame = browser parses new DOM, 2nd frame = after reflow
-  requestAnimationFrame(() => {
-    if (mainEl && savedScroll > 0) mainEl.scrollTop = savedScroll;
-    requestAnimationFrame(() => {
-      if (activeId) fpInit(activeId);
-    });
-  });
+  // Restore scroll synchronously — must happen before browser paints
+  // Using setTimeout(0) so DOM is written but before next frame renders
+  if (savedScroll > 0 && mainEl) {
+    setTimeout(() => { mainEl.scrollTop = savedScroll; }, 0);
+  }
+  requestAnimationFrame(() => { if (activeId) fpInit(activeId); });
 }
 
 function renderAll() { saveData(); renderAll_noSave(); }
