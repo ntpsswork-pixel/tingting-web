@@ -268,7 +268,16 @@
   }
   .fp-canvas-wrap { flex: 1; min-width: 0; }
 
+  .mobile-hint { display: none; }
   @media (max-width: 760px) {
+    .desktop-hint { display: none; }
+    .mobile-hint  { display: inline; }
+
+    /* Table — hide detail columns, show inline meta under name */
+    .eq-desktop { display: none !important; }
+    .eq-mobile-meta { display: block !important; }
+    .tbl-wrap { overflow-x: visible; }
+
     .fp-body-wrap { flex-direction: column; }
     .fp-notes-panel { width: 100%; }
 
@@ -776,7 +785,8 @@ function renderMain() {
             oninput="fpSetZoom(this.value,'${r.id}')">
           <span id="fp-zoom-label" style="font-size:10px;color:var(--gold);font-family:'IBM Plex Mono',monospace;min-width:32px">1×</span>
         </div>
-        <span style="font-size:10px;color:var(--muted)">ลากย้าย · ดับเบิลคลิกหมุน</span>
+        <span style="font-size:10px;color:var(--muted)" class="desktop-hint">ลากย้าย · ดับเบิลคลิกหมุน</span>
+        <span style="font-size:10px;color:var(--muted)" class="mobile-hint">นิ้วเดียวลาก · สองนิ้ว zoom · แตะ2ครั้งหมุน</span>
         <button class="btn btn-ghost btn-sm" onclick="resetLayout('${r.id}')">↺ Reset</button>
       </div>
     </div>
@@ -834,28 +844,34 @@ function buildTable(r) {
     const adminBtns = isAdmin() ? `
       <button class="btn btn-ghost btn-sm" onclick="openEditEquip('${r.id}','${e.id}')" title="แก้ไข">✏️</button>
       <button class="btn btn-red btn-sm" onclick="delEquip('${r.id}','${e.id}')" title="ลบ">🗑</button>` : '';
-    return `<tr>
-      <td style="text-align:center;padding:9px 6px">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:3px;background:${col.bd};color:#fff;font-size:9px;font-weight:700">${i+1}</span>
+    return `<tr class="eq-row">
+      <td class="eq-col-num" style="text-align:center;padding:9px 6px;vertical-align:middle">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:3px;background:${col.bd};color:#fff;font-size:9px;font-weight:700;flex-shrink:0">${i+1}</span>
       </td>
-      <td style="overflow:hidden;max-width:0;white-space:nowrap;text-overflow:ellipsis">${e.name}</td>
-      <td><span class="chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
-      <td style="font-family:'IBM Plex Mono',monospace;text-align:center">${e.quantity}</td>
-      <td><span class="chip">${fmtM2(ea)}</span></td>
-      <td style="font-family:'IBM Plex Mono',monospace;color:var(--muted);text-align:center">${p}%</td>
-      <td style="font-size:11px;color:var(--muted);font-style:italic;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:0">${e.note||'—'}</td>
-      <td style="white-space:nowrap;text-align:right">${adminBtns}</td>
+      <td class="eq-col-name" style="vertical-align:middle">
+        <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
+        <div class="eq-mobile-meta" style="display:none;font-size:10px;color:var(--muted);margin-top:2px">
+          ${e.width}×${e.length} ${e.unit||r.unit} · ${e.quantity} ชิ้น · ${fmtM2(ea)} · ${p}%
+          ${e.note ? `<span style="font-style:italic"> · ${e.note}</span>` : ''}
+        </div>
+      </td>
+      <td class="eq-col-size eq-desktop"><span class="chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
+      <td class="eq-col-qty eq-desktop" style="font-family:'IBM Plex Mono',monospace;text-align:center">${e.quantity}</td>
+      <td class="eq-col-area eq-desktop"><span class="chip">${fmtM2(ea)}</span></td>
+      <td class="eq-col-pct eq-desktop" style="font-family:'IBM Plex Mono',monospace;color:var(--muted);text-align:center">${p}%</td>
+      <td class="eq-col-note eq-desktop" style="font-size:11px;color:var(--muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${e.note||'—'}</td>
+      <td class="eq-col-act" style="white-space:nowrap;text-align:right;vertical-align:middle">${adminBtns}</td>
     </tr>`;
   }).join('');
-  return `<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;table-layout:fixed">
-    <thead><tr>
+  return `<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse">
+    <thead class="eq-thead"><tr>
       <th style="width:34px;text-align:center;padding:9px 6px">#</th>
       <th style="padding:9px 8px">ชื่อ</th>
-      <th style="width:108px;padding:9px 8px">ขนาด</th>
-      <th style="width:54px;text-align:center;padding:9px 8px">จำนวน</th>
-      <th style="width:82px;padding:9px 8px">พื้นที่</th>
-      <th style="width:54px;text-align:center;padding:9px 8px">%ห้อง</th>
-      <th style="width:90px;padding:9px 8px">หมายเหตุ</th>
+      <th class="eq-desktop" style="width:108px;padding:9px 8px">ขนาด</th>
+      <th class="eq-desktop" style="width:54px;text-align:center;padding:9px 8px">จำนวน</th>
+      <th class="eq-desktop" style="width:82px;padding:9px 8px">พื้นที่</th>
+      <th class="eq-desktop" style="width:54px;text-align:center;padding:9px 8px">%ห้อง</th>
+      <th class="eq-desktop" style="width:90px;padding:9px 8px">หมายเหตุ</th>
       <th style="width:72px;padding:9px 8px;text-align:right"></th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -1282,11 +1298,11 @@ function fpRotateBox(idx) {
 
 function fpBind() {
   const canvas = FP.canvas; if (!canvas) return;
-  // Remove old listeners cleanly via AbortController
   if (FP._ac) FP._ac.abort();
   FP._ac = new AbortController();
   const sig = { signal: FP._ac.signal };
 
+  // Convert event coords → canvas-space coords
   const pos = (e) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = FP.cssW / rect.width;
@@ -1294,16 +1310,15 @@ function fpBind() {
     return { mx: (t.clientX - rect.left) * scaleX, my: (t.clientY - rect.top) * scaleX };
   };
 
+  // ── Mouse events (desktop) ──────────────────
   const onDown = (e) => {
     const {mx, my} = pos(e);
     const idx = fpHitTest(mx, my);
     if (idx < 0) return;
     e.preventDefault();
-    // Double-click/tap = rotate 90°
     const now = Date.now();
     if (now - FP.lastClick < 300 && FP.lastClickIdx === idx) {
-      fpRotateBox(idx);
-      FP.lastClick = 0; return;
+      fpRotateBox(idx); FP.lastClick = 0; return;
     }
     FP.lastClick = now; FP.lastClickIdx = idx;
     FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
@@ -1314,7 +1329,7 @@ function fpBind() {
     const {mx, my} = pos(e);
     if (FP.drag !== null) {
       e.preventDefault();
-      const b   = FP.boxes[FP.drag.boxIdx];
+      const b = FP.boxes[FP.drag.boxIdx];
       const PAD = FP.PAD;
       const rw  = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
       const rl  = toCm(+FP.room.length, FP.room.unit) * FP.scale;
@@ -1336,10 +1351,7 @@ function fpBind() {
   };
 
   const onUp = () => {
-    if (FP.drag !== null) {
-      // Persist position back to equipment data
-      fpSavePositions();
-    }
+    if (FP.drag !== null) fpSavePositions();
     FP.drag = null; canvas.style.cursor = 'default'; fpHideTooltip();
   };
 
@@ -1347,9 +1359,128 @@ function fpBind() {
   canvas.addEventListener('mousemove',  onMove, sig);
   canvas.addEventListener('mouseup',    onUp,   sig);
   canvas.addEventListener('mouseleave', onUp,   sig);
-  canvas.addEventListener('touchstart', onDown, { ...sig, passive: false });
-  canvas.addEventListener('touchmove',  onMove, { ...sig, passive: false });
-  canvas.addEventListener('touchend',   onUp,   sig);
+
+  // ── Touch events (mobile) — pinch-zoom + pan + drag box ──
+  let _pinchDist0 = null;   // distance between 2 fingers at pinch start
+  let _pinchZoom0 = null;   // FP.zoom at pinch start
+  let _panStart   = null;   // {x, y, scrollLeft, scrollTop} for 1-finger pan on empty area
+  let _touchBoxIdx = -1;    // box being dragged with 1 finger
+  let _lastTap = 0, _lastTapIdx = -1;
+
+  const touchDist = (touches) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx*dx + dy*dy);
+  };
+
+  const onTouchStart = (e) => {
+    fpHideTooltip();
+    if (e.touches.length === 2) {
+      // Pinch start
+      e.preventDefault();
+      _pinchDist0 = touchDist(e.touches);
+      _pinchZoom0 = FP.zoom;
+      _touchBoxIdx = -1;
+      _panStart = null;
+      return;
+    }
+    if (e.touches.length === 1) {
+      const {mx, my} = pos(e);
+      const idx = fpHitTest(mx, my);
+      if (idx >= 0) {
+        // Tap on a box — drag or double-tap rotate
+        e.preventDefault();
+        const now = Date.now();
+        if (now - _lastTap < 300 && _lastTapIdx === idx) {
+          fpRotateBox(idx); _lastTap = 0; return;
+        }
+        _lastTap = now; _lastTapIdx = idx;
+        _touchBoxIdx = idx;
+        FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
+        _panStart = null;
+      } else {
+        // Tap on empty area — pan the canvas wrapper
+        _touchBoxIdx = -1;
+        FP.drag = null;
+        const wrap = canvas.parentElement;
+        _panStart = {
+          x: e.touches[0].clientX, y: e.touches[0].clientY,
+          sl: wrap ? wrap.scrollLeft : 0, st: wrap ? wrap.scrollTop : 0
+        };
+      }
+    }
+  };
+
+  const onTouchMove = (e) => {
+    if (e.touches.length === 2 && _pinchDist0 !== null) {
+      // Pinch zoom
+      e.preventDefault();
+      const dist = touchDist(e.touches);
+      const ratio = dist / _pinchDist0;
+      const newZoom = Math.min(4, Math.max(0.5, _pinchZoom0 * ratio));
+      // Apply zoom via fpSetZoom logic inline (avoid re-binding)
+      const r = FP.room; if (!r) return;
+      const rw = toCm(+r.width, r.unit), rl = toCm(+r.length, r.unit);
+      if (!rw || !rl) return;
+      const oldScale = FP.scale;
+      FP.zoom = newZoom;
+      FP.scale = FP.baseScale * FP.zoom;
+      const ratio2 = FP.scale / oldScale;
+      FP.boxes.forEach(b => {
+        b.x = FP.PAD + (b.x - FP.PAD) * ratio2;
+        b.y = FP.PAD + (b.y - FP.PAD) * ratio2;
+        b.w *= ratio2; b.h *= ratio2;
+      });
+      const cssH = Math.round(rl * FP.scale) + FP.PAD * 2 + 28;
+      FP.cssH = cssH;
+      const {ctx} = fpSetup(FP.canvas, FP.cssW, cssH);
+      FP.ctx = ctx;
+      // Sync slider
+      const slider = document.getElementById('fp-zoom');
+      if (slider) slider.value = FP.zoom;
+      const lbl = document.getElementById('fp-zoom-label');
+      if (lbl) lbl.textContent = FP.zoom.toFixed(1) + '×';
+      fpDraw();
+      return;
+    }
+
+    if (e.touches.length === 1) {
+      if (FP.drag !== null && _touchBoxIdx >= 0) {
+        // Drag box with 1 finger
+        e.preventDefault();
+        const {mx, my} = pos(e);
+        const b = FP.boxes[FP.drag.boxIdx];
+        const PAD = FP.PAD;
+        const rw  = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
+        const rl  = toCm(+FP.room.length, FP.room.unit) * FP.scale;
+        b.x = Math.max(PAD, Math.min(mx - FP.drag.ox, PAD + rw - b.w));
+        b.y = Math.max(PAD, Math.min(my - FP.drag.oy, PAD + rl - b.h));
+        fpDraw();
+      } else if (_panStart) {
+        // Pan the scroll container (no preventDefault — let page scroll naturally)
+        const wrap = canvas.parentElement;
+        if (wrap) {
+          const dx = e.touches[0].clientX - _panStart.x;
+          const dy = e.touches[0].clientY - _panStart.y;
+          wrap.scrollLeft = _panStart.sl - dx;
+          wrap.scrollTop  = _panStart.st - dy;
+        }
+      }
+    }
+  };
+
+  const onTouchEnd = (e) => {
+    if (e.touches.length < 2) _pinchDist0 = null;
+    if (e.touches.length === 0) {
+      if (FP.drag !== null) fpSavePositions();
+      FP.drag = null; _touchBoxIdx = -1; _panStart = null;
+    }
+    fpHideTooltip();
+  };
+
+  canvas.addEventListener('touchstart', onTouchStart, { ...sig, passive: false });
+  canvas.addEventListener('touchmove',  onTouchMove,  { ...sig, passive: false });
+  canvas.addEventListener('touchend',   onTouchEnd,   { signal: FP._ac.signal });
 }
 
 function fpSetZoom(val, roomId) {
