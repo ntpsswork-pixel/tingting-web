@@ -606,7 +606,7 @@ function delEquip(roomId, eqId) {
 //  Firestore sync
 // ────────────────────────────────────────────
 const FIRESTORE_DOC = 'config/roomSpace';
-let _db = null, _savePending = false, _saveTimer = null;
+let _db = null, _savePending = false, _saveTimer = null, _dataLoaded = false;
 
 async function getDb() {
   if (_db) return _db;
@@ -646,16 +646,16 @@ function guardEdit() {
 }
 
 function saveData() {
-  // Debounce — save 800ms after last change
+  // Never save before initial load completes — would overwrite Firestore with empty data
+  if (!_dataLoaded) return;
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(async () => {
+    if (!_dataLoaded) return;
     const db = await getDb(); if (!db) return;
     try {
       const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const ts = Date.now();
-      // Don't save activeId — each user tracks their own locally
       await setDoc(doc(db, FIRESTORE_DOC), { rooms, updatedAt: ts });
-      // Signal onSnapshot to skip the echo of this save
       if (window._onSnapshotSetLastSaved) window._onSnapshotSetLastSaved();
     } catch(e) { console.error('Save failed:', e); }
   }, 800);
@@ -679,6 +679,7 @@ async function loadData() {
     }
     renderAll_noSave();
     setStatus('');
+    _dataLoaded = true; // safe to save from this point on
     // Expose setter for saveData to mark own saves
     let _skipNextSnapshot = false;
     window._onSnapshotSetLastSaved = () => { _skipNextSnapshot = true; };
