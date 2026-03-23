@@ -275,7 +275,7 @@
 
   @media print {
     .fp-notes-panel { display: none !important; }
-  }
+
     /* ── Hide UI chrome ── */
     .topbar, .sidebar, .add-form, .btn, #toast,
     .fp-tooltip, .eq-modal-overlay, .card-hdr .btn,
@@ -303,7 +303,7 @@
     /* ── Show compact summary line ── */
     .print-summary { display: block !important; font-size: 10px; color: #333; padding: 2px 0 4px; }
 
-    /* ── Floor plan canvas: respect zoom, scale-to-fit width ── */
+    /* ── Floor plan canvas ── */
     #fp-canvas {
       width: 100% !important;
       height: auto !important;
@@ -314,6 +314,7 @@
       border-radius: 3px !important;
       display: block !important;
     }
+    .fp-body-wrap { flex-direction: column !important; padding: 6px !important; }
     .fp-legend { background: #f5f5f5 !important; padding: 4px 8px !important;
                  flex-wrap: wrap !important; gap: 3px !important; border-top: 1px solid #ddd !important; }
     .fp-legend-item { background: #fff !important; border: 1px solid #ccc !important;
