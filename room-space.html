@@ -1910,7 +1910,9 @@ function fpSaveNote(roomId, val) {
 // ────────────────────────────────────────────
 function shareViewOnly() {
   const url = new URL(window.location.href);
-  url.searchParams.set('view', '1');
+  // Use ?share=1 (not ?view=1) to avoid blocking normal edit mode
+  url.searchParams.delete('view');
+  url.searchParams.set('share', '1');
   const shareUrl = url.toString();
 
   const existing = document.getElementById('share-modal-overlay');
@@ -1953,10 +1955,10 @@ function copyShareUrl() {
 // ────────────────────────────────────────────
 function initShareMode() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get('view') === '1') {
+  // ?share=1 = view-only share link  |  ?view=1 = legacy support
+  if (params.get('share') === '1' || params.get('view') === '1') {
     window._forceViewOnly = true;
     document.body.classList.add('view-only');
-    // Replace topbar buttons with a clean share badge
     const topRight = document.querySelector('.topbar-right');
     if (topRight) {
       topRight.innerHTML = '<span class="view-only-badge" style="display:inline-flex">👁 ลิงก์แชร์ — ดูอย่างเดียว</span>';
