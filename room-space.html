@@ -537,7 +537,7 @@ function deleteRoom(id) {
   activeId = rooms[0]?.id || null;
   renderAll();
 }
-function selectRoom(id) { activeId = id; renderAll(); }
+function selectRoom(id) { activeId = id; FP.selected.clear(); FP.marquee = null; FP.groupDrag = null; renderAll(); }
 function setRoom(id, key, val) {
   if (!guardEdit()) return;
   const r = rooms.find(x => x.id === id); if (!r) return;
@@ -633,8 +633,11 @@ function isAdmin() {
   if (window._forceViewOnly) return false;
   try {
     const u = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    return u && u.role === 'admin';
-  } catch(e) { return false; }
+    // If opened via TTGPlus with login → check role
+    if (u !== null) return u && u.role === 'admin';
+    // If opened standalone (no login system) → allow editing
+    return true;
+  } catch(e) { return true; }
 }
 
 function guardEdit() {
@@ -646,7 +649,6 @@ function guardEdit() {
 }
 
 function saveData() {
-  // Never save before initial load completes — would overwrite Firestore with empty data
   if (!_dataLoaded) return;
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(async () => {
@@ -655,9 +657,15 @@ function saveData() {
     try {
       const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const ts = Date.now();
+      setStatus('กำลังบันทึก...');
       await setDoc(doc(db, FIRESTORE_DOC), { rooms, updatedAt: ts });
+      setStatus('✓ บันทึกแล้ว');
+      setTimeout(() => setStatus(''), 2000);
       if (window._onSnapshotSetLastSaved) window._onSnapshotSetLastSaved();
-    } catch(e) { console.error('Save failed:', e); }
+    } catch(e) {
+      console.error('Save failed:', e);
+      setStatus('⚠️ บันทึกไม่สำเร็จ');
+    }
   }, 800);
 }
 
@@ -874,7 +882,7 @@ function renderMain() {
             oninput="fpSetZoom(this.value,'${r.id}')">
           <span id="fp-zoom-label" style="font-size:10px;color:var(--gold);font-family:'IBM Plex Mono',monospace;min-width:32px">1×</span>
         </div>
-        <span style="font-size:10px;color:var(--muted)" class="desktop-hint">ลากย้าย · ดับเบิลคลิกหมุน</span>
+        <span style="font-size:10px;color:var(--muted)" class="desktop-hint">ลาก=เลือกกลุ่ม · Shift+คลิก=เพิ่ม · ดับเบิลคลิก=หมุน · Esc=ยกเลิก</span>
         <span style="font-size:10px;color:var(--muted)" class="mobile-hint">นิ้วเดียวลาก · สองนิ้ว zoom · แตะ2ครั้งหมุน</span>
         <button class="btn btn-ghost btn-sm" onclick="resetLayout('${r.id}')">↺ Reset</button>
       </div>
@@ -1037,6 +1045,9 @@ const FP = {
   dpr: 1, cssW: 0, cssH: 0,
   scale: 1, baseScale: 1, zoom: 1, PAD: 44,
   boxes: [], drag: null, hovered: -1, lastClick: 0,
+  selected: new Set(),   // indices of selected boxes
+  marquee: null,         // {x0,y0,x1,y1} during rubber-band select
+  groupDrag: null,       // {ox,oy, startPos:[{idx,x,y}]} during group move
   PALETTE: [
     {fill:'rgba(59,130,246,.3)',  stroke:'#60a5fa', text:'#bfdbfe'},
     {fill:'rgba(16,185,129,.3)',  stroke:'#34d399', text:'#a7f3d0'},
@@ -1218,23 +1229,34 @@ function fpDraw() {
   boxes.forEach((b, idx) => {
     const isHov  = idx === hovered;
     const isDrag = FP.drag && FP.drag.boxIdx === idx;
+    const isSel  = FP.selected.has(idx);
+    const isGrpDrag = FP.groupDrag !== null && isSel;
 
-    // Glow
-    if (isHov || isDrag) {
-      ctx.shadowColor = b.pal.stroke; ctx.shadowBlur = 14;
+    // Glow for hover/drag/selected
+    if (isHov || isDrag || isSel) {
+      ctx.shadowColor = isSel ? '#f0b429' : b.pal.stroke;
+      ctx.shadowBlur  = isSel ? 10 : 14;
     }
 
-    ctx.fillStyle = isDrag
-      ? b.pal.stroke + '80'
-      : b.pal.fill;
+    ctx.fillStyle = (isDrag || isGrpDrag) ? b.pal.stroke + '80' : b.pal.fill;
     fpRoundRect(ctx, b.x, b.y, b.w, b.h, 4);
     ctx.fill();
 
     ctx.shadowBlur  = 0;
-    ctx.strokeStyle = b.pal.stroke;
-    ctx.lineWidth   = isHov || isDrag ? 2.5 : 1.5;
+    ctx.strokeStyle = isSel ? '#f0b429' : b.pal.stroke;
+    ctx.lineWidth   = isSel ? 2.5 : (isHov || isDrag ? 2.5 : 1.5);
     fpRoundRect(ctx, b.x, b.y, b.w, b.h, 4);
     ctx.stroke();
+
+    // Selected corner marks
+    if (isSel) {
+      const cs = 6;
+      ctx.strokeStyle = '#f0b429'; ctx.lineWidth = 2;
+      [[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]].forEach(([cx,cy],ci) => {
+        const sx = ci%2===0?1:-1, sy = ci<2?1:-1;
+        ctx.beginPath(); ctx.moveTo(cx,cy+sy*cs); ctx.lineTo(cx,cy); ctx.lineTo(cx+sx*cs,cy); ctx.stroke();
+      });
+    }
 
     // Rotate hint icon on hover
     if (isHov && !isDrag && b.w > 20 && b.h > 20) {
@@ -1282,6 +1304,29 @@ function fpDraw() {
   ctx.font = '10px "IBM Plex Mono",monospace';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.fillText(`${gCm} ${room.unit}`, bx + barPx + 6, by2);
+
+  // Marquee selection rectangle
+  if (FP.marquee) {
+    const {x0,y0,x1,y1} = FP.marquee;
+    const mx = Math.min(x0,x1), my = Math.min(y0,y1);
+    const mw = Math.abs(x1-x0), mh = Math.abs(y1-y0);
+    ctx.fillStyle = 'rgba(240,180,41,0.08)';
+    ctx.fillRect(mx,my,mw,mh);
+    ctx.strokeStyle = '#f0b429'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([5,4]); ctx.strokeRect(mx,my,mw,mh); ctx.setLineDash([]);
+  }
+
+  // Group selection bounding box
+  if (FP.selected.size > 1) {
+    let gx1=Infinity,gy1=Infinity,gx2=-Infinity,gy2=-Infinity;
+    FP.selected.forEach(i => {
+      const b = FP.boxes[i]; if (!b) return;
+      gx1=Math.min(gx1,b.x); gy1=Math.min(gy1,b.y);
+      gx2=Math.max(gx2,b.x+b.w); gy2=Math.max(gy2,b.y+b.h);
+    });
+    ctx.strokeStyle='rgba(240,180,41,0.5)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+    ctx.strokeRect(gx1-4,gy1-4,gx2-gx1+8,gy2-gy1+8); ctx.setLineDash([]);
+  }
 }
 
 function fpRoundRect(ctx, x, y, w, h, r) {
@@ -1394,7 +1439,6 @@ function fpBind() {
   FP._ac = new AbortController();
   const sig = { signal: FP._ac.signal };
 
-  // Convert event coords → canvas-space coords
   const pos = (e) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = FP.cssW / rect.width;
@@ -1402,62 +1446,133 @@ function fpBind() {
     return { mx: (t.clientX - rect.left) * scaleX, my: (t.clientY - rect.top) * scaleX };
   };
 
-  // ── Mouse events (desktop) ──────────────────
+  const clampBox = (b) => {
+    const PAD = FP.PAD;
+    const rw = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
+    const rl = toCm(+FP.room.length, FP.room.unit) * FP.scale;
+    b.x = Math.max(PAD, Math.min(b.x, PAD + rw - b.w));
+    b.y = Math.max(PAD, Math.min(b.y, PAD + rl - b.h));
+  };
+
+  // ── Mouse ──────────────────────────────────
   const onDown = (e) => {
     const {mx, my} = pos(e);
     const idx = fpHitTest(mx, my);
-    if (idx < 0) return;
-    e.preventDefault();
-    const now = Date.now();
-    if (now - FP.lastClick < 300 && FP.lastClickIdx === idx) {
-      fpRotateBox(idx); FP.lastClick = 0; return;
+
+    if (idx >= 0) {
+      // ── Click on a box ──
+      e.preventDefault();
+
+      // Double-click = rotate
+      const now = Date.now();
+      if (now - FP.lastClick < 300 && FP.lastClickIdx === idx) {
+        fpRotateBox(idx); FP.lastClick = 0; FP.selected.clear(); fpDraw(); return;
+      }
+      FP.lastClick = now; FP.lastClickIdx = idx;
+
+      // Shift-click = add/remove from selection
+      if (e.shiftKey) {
+        if (FP.selected.has(idx)) FP.selected.delete(idx); else FP.selected.add(idx);
+        fpDraw(); return;
+      }
+
+      // If clicking a selected box — start group drag
+      if (FP.selected.has(idx)) {
+        FP.groupDrag = {
+          ox: mx, oy: my,
+          startPos: [...FP.selected].map(i => ({ i, x: FP.boxes[i].x, y: FP.boxes[i].y }))
+        };
+        canvas.style.cursor = 'grabbing';
+        return;
+      }
+
+      // Click unselected box — clear selection, single drag
+      FP.selected.clear();
+      FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
+      canvas.style.cursor = 'grabbing';
+
+    } else {
+      // ── Click on empty area — start marquee ──
+      if (!e.shiftKey) FP.selected.clear();
+      FP.marquee = { x0: mx, y0: my, x1: mx, y1: my };
+      canvas.style.cursor = 'crosshair';
+      fpDraw();
     }
-    FP.lastClick = now; FP.lastClickIdx = idx;
-    FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
-    canvas.style.cursor = 'grabbing';
   };
 
   const onMove = (e) => {
     const {mx, my} = pos(e);
+
+    if (FP.groupDrag) {
+      e.preventDefault();
+      const dx = mx - FP.groupDrag.ox, dy = my - FP.groupDrag.oy;
+      FP.groupDrag.startPos.forEach(({i, x, y}) => {
+        FP.boxes[i].x = x + dx; FP.boxes[i].y = y + dy;
+        clampBox(FP.boxes[i]);
+      });
+      fpDraw(); fpHideTooltip();
+      return;
+    }
+
+    if (FP.marquee) {
+      FP.marquee.x1 = mx; FP.marquee.y1 = my;
+      // Highlight boxes inside marquee
+      const x0=Math.min(FP.marquee.x0,mx), x1=Math.max(FP.marquee.x0,mx);
+      const y0=Math.min(FP.marquee.y0,my), y1=Math.max(FP.marquee.y0,my);
+      FP.boxes.forEach((b,i) => {
+        const inside = b.x < x1 && b.x+b.w > x0 && b.y < y1 && b.y+b.h > y0;
+        if (inside) FP.selected.add(i); else if (!e.shiftKey) FP.selected.delete(i);
+      });
+      fpDraw(); return;
+    }
+
     if (FP.drag !== null) {
       e.preventDefault();
       const b = FP.boxes[FP.drag.boxIdx];
-      const PAD = FP.PAD;
-      const rw  = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
-      const rl  = toCm(+FP.room.length, FP.room.unit) * FP.scale;
-      b.x = Math.max(PAD, Math.min(mx - FP.drag.ox, PAD + rw - b.w));
-      b.y = Math.max(PAD, Math.min(my - FP.drag.oy, PAD + rl - b.h));
+      b.x = mx - FP.drag.ox; b.y = my - FP.drag.oy;
+      clampBox(b);
       fpDraw(); fpHideTooltip();
     } else {
       const prev = FP.hovered;
       FP.hovered = fpHitTest(mx, my);
-      canvas.style.cursor = FP.hovered >= 0 ? 'grab' : 'default';
+      canvas.style.cursor = FP.hovered >= 0
+        ? (FP.selected.has(FP.hovered) ? 'grab' : 'grab')
+        : 'default';
       if (prev !== FP.hovered) {
         fpDraw();
         if (FP.hovered >= 0) fpShowTooltip(FP.boxes[FP.hovered], e);
         else fpHideTooltip();
-      } else if (FP.hovered >= 0) {
-        fpMoveTooltip(e);
-      }
+      } else if (FP.hovered >= 0) fpMoveTooltip(e);
     }
   };
 
-  const onUp = () => {
-    if (FP.drag !== null) fpSavePositions();
-    FP.drag = null; canvas.style.cursor = 'default'; fpHideTooltip();
+  const onUp = (e) => {
+    if (FP.groupDrag) { fpSavePositions(); FP.groupDrag = null; }
+    if (FP.drag !== null) { fpSavePositions(); FP.drag = null; }
+    if (FP.marquee) {
+      // Finalise marquee — if tiny click (not drag) clear selection
+      const dx = Math.abs(FP.marquee.x1 - FP.marquee.x0);
+      const dy = Math.abs(FP.marquee.y1 - FP.marquee.y0);
+      if (dx < 4 && dy < 4) FP.selected.clear();
+      FP.marquee = null;
+    }
+    canvas.style.cursor = 'default'; fpHideTooltip(); fpDraw();
+  };
+
+  // Escape key clears selection
+  const onKey = (e) => {
+    if (e.key === 'Escape') { FP.selected.clear(); FP.marquee = null; FP.groupDrag = null; fpDraw(); }
   };
 
   canvas.addEventListener('mousedown',  onDown, sig);
   canvas.addEventListener('mousemove',  onMove, sig);
   canvas.addEventListener('mouseup',    onUp,   sig);
   canvas.addEventListener('mouseleave', onUp,   sig);
+  document.addEventListener('keydown',  onKey,  sig);
 
-  // ── Touch events (mobile) — pinch-zoom + pan + drag box ──
-  let _pinchDist0 = null;   // distance between 2 fingers at pinch start
-  let _pinchZoom0 = null;   // FP.zoom at pinch start
-  let _panStart   = null;   // {x, y, scrollLeft, scrollTop} for 1-finger pan on empty area
-  let _touchBoxIdx = -1;    // box being dragged with 1 finger
-  let _lastTap = 0, _lastTapIdx = -1;
+  // ── Touch (mobile) — pinch-zoom + pan + drag + tap-select ──
+  let _pinchDist0 = null, _pinchZoom0 = null, _panStart = null;
+  let _touchBoxIdx = -1, _lastTap = 0, _lastTapIdx = -1;
 
   const touchDist = (touches) => {
     const dx = touches[0].clientX - touches[1].clientX;
@@ -1468,96 +1583,75 @@ function fpBind() {
   const onTouchStart = (e) => {
     fpHideTooltip();
     if (e.touches.length === 2) {
-      // Pinch start
       e.preventDefault();
-      _pinchDist0 = touchDist(e.touches);
-      _pinchZoom0 = FP.zoom;
-      _touchBoxIdx = -1;
-      _panStart = null;
-      return;
+      _pinchDist0 = touchDist(e.touches); _pinchZoom0 = FP.zoom;
+      _touchBoxIdx = -1; _panStart = null; return;
     }
     if (e.touches.length === 1) {
       const {mx, my} = pos(e);
       const idx = fpHitTest(mx, my);
       if (idx >= 0) {
-        // Tap on a box — drag or double-tap rotate
         e.preventDefault();
         const now = Date.now();
         if (now - _lastTap < 300 && _lastTapIdx === idx) {
-          fpRotateBox(idx); _lastTap = 0; return;
+          fpRotateBox(idx); _lastTap = 0; FP.selected.clear(); return;
         }
-        _lastTap = now; _lastTapIdx = idx;
-        _touchBoxIdx = idx;
-        FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
+        _lastTap = now; _lastTapIdx = idx; _touchBoxIdx = idx;
+
+        if (FP.selected.has(idx)) {
+          // drag group
+          FP.groupDrag = {
+            ox: mx, oy: my,
+            startPos: [...FP.selected].map(i => ({ i, x: FP.boxes[i].x, y: FP.boxes[i].y }))
+          };
+        } else {
+          FP.selected.clear();
+          FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
+        }
         _panStart = null;
       } else {
-        // Tap on empty area — pan the canvas wrapper
-        _touchBoxIdx = -1;
-        FP.drag = null;
+        _touchBoxIdx = -1; FP.drag = null; FP.groupDrag = null;
         const wrap = canvas.parentElement;
-        _panStart = {
-          x: e.touches[0].clientX, y: e.touches[0].clientY,
-          sl: wrap ? wrap.scrollLeft : 0, st: wrap ? wrap.scrollTop : 0
-        };
+        _panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, sl: wrap?.scrollLeft||0, st: wrap?.scrollTop||0 };
+        // Start marquee on long-press? (skip for simplicity — pan on empty)
+        FP.selected.clear(); fpDraw();
       }
     }
   };
 
   const onTouchMove = (e) => {
     if (e.touches.length === 2 && _pinchDist0 !== null) {
-      // Pinch zoom
       e.preventDefault();
       const dist = touchDist(e.touches);
-      const ratio = dist / _pinchDist0;
-      const newZoom = Math.min(4, Math.max(0.5, _pinchZoom0 * ratio));
-      // Apply zoom via fpSetZoom logic inline (avoid re-binding)
+      const newZoom = Math.min(4, Math.max(0.5, _pinchZoom0 * dist / _pinchDist0));
       const r = FP.room; if (!r) return;
-      const rw = toCm(+r.width, r.unit), rl = toCm(+r.length, r.unit);
-      if (!rw || !rl) return;
-      const oldScale = FP.scale;
-      FP.zoom = newZoom;
-      FP.scale = FP.baseScale * FP.zoom;
-      const ratio2 = FP.scale / oldScale;
-      FP.boxes.forEach(b => {
-        b.x = FP.PAD + (b.x - FP.PAD) * ratio2;
-        b.y = FP.PAD + (b.y - FP.PAD) * ratio2;
-        b.w *= ratio2; b.h *= ratio2;
-      });
-      const cssH = Math.round(rl * FP.scale) + FP.PAD * 2 + 28;
-      const cssW2 = Math.round(rw * FP.scale) + FP.PAD * 2;
-      FP.cssW = cssW2; FP.cssH = cssH;
-      const {ctx} = fpSetup(FP.canvas, cssW2, cssH);
-      FP.ctx = ctx;
-      // Sync slider
-      const slider = document.getElementById('fp-zoom');
-      if (slider) slider.value = FP.zoom;
-      const lbl = document.getElementById('fp-zoom-label');
-      if (lbl) lbl.textContent = FP.zoom.toFixed(1) + '×';
-      fpDraw();
-      return;
+      const rw = toCm(+r.width,r.unit), rl = toCm(+r.length,r.unit); if (!rw||!rl) return;
+      const ratio = (FP.baseScale * newZoom) / FP.scale;
+      FP.zoom = newZoom; FP.scale = FP.baseScale * FP.zoom;
+      FP.boxes.forEach(b => { b.x=FP.PAD+(b.x-FP.PAD)*ratio; b.y=FP.PAD+(b.y-FP.PAD)*ratio; b.w*=ratio; b.h*=ratio; });
+      const cssH = Math.round(rl*FP.scale)+FP.PAD*2+28, cssW = Math.round(rw*FP.scale)+FP.PAD*2;
+      FP.cssW=cssW; FP.cssH=cssH;
+      const {ctx} = fpSetup(FP.canvas,cssW,cssH); FP.ctx=ctx;
+      const sl=document.getElementById('fp-zoom'); if(sl) sl.value=FP.zoom;
+      const lb=document.getElementById('fp-zoom-label'); if(lb) lb.textContent=FP.zoom.toFixed(1)+'×';
+      fpDraw(); return;
     }
-
     if (e.touches.length === 1) {
-      if (FP.drag !== null && _touchBoxIdx >= 0) {
-        // Drag box with 1 finger
+      if (FP.groupDrag) {
         e.preventDefault();
-        const {mx, my} = pos(e);
-        const b = FP.boxes[FP.drag.boxIdx];
-        const PAD = FP.PAD;
-        const rw  = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
-        const rl  = toCm(+FP.room.length, FP.room.unit) * FP.scale;
-        b.x = Math.max(PAD, Math.min(mx - FP.drag.ox, PAD + rw - b.w));
-        b.y = Math.max(PAD, Math.min(my - FP.drag.oy, PAD + rl - b.h));
-        fpDraw();
+        const {mx,my}=pos(e);
+        const dx=mx-FP.groupDrag.ox, dy=my-FP.groupDrag.oy;
+        FP.groupDrag.startPos.forEach(({i,x,y})=>{ FP.boxes[i].x=x+dx; FP.boxes[i].y=y+dy; clampBox(FP.boxes[i]); });
+        fpDraw(); return;
+      }
+      if (FP.drag !== null && _touchBoxIdx >= 0) {
+        e.preventDefault();
+        const {mx,my}=pos(e); const b=FP.boxes[FP.drag.boxIdx];
+        b.x=mx-FP.drag.ox; b.y=my-FP.drag.oy; clampBox(b); fpDraw();
       } else if (_panStart) {
-        // Pan the scroll container (no preventDefault — let page scroll naturally)
-        const wrap = canvas.parentElement;
-        if (wrap) {
-          const dx = e.touches[0].clientX - _panStart.x;
-          const dy = e.touches[0].clientY - _panStart.y;
-          wrap.scrollLeft = _panStart.sl - dx;
-          wrap.scrollTop  = _panStart.st - dy;
-        }
+        const wrap=canvas.parentElement; if (!wrap) return;
+        wrap.scrollLeft=_panStart.sl-(e.touches[0].clientX-_panStart.x);
+        wrap.scrollTop =_panStart.st-(e.touches[0].clientY-_panStart.y);
       }
     }
   };
@@ -1565,10 +1659,11 @@ function fpBind() {
   const onTouchEnd = (e) => {
     if (e.touches.length < 2) _pinchDist0 = null;
     if (e.touches.length === 0) {
+      if (FP.groupDrag) fpSavePositions();
       if (FP.drag !== null) fpSavePositions();
-      FP.drag = null; _touchBoxIdx = -1; _panStart = null;
+      FP.drag=null; FP.groupDrag=null; _touchBoxIdx=-1; _panStart=null;
     }
-    fpHideTooltip();
+    fpHideTooltip(); fpDraw();
   };
 
   canvas.addEventListener('touchstart', onTouchStart, { ...sig, passive: false });
