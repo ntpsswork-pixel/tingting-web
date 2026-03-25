@@ -41,10 +41,13 @@ const COLUMN_ALIASES = {
 function mapColumns(headers) {
   const normalized = headers.map(h => (h || '').toString().trim().toLowerCase());
   const mapping = {};
+  const usedCols = new Set(); // ป้องกัน column เดียวถูก map ซ้ำ 2 field
+  // เช่น 'รหัสสินค้า' contains 'สินค้า' → ถ้าไม่มี usedCols จะถูก productName ดึงไปด้วย
   for (const [field, aliases] of Object.entries(COLUMN_ALIASES)) {
     for (let i = 0; i < normalized.length; i++) {
-      if (aliases.some(a => normalized[i].includes(a.toLowerCase()))) {
+      if (!usedCols.has(i) && aliases.some(a => normalized[i].includes(a.toLowerCase()))) {
         mapping[field] = i;
+        usedCols.add(i);
         break;
       }
     }
