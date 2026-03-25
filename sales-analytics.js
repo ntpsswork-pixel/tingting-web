@@ -6,7 +6,8 @@
 const SA_COLLECTION = 'salesReports';
 
 // ─── Fix 1: Regex ตัดรหัสนำหน้า ──────────────────────────────
-const CODE_PREFIX_RE = /^[\(\[]?(?:[A-Za-z]+[\+]?)*\d+[\s]*[-–][\s]*/u;
+// Handles: "B+12- ชื่อ", "FDB+12-ชื่อ", "F01-ชื่อ", "(TW) ชื่อ", "(D) ชื่อ"
+const CODE_PREFIX_RE = /^(?:(?:\([A-Za-z]+\)\s+)|(?:[\(\[]?(?:[A-Za-z]+[\+]?)*\d+[\s]*[-–\-][\s]*))/u;
 
 function stripProductCode(name) {
   if (!name) return '';

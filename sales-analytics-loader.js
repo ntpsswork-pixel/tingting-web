@@ -38,9 +38,9 @@ window._saState = {
   trendMode    : 'totalRevenue',
   savedReports : [],
   compareSet   : new Set(),
-  // Active filter state
-  filterBranch : '',
-  filterCat    : '',
+  // Active filter state (Set = multi-select)
+  filterBranch : new Set(),
+  filterCat    : new Set(),
   filterSearch : '',
 };
 
@@ -371,8 +371,8 @@ window._saProcessFile = async function(file) {
     const report = { ...summary, fileName: file.name, period, rows };
     window._saCurrentReport = report;
     // Reset filters
-    window._saState.filterBranch = '';
-    window._saState.filterCat    = '';
+    window._saState.filterBranch = new Set();
+    window._saState.filterCat    = new Set();
     window._saState.filterSearch = '';
     _saRenderDashboard(report);
     _saSetProgress(100, `✓ สำเร็จ — ${rows.length.toLocaleString()} แถว, ${summary.branchCount} สาขา`);
@@ -440,13 +440,13 @@ function _saBuildFilterBar(report) {
 
   brEl.innerHTML = (report.branches||[]).map(b => {
     const label = b.replace('สาขา','').trim();
-    const active = st.filterBranch === b ? 'active' : '';
-    return `<button class="sa-chip ${active}" onclick="_saFilterBranch('${b}')">${label}</button>`;
+    const active = st.filterBranch.has(b) ? 'active' : '';
+    return `<button class="sa-chip ${active}" onclick="_saFilterBranch('${b.replace(/'/g,"\\'")}',this)">${label}</button>`;
   }).join('');
 
   caEl.innerHTML = (report.categories||[]).map(c => {
-    const active = st.filterCat === c ? 'active' : '';
-    return `<button class="sa-chip ${active}" onclick="_saFilterCat('${c}')">${c}</button>`;
+    const active = st.filterCat.has(c) ? 'active' : '';
+    return `<button class="sa-chip ${active}" onclick="_saFilterCat('${c.replace(/'/g,"\\'")}',this)">${c}</button>`;
   }).join('');
 
   _saUpdateFilterSummary();
@@ -457,35 +457,31 @@ function _saUpdateFilterSummary() {
   const el  = document.getElementById('sa-filter-summary');
   if (!el) return;
   const parts = [];
-  if (st.filterBranch) parts.push('สาขา: ' + st.filterBranch.replace('สาขา','').trim());
-  if (st.filterCat)    parts.push('หมวด: ' + st.filterCat);
+  if (st.filterBranch.size) parts.push('สาขา: ' + [...st.filterBranch].map(b=>b.replace('สาขา','').trim()).join(', '));
+  if (st.filterCat.size)    parts.push('หมวด: ' + [...st.filterCat].join(', '));
   if (st.filterSearch) parts.push('ค้นหา: ' + st.filterSearch);
   el.textContent = parts.length ? '→ ' + parts.join(' & ') : '';
 }
 
-window._saFilterBranch = function(branch) {
+window._saFilterBranch = function(branch, btn) {
   const st = window._saState;
-  st.filterBranch = st.filterBranch === branch ? '' : branch;
+  if (st.filterBranch.has(branch)) st.filterBranch.delete(branch);
+  else st.filterBranch.add(branch);
+  if (btn) btn.classList.toggle('active', st.filterBranch.has(branch));
   _saApplyFilters();
-  // update chips
-  document.querySelectorAll('#sa-filter-branches .sa-chip').forEach(c => {
-    c.classList.toggle('active', c.textContent.trim() === branch.replace('สาขา','').trim() && st.filterBranch !== '');
-  });
 };
 
-window._saFilterCat = function(cat) {
+window._saFilterCat = function(cat, btn) {
   const st = window._saState;
-  st.filterCat = st.filterCat === cat ? '' : cat;
+  if (st.filterCat.has(cat)) st.filterCat.delete(cat);
+  else st.filterCat.add(cat);
+  if (btn) btn.classList.toggle('active', st.filterCat.has(cat));
   _saApplyFilters();
-  document.querySelectorAll('#sa-filter-cats .sa-chip').forEach(c => {
-    c.classList.toggle('active', c.textContent.trim() === cat && st.filterCat !== '');
-  });
 };
 
 window._saKPIFilter = function(type) {
-  // กด KPI card = ล้าง filter ทั้งหมด (reset view)
-  window._saState.filterBranch = '';
-  window._saState.filterCat    = '';
+  window._saState.filterBranch = new Set();
+  window._saState.filterCat    = new Set();
   window._saState.filterSearch = '';
   document.querySelectorAll('.sa-chip').forEach(c => c.classList.remove('active'));
   if (document.getElementById('sa-search')) document.getElementById('sa-search').value = '';
@@ -493,8 +489,8 @@ window._saKPIFilter = function(type) {
 };
 
 window._saFilterClear = function() {
-  window._saState.filterBranch = '';
-  window._saState.filterCat    = '';
+  window._saState.filterBranch = new Set();
+  window._saState.filterCat    = new Set();
   window._saState.filterSearch = '';
   document.querySelectorAll('.sa-chip').forEach(c => c.classList.remove('active'));
   if (document.getElementById('sa-search')) document.getElementById('sa-search').value = '';
@@ -516,14 +512,14 @@ window._saApplyFilters = function() {
 function _saGetFilteredData(report) {
   const st = window._saState;
   // No filters → return original
-  if (!st.filterBranch && !st.filterCat && !st.filterSearch) return report;
+  if (!st.filterBranch.size && !st.filterCat.size && !st.filterSearch) return report;
 
   // Filter raw rows
   const rows = (report.rows || []).filter(r => {
-    if (st.filterBranch && r.branch !== st.filterBranch) return false;
-    if (st.filterCat) {
+    if (st.filterBranch.size && !st.filterBranch.has(r.branch)) return false;
+    if (st.filterCat.size) {
       const cat = _saSimplifyCategory(r.category);
-      if (cat !== st.filterCat) return false;
+      if (!st.filterCat.has(cat)) return false;
     }
     if (st.filterSearch) {
       const name = (window._saState.showCodes ? r.productNameRaw : r.productNameClean) || r.productName || '';
@@ -603,12 +599,32 @@ window._saClearDashboard = function() {
 };
 
 // ─── Fix 3+4: Export — ใช้ report จาก window._saCurrentReport โดยตรง ──
+// SAExport ต้องการ nested structure: { summary:{...}, byBranch, byCategory, topProducts }
+function _saBuildExportReport(r) {
+  return {
+    summary: {
+      totalRevenue  : r.totalRevenue   || 0,
+      totalGross    : r.totalGross     || 0,
+      totalDiscount : r.totalDiscount  || 0,
+      discountRate  : r.discountRate   || 0,
+      totalQty      : r.totalQty       || 0,
+      productCount  : r.productCount   || 0,
+      branchCount   : r.branchCount    || 0,
+    },
+    byBranch    : r.byBranch    || [],
+    byCategory  : r.byCategory  || [],
+    topProducts : r.topProducts || [],
+    fileName    : r.fileName    || '',
+    period      : r.period      || '',
+  };
+}
+
 window._saExportExcel = function() {
   const r = window._saCurrentReport;
   if (!r || !r.topProducts?.length) { window.toast('❌ ไม่มีข้อมูลสำหรับ Export', '#c2410c'); return; }
   if (typeof SAExport === 'undefined' || !SAExport.exportToExcel) { window.toast('❌ โมดูล Export ยังไม่โหลด', '#c2410c'); return; }
   try {
-    SAExport.exportToExcel(r, window._saState.showCodes);
+    SAExport.exportToExcel(_saBuildExportReport(r), window._saState.showCodes);
     window.toast('✅ Export Excel สำเร็จ', '#059669');
   } catch(e) {
     window.toast('❌ Export ล้มเหลว: ' + e.message, '#c2410c');
@@ -621,7 +637,7 @@ window._saExportPDF = function() {
   if (!r || !r.topProducts?.length) { window.toast('❌ ไม่มีข้อมูลสำหรับ Export', '#c2410c'); return; }
   if (typeof SAExport === 'undefined' || !SAExport.exportToPDF) { window.toast('❌ โมดูล Export ยังไม่โหลด', '#c2410c'); return; }
   try {
-    SAExport.exportToPDF(r);
+    SAExport.exportToPDF(_saBuildExportReport(r));
   } catch(e) {
     window.toast('❌ Export ล้มเหลว: ' + e.message, '#c2410c');
     console.error(e);
@@ -699,8 +715,8 @@ window._saHistoryDetail = function(id) {
     </div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;">
       <button class="sa-btn primary" onclick="_saOpenHistoryDashboard('${id}')">เปิด Dashboard ↗</button>
-      <button class="sa-btn" onclick="SAExport&&SAExport.exportToExcel(window._saState.savedReports.find(x=>x.id==='${id}'))">Excel</button>
-      <button class="sa-btn" onclick="SAExport&&SAExport.exportToPDF(window._saState.savedReports.find(x=>x.id==='${id}'))">PDF</button>
+      <button class="sa-btn" onclick="SAExport&&SAExport.exportToExcel(_saBuildExportReport(window._saState.savedReports.find(x=>x.id==='${id}')||{}))">Excel</button>
+      <button class="sa-btn" onclick="SAExport&&SAExport.exportToPDF(_saBuildExportReport(window._saState.savedReports.find(x=>x.id==='${id}')||{}))">PDF</button>
     </div>`;
 };
 
