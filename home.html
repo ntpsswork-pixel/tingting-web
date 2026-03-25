@@ -531,7 +531,8 @@
                     <div onclick="openAssetManagement('dashboard')" data-tool="asset-dashboard" style="color:#f59e0b;">● Dashboard</div>
                 </div>
             </div>
-            <div class="nav-item" onclick="window.open('delivery.html','_blank')" style="color:#00c9ff;border-top:1px solid rgba(255,255,255,0.05);">🚛 ระบบขนส่ง (Delivery)</div>
+            <div class="nav-item" onclick="openSalesAnalytics()" data-tool="sales-analytics" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=sales-analytics','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=sales-analytics','_blank');" style="color:#f0b429;border-top:1px solid rgba(255,255,255,0.05);">📊 Sales Analytics</div>
+            <div class="nav-item" onclick="window.open('delivery.html','_blank')" style="color:#00c9ff;">🚛 ระบบขนส่ง (Delivery)</div>
             <div class="nav-item" onclick="window.open('room-space.html','_blank')" style="color:#34d399;">📐 คำนวณพื้นที่ห้อง</div>
             <div class="nav-item" onclick="openHelpGuide()" data-tool="help" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=help','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=help','_blank');" style="color:#7c3aed;">📖 คู่มือการใช้งาน</div>
         </div>
@@ -1580,6 +1581,7 @@
             'asset-dashboard':   ()=>{ if(window.openAssetManagement) window.openAssetManagement('dashboard'); },
             'user-mgmt':         ()=>{ const f=window._origOpenUserManagement||window.openUserManagement; f(); },
             'help':              ()=>{ const f=window._origOpenHelpGuide||window.openHelpGuide; f(); },
+            'sales-analytics':   ()=>{ if(window.openSalesAnalytics) window.openSalesAnalytics(); },
             'monthly-count':     ()=>{
                 try {
                     const raw = sessionStorage.getItem('_mcNav');
@@ -2399,6 +2401,10 @@ window.saveCentralStock = async function(){
     <script src="lot-register.js" defer></script>
     <script src="qc.js" defer></script>
     <script src="asset-mgmt.js" defer></script>
+    <script src="sales-analytics.js" defer></script>
+    <script src="sales-analytics-charts.js" defer></script>
+    <script src="sales-analytics-export.js" defer></script>
+    <script src="sales-analytics-loader.js" defer></script>
 
 </body>
 </html>
