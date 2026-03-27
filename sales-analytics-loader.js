@@ -1,14 +1,14 @@
 // ============================================================
-//  TTGPlus — Sales Analytics Loader  (v3 — multi-file)
-//  แก้เฉพาะไฟล์นี้ ไม่กระทบ home.html หรือ module อื่น
+//  TTGPlus — Sales Analytics  |  sales-analytics-loader.js
+//  Power BI–style UI — multi-file upload, 3 report types
 // ============================================================
 
 window.openSalesAnalytics = async function() {
-  if (typeof XLSX === 'undefined')           await _saLoadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
-  if (typeof Chart === 'undefined')          await _saLoadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js');
-  if (typeof window.SA === 'undefined')      await _saLoadScript('sales-analytics.js');
-  if (typeof window.SACharts === 'undefined') await _saLoadScript('sales-analytics-charts.js');
-  if (typeof window.SAExport === 'undefined') await _saLoadScript('sales-analytics-export.js');
+  if (typeof XLSX      === 'undefined') await _saLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+  if (typeof Chart     === 'undefined') await _saLoad('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js');
+  if (!window.SA)       await _saLoad('sales-analytics.js');
+  if (!window.SACharts) await _saLoad('sales-analytics-charts.js');
+  if (!window.SAExport) await _saLoad('sales-analytics-export.js');
 
   document.getElementById('dashboardView')?.classList.add('hidden');
   const container = document.getElementById('toolAppContainer');
@@ -17,817 +17,936 @@ window.openSalesAnalytics = async function() {
   _initSAEvents();
 
   if (location.hash !== '#sales-analytics')
-    history.pushState({ nav: 'sales-analytics' }, '', '#sales-analytics');
+    history.pushState({ nav:'sales-analytics' },'','#sales-analytics');
 };
 
-function _saLoadScript(src) {
-  return new Promise((res, rej) => {
-    if (document.querySelector(`script[src="${src}"]`)) { setTimeout(res, 80); return; }
+function _saLoad(src) {
+  return new Promise((res,rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) { setTimeout(res,80); return; }
     const s = document.createElement('script');
-    s.src = src;
-    s.onload = () => setTimeout(res, 80);
-    s.onerror = rej;
+    s.src = src; s.onload = () => setTimeout(res,80); s.onerror = rej;
     document.head.appendChild(s);
   });
 }
 
-// ─── Global state ─────────────────────────────────────────────
+// ─── State ────────────────────────────────────────────────────
 window._saState = {
-  showCodes    : false,
+  activePage   : 'overview',
+  trendGroup   : 'day',
   productMode  : 'revenue',
-  trendMode    : 'totalRevenue',
+  showCodes    : false,
   savedReports : [],
   compareSet   : new Set(),
   filterBranch : new Set(),
   filterCat    : new Set(),
   filterSearch : '',
-  // multi-file state
-  uploadedFiles: [],   // [{ fileName, type, label, rows, summary }]
-  activeFileIdx: null, // index ของไฟล์ที่กำลังแสดง
+  // loaded file data keyed by type
+  data: {},           // { product:{rows,summary,...}, daily_product:{...}, bill:{...}, promo:{...} }
+  pendingFiles: [],   // files waiting for confirm
 };
-
-// ─── Report type detection ────────────────────────────────────
-const SA_REPORT_TYPES = [
-  { id:'product',  label:'ยอดขายตามสินค้า',  icon:'🛍',  keywords:['ชื่อสินค้า','สินค้า','product','item','หมวดสินค้า'] },
-  { id:'branch',   label:'ยอดขายตามสาขา',    icon:'🏪',  keywords:['สาขา','branch','store','outlet'] },
-  { id:'daily',    label:'ยอดขายรายวัน',      icon:'📅',  keywords:['วันที่','date','วัน','daily'] },
-  { id:'monthly',  label:'ยอดขายรายเดือน',    icon:'📆',  keywords:['เดือน','month','monthly'] },
-  { id:'category', label:'ยอดขายตามหมวด',     icon:'🏷',  keywords:['หมวด','category','group','กลุ่ม'] },
-  { id:'bill',     label:'ยอดขายตามบิล',      icon:'🧾',  keywords:['บิล','bill','receipt','เลขบิล','invoice'] },
-];
-
-function _saDetectReportType(headers) {
-  const h = headers.map(x => String(x).toLowerCase());
-  let best = null, bestScore = 0;
-  for (const type of SA_REPORT_TYPES) {
-    const score = type.keywords.filter(k => h.some(hh => hh.includes(k))).length;
-    if (score > bestScore) { bestScore = score; best = type; }
-  }
-  return best || { id:'unknown', label:'ไม่ทราบประเภท', icon:'📄', keywords:[] };
-}
 
 // ─── Build HTML ───────────────────────────────────────────────
 function _buildSAHTML() {
   return `
 <style>
-.sa-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px;}
-.sa-kpi{background:#f8fafc;border-radius:10px;padding:14px 16px;border:1px solid #eef1f6;cursor:pointer;transition:.15s;}
-.sa-kpi:hover{background:#f1f5f9;}.sa-kpi.active{background:#fffbeb;border-color:#f0b429;}
-.sa-kpi-label{font-size:10px;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;}
-.sa-kpi-value{font-size:22px;font-weight:700;color:#0f172a;line-height:1.2;}
-.sa-kpi-sub{font-size:11px;color:#94a3b8;margin-top:3px;}
-.sa-card{background:white;border-radius:14px;padding:18px 20px;border:1px solid #eef1f6;box-shadow:0 1px 4px rgba(0,0,0,.05);}
-.sa-card-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#94a3b8;margin-bottom:14px;}
-.sa-grid-2{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;}
-.sa-grid-1{margin-bottom:14px;}
-/* filter bar */
-.sa-filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:16px;}
-.sa-filter-label{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;}
-.sa-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;border:1px solid #e2e8f0;background:white;font-size:12px;cursor:pointer;transition:.15s;font-family:inherit;color:#475569;font-weight:500;}
-.sa-chip:hover{border-color:#f0b429;color:#0f172a;}.sa-chip.active{background:#f0b429;border-color:#f0b429;color:#0f172a;font-weight:700;}
-.sa-filter-divider{width:1px;height:20px;background:#e2e8f0;}
-.sa-filter-summary{font-size:12px;color:#64748b;margin-left:auto;}
-.sa-filter-clear{font-size:12px;color:#ef4444;cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid #fca5a5;background:white;font-family:inherit;}
-.sa-filter-clear:hover{background:#fef2f2;}
-/* tabs & buttons */
-.sa-tab-bar{display:flex;gap:4px;}
-.sa-tab{font-size:12px;padding:5px 14px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;background:transparent;color:#64748b;font-family:inherit;transition:.15s;}
-.sa-tab:hover{background:#f8fafc;}.sa-tab.active{background:#f8fafc;color:#0f172a;font-weight:600;border-color:#cbd5e1;}
-.sa-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:7px 14px;border-radius:9px;border:1px solid #e2e8f0;cursor:pointer;background:white;color:#334155;font-family:inherit;font-weight:500;transition:.15s;}
-.sa-btn:hover{background:#f8fafc;border-color:#cbd5e1;}
-.sa-btn.primary{background:linear-gradient(135deg,#f0b429,#d97706);color:#0f172a;border:none;font-weight:700;}
-.sa-btn.danger{color:#ef4444;border-color:#fca5a5;}
-/* upload */
-.sa-upload-zone{border:2px dashed #e2e8f0;border-radius:14px;padding:32px 24px;text-align:center;cursor:pointer;transition:.2s;}
-.sa-upload-zone:hover,.sa-upload-zone.drag-over{border-color:#f0b429;background:#fffbeb;}
-.sa-progress-bar{height:5px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-top:10px;}
-.sa-progress-fill{height:100%;background:linear-gradient(90deg,#f0b429,#3b82f6);border-radius:3px;transition:width .3s;}
-.sa-status{font-size:12px;color:#64748b;margin-top:6px;}
-/* table */
-.sa-table-wrap{overflow-x:auto;}
-.sa-table{width:100%;border-collapse:collapse;font-size:12px;}
-.sa-table th{font-weight:600;color:#64748b;padding:8px 10px;border-bottom:1.5px solid #e8ecf0;text-align:left;background:#f8fafc;white-space:nowrap;}
-.sa-table td{padding:6px 10px;border-bottom:1px solid #f4f6fa;color:#1e293b;vertical-align:middle;}
-.sa-table tr:hover td{background:#f8fafc;}
-.sa-table .num{text-align:right;font-variant-numeric:tabular-nums;}
-.sa-table .rank{color:#94a3b8;width:28px;}
-.sa-badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;}
-.sa-bh{background:#fef3c7;color:#92400e;}.sa-bb{background:#dbeafe;color:#1d4ed8;}
-.sa-bp{background:#ede9fe;color:#5b21b6;}.sa-bt{background:#d1fae5;color:#065f46;}
-.sa-bf{background:#fee2e2;color:#991b1b;}.sa-bc{background:#fce7f3;color:#9d174d;}
-.sa-bg{background:#f1f5f9;color:#475569;}
-/* donut */
-.sa-donut-wrap{display:flex;align-items:center;gap:14px;}
-.sa-donut-center{position:relative;flex-shrink:0;}
-.sa-donut-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;}
-.sa-donut-label-top{font-size:9px;color:#94a3b8;}
-.sa-donut-label-val{font-size:12px;font-weight:700;color:#0f172a;}
-.sa-leg-item{display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;padding:3px 6px;border-radius:6px;transition:.12s;}
-.sa-leg-item:hover{background:#f8fafc;}.sa-leg-item.active{background:#fffbeb;}
-.sa-leg-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
-.sa-leg-name{font-size:12px;color:#64748b;flex:1;}
-.sa-leg-val{font-size:12px;color:#0f172a;font-weight:600;}
-.sa-leg-pct{font-size:11px;color:#94a3b8;width:38px;text-align:right;}
-/* history */
-.sa-report-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border:1px solid #e8ecf0;border-radius:10px;margin-bottom:7px;cursor:pointer;transition:.15s;background:white;}
-.sa-report-item:hover{background:#f8fafc;border-color:#cbd5e1;}.sa-report-item.active{border-color:#f0b429;background:#fffbeb;}
-/* view tabs */
-.sa-view-tabs{display:flex;gap:3px;background:#f1f5f9;padding:3px;border-radius:9px;}
-.sa-view-tab{padding:5px 16px;font-size:12px;border-radius:7px;cursor:pointer;border:none;background:transparent;color:#64748b;font-family:inherit;transition:.15s;font-weight:500;}
-.sa-view-tab.active{background:white;color:#0f172a;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.07);}
-/* toggle */
-.sa-toggle-wrap{display:flex;align-items:center;gap:7px;font-size:12px;color:#64748b;}
-.sa-toggle{position:relative;width:34px;height:18px;flex-shrink:0;}
+/* ── Power BI shell ── */
+#sa-shell{display:flex;flex-direction:column;height:100%;min-height:600px;background:#f3f2f1;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;}
+
+/* Topbar */
+#sa-topbar{background:#252423;display:flex;align-items:stretch;height:44px;flex-shrink:0;padding:0 14px;gap:0;}
+.sa-logo{display:flex;align-items:center;gap:8px;padding:0 14px 0 0;margin-right:12px;border-right:1px solid rgba(255,255,255,.12);}
+.sa-logo-mark{width:24px;height:24px;background:#f0b429;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0f172a;flex-shrink:0;}
+.sa-logo-text{font-size:13px;font-weight:600;color:rgba(255,255,255,.9);}
+.sa-nav{display:flex;align-items:stretch;}
+.sa-nav-item{display:flex;align-items:center;padding:0 14px;font-size:12px;color:rgba(255,255,255,.6);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;gap:5px;white-space:nowrap;}
+.sa-nav-item:hover{color:white;background:rgba(255,255,255,.06);}
+.sa-nav-item.on{color:white;border-bottom-color:#f0b429;}
+.sa-topbar-right{margin-left:auto;display:flex;align-items:center;gap:6px;}
+.sa-tbtn{padding:5px 11px;border-radius:3px;border:none;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;}
+.sa-tbtn.exp{background:rgba(255,255,255,.1);color:white;}
+.sa-tbtn.exp:hover{background:rgba(255,255,255,.18);}
+.sa-tbtn.save{background:#f0b429;color:#0f172a;}
+.sa-tbtn.close{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3);}
+
+/* Body layout */
+#sa-body{display:flex;flex:1;overflow:hidden;}
+
+/* Filter pane */
+#sa-filter-pane{width:196px;flex-shrink:0;background:#faf9f8;border-right:1px solid #e1dfdd;padding:12px 10px;overflow-y:auto;}
+.sa-fp-title{font-size:10px;font-weight:600;color:#605e5c;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;}
+.sa-slicer{margin-bottom:14px;}
+.sa-slicer-label{font-size:11px;font-weight:600;color:#323130;margin-bottom:5px;}
+.sa-slicer-item{display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:11px;cursor:pointer;color:#323130;border-radius:2px;user-select:none;}
+.sa-slicer-item:hover{background:#edebe9;}
+.sa-slicer-item.on{background:#fff4ce;font-weight:600;}
+.sa-cb{width:13px;height:13px;border:1.5px solid #8a8886;border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;}
+.sa-cb.on{background:#f0b429;border-color:#f0b429;color:#0f172a;}
+.sa-fp-divider{height:0.5px;background:#e1dfdd;margin:8px 0;}
+.sa-fp-clear{width:100%;font-size:10px;padding:5px;background:#edebe9;border:none;cursor:pointer;color:#323130;font-weight:600;border-radius:2px;margin-top:6px;font-family:inherit;}
+.sa-fp-clear:hover{background:#e1dfdd;}
+.sa-search-box{width:100%;font-size:11px;padding:5px 8px;border:0.5px solid #e1dfdd;background:white;border-radius:2px;font-family:inherit;outline:none;margin-bottom:6px;}
+.sa-search-box:focus{border-color:#f0b429;}
+
+/* Main canvas */
+#sa-main{flex:1;padding:12px;overflow-y:auto;}
+
+/* Upload zone */
+#sa-upload-zone{border:1.5px dashed #e1dfdd;border-radius:3px;padding:28px 20px;text-align:center;cursor:pointer;transition:.2s;background:white;}
+#sa-upload-zone:hover,#sa-upload-zone.drag-over{border-color:#f0b429;background:#fffbeb;}
+#sa-upload-zone-title{font-size:15px;font-weight:600;color:#323130;margin-bottom:4px;}
+#sa-upload-zone-sub{font-size:12px;color:#8a8886;}
+.sa-prog-bar{height:4px;background:#e1dfdd;border-radius:0;overflow:hidden;margin-top:10px;}
+.sa-prog-fill{height:100%;background:#f0b429;border-radius:0;transition:width .3s;}
+.sa-status{font-size:11px;color:#605e5c;margin-top:5px;}
+
+/* KPI row */
+.pbi-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+.pbi-kpi{background:white;border:0.5px solid #e1dfdd;padding:10px 13px;position:relative;overflow:hidden;border-radius:2px;}
+.pbi-kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;}
+.pbi-kpi-rev::before{background:#f0b429;}
+.pbi-kpi-qty::before{background:#0078d4;}
+.pbi-kpi-prod::before{background:#107c10;}
+.pbi-kpi-disc::before{background:#d83b01;}
+.pbi-kpi-label{font-size:10px;color:#605e5c;margin-bottom:2px;}
+.pbi-kpi-value{font-size:22px;font-weight:300;color:#201f1e;line-height:1.2;}
+.pbi-kpi-sub{font-size:10px;color:#8a8886;margin-top:2px;}
+
+/* Cards */
+.pbi-card{background:white;border:0.5px solid #e1dfdd;padding:12px 14px;border-radius:2px;margin-bottom:8px;}
+.pbi-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.pbi-card-title{font-size:10px;font-weight:600;color:#323130;text-transform:uppercase;letter-spacing:.4px;}
+.pbi-grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:8px;margin-bottom:8px;}
+.pbi-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;}
+.pbi-grid-half{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+
+/* Legend */
+.pbi-leg-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px;color:#323130;}
+.pbi-leg-dot{width:9px;height:9px;flex-shrink:0;border-radius:1px;}
+.pbi-leg-name{flex:1;}
+.pbi-leg-pct{font-weight:600;color:#201f1e;}
+
+/* Table */
+.pbi-table{width:100%;border-collapse:collapse;font-size:11px;}
+.pbi-table th{font-size:10px;font-weight:600;color:#605e5c;padding:6px 8px;border-bottom:2px solid #f0b429;text-align:left;white-space:nowrap;background:white;}
+.pbi-table td{padding:5px 8px;border-bottom:0.5px solid #f3f2f1;color:#201f1e;}
+.pbi-table tr:hover td{background:#faf9f8;}
+.pbi-table .num{text-align:right;font-variant-numeric:tabular-nums;}
+.pbi-databar-wrap{position:relative;height:14px;background:#f3f2f1;}
+.pbi-databar-fill{position:absolute;left:0;top:0;height:100%;opacity:.35;}
+.pbi-databar-text{position:absolute;inset:0;display:flex;align-items:center;padding:0 5px;font-size:10px;font-weight:600;color:#201f1e;}
+
+/* Tabs at bottom */
+#sa-page-tabs{background:#252423;display:flex;align-items:stretch;padding:0 12px;height:30px;flex-shrink:0;}
+.sa-page-tab{display:flex;align-items:center;padding:0 14px;font-size:11px;cursor:pointer;border-radius:4px 4px 0 0;white-space:nowrap;color:rgba(255,255,255,.5);transition:.15s;}
+.sa-page-tab:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.8);}
+.sa-page-tab.on{background:#f3f2f1;color:#201f1e;font-weight:600;}
+
+/* Trend group tabs */
+.sa-group-tabs{display:flex;gap:3px;margin-bottom:8px;}
+.sa-group-tab{padding:3px 12px;font-size:11px;border:0.5px solid #e1dfdd;background:white;cursor:pointer;border-radius:2px;color:#605e5c;font-family:inherit;transition:.12s;}
+.sa-group-tab.on{background:#f0b429;border-color:#f0b429;color:#0f172a;font-weight:600;}
+
+/* Confirm modal */
+#sa-modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:999;}
+#sa-modal{background:white;border-radius:4px;padding:24px 28px;width:440px;max-width:90%;}
+#sa-modal h3{font-size:15px;font-weight:600;color:#201f1e;margin-bottom:4px;}
+#sa-modal .sub{font-size:12px;color:#8a8886;margin-bottom:16px;}
+.sa-detect-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border:0.5px solid #e1dfdd;border-radius:3px;margin-bottom:6px;font-size:12px;}
+.sa-detect-row .fname{flex:1;color:#323130;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sa-detect-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:2px;white-space:nowrap;}
+.sa-detect-row select{font-size:11px;border:0.5px solid #e1dfdd;padding:3px 6px;border-radius:2px;font-family:inherit;cursor:pointer;}
+.sa-modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+.sa-modal-btn{padding:7px 18px;font-size:12px;font-weight:600;border:none;border-radius:3px;cursor:pointer;font-family:inherit;}
+.sa-modal-btn.cancel{background:#f3f2f1;color:#323130;}
+.sa-modal-btn.confirm{background:#f0b429;color:#0f172a;}
+
+/* Toggle */
+.sa-toggle-wrap{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.6);}
+.sa-toggle{position:relative;width:30px;height:16px;flex-shrink:0;}
 .sa-toggle input{opacity:0;width:0;height:0;position:absolute;}
-.sa-toggle-track{position:absolute;inset:0;background:#e2e8f0;border-radius:9px;transition:.2s;cursor:pointer;}
+.sa-toggle-track{position:absolute;inset:0;background:rgba(255,255,255,.2);border-radius:8px;transition:.2s;cursor:pointer;}
 .sa-toggle input:checked+.sa-toggle-track{background:#f0b429;}
-.sa-toggle-thumb{position:absolute;top:2px;left:2px;width:14px;height:14px;background:white;border-radius:50%;transition:.2s;pointer-events:none;}
-.sa-toggle input:checked~.sa-toggle-thumb{transform:translateX(16px);}
-/* ── Multi-file file tabs ── */
-.sa-file-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
-.sa-file-tab{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:22px;border:1.5px solid #e2e8f0;background:white;font-size:12px;cursor:pointer;transition:.15s;font-family:inherit;color:#475569;font-weight:500;position:relative;}
-.sa-file-tab:hover{border-color:#94a3b8;color:#0f172a;}
-.sa-file-tab.active{border-color:#f0b429;background:#fffbeb;color:#92400e;font-weight:700;}
-.sa-file-tab .sa-file-tab-remove{font-size:10px;color:#94a3b8;margin-left:4px;line-height:1;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;}
-.sa-file-tab .sa-file-tab-remove:hover{color:#ef4444;}
-.sa-file-tab-add{padding:6px 12px;border-radius:22px;border:1.5px dashed #e2e8f0;background:transparent;font-size:12px;cursor:pointer;color:#94a3b8;font-family:inherit;transition:.15s;}
+.sa-toggle-thumb{position:absolute;top:2px;left:2px;width:12px;height:12px;background:white;border-radius:50%;transition:.2s;pointer-events:none;}
+.sa-toggle input:checked~.sa-toggle-thumb{transform:translateX(14px);}
+
+/* File tabs */
+.sa-file-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+.sa-file-tab{padding:4px 12px;font-size:11px;border:0.5px solid #e1dfdd;border-radius:2px;background:white;cursor:pointer;color:#605e5c;font-family:inherit;}
+.sa-file-tab:hover{border-color:#8a8886;}
+.sa-file-tab.on{border-color:#f0b429;background:#fff4ce;color:#323130;font-weight:600;}
+.sa-file-tab-add{padding:4px 10px;font-size:11px;border:0.5px dashed #e1dfdd;border-radius:2px;background:transparent;cursor:pointer;color:#8a8886;font-family:inherit;}
 .sa-file-tab-add:hover{border-color:#f0b429;color:#f0b429;}
-/* ── Type badge ── */
-.sa-type-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;background:#f1f5f9;color:#475569;}
-/* ── Overview cross-file ── */
-.sa-overview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:16px;}
-.sa-overview-card{background:white;border:1px solid #eef1f6;border-radius:12px;padding:14px 16px;cursor:pointer;transition:.15s;position:relative;overflow:hidden;}
-.sa-overview-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-1px);}
-.sa-overview-card.active{border-color:#f0b429;background:#fffbeb;}
-.sa-overview-card-icon{font-size:24px;margin-bottom:8px;}
-.sa-overview-card-type{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
-.sa-overview-card-name{font-size:13px;font-weight:600;color:#0f172a;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sa-overview-card-val{font-size:18px;font-weight:700;color:#0f172a;}
-.sa-overview-card-sub{font-size:11px;color:#94a3b8;margin-top:2px;}
-@media(max-width:900px){.sa-grid-2{grid-template-columns:1fr;}.sa-kpi-grid{grid-template-columns:1fr 1fr;}}
+
+@media(max-width:900px){
+  #sa-filter-pane{display:none;}
+  .pbi-kpi-row{grid-template-columns:1fr 1fr;}
+  .pbi-grid-2,.pbi-grid-3,.pbi-grid-half{grid-template-columns:1fr;}
+}
 </style>
 
-<div style="padding:24px 28px;" id="saWrap">
-  <!-- Page Header -->
-  <div class="tool-header" style="border-bottom:1px solid #e2e8f0;padding-bottom:16px;margin-bottom:20px;">
-    <div>
-      <h2 style="font-size:18px;font-weight:800;color:#0f172a;">📊 Sales Analytics</h2>
-      <div style="font-size:12px;color:#94a3b8;margin-top:2px;">วิเคราะห์ยอดขาย • TingTing Group</div>
+<div id="sa-shell" style="position:relative;">
+
+  <!-- Topbar -->
+  <div id="sa-topbar">
+    <div class="sa-logo">
+      <div class="sa-logo-mark">TT</div>
+      <span class="sa-logo-text">TTGPlus</span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div class="sa-nav" id="sa-nav">
+      <div class="sa-nav-item on"  onclick="_saPage('overview',this)"  id="sa-nav-overview">Overview</div>
+      <div class="sa-nav-item"     onclick="_saPage('trend',this)"     id="sa-nav-trend">Trend</div>
+      <div class="sa-nav-item"     onclick="_saPage('products',this)"  id="sa-nav-products">สินค้า</div>
+      <div class="sa-nav-item"     onclick="_saPage('channel',this)"   id="sa-nav-channel">Channel</div>
+      <div class="sa-nav-item"     onclick="_saPage('promo',this)"     id="sa-nav-promo">โปรโมชั่น</div>
+      <div class="sa-nav-item"     onclick="_saPage('history',this)"   id="sa-nav-history">ประวัติ</div>
+    </div>
+    <div class="sa-topbar-right">
       <div class="sa-toggle-wrap">
         <label class="sa-toggle">
           <input type="checkbox" id="sa-toggle-codes">
           <div class="sa-toggle-track"></div>
           <div class="sa-toggle-thumb"></div>
         </label>
-        แสดงรหัสสินค้า
+        รหัส
       </div>
-      <div class="sa-view-tabs">
-        <button class="sa-view-tab active" onclick="_saView('dashboard')" id="sa-tab-dashboard">Dashboard</button>
-        <button class="sa-view-tab"        onclick="_saView('history')"   id="sa-tab-history">ประวัติ</button>
-        <button class="sa-view-tab"        onclick="_saView('compare')"   id="sa-tab-compare">เปรียบเทียบ</button>
-      </div>
-      <button class="sa-btn" onclick="closeTool()" style="padding:6px 12px;color:#ef4444;border-color:#fca5a5;">✕ ปิด</button>
+      <button class="sa-tbtn exp" onclick="_saExportExcel()">Excel</button>
+      <button class="sa-tbtn exp" onclick="_saExportPDF()">PDF</button>
+      <button class="sa-tbtn save" onclick="_saSaveReport()">บันทึก</button>
+      <button class="sa-tbtn close" onclick="closeTool()">✕</button>
     </div>
   </div>
 
-  <!-- ══ VIEW: Dashboard ══ -->
-  <div id="sa-view-dashboard">
+  <!-- Body -->
+  <div id="sa-body">
+    <!-- Filter pane -->
+    <div id="sa-filter-pane">
+      <div class="sa-fp-title">Filters</div>
 
-    <!-- Upload card -->
-    <div class="sa-card" style="margin-bottom:16px;" id="sa-upload-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <div class="sa-card-title" style="margin-bottom:0;">อัปโหลดรายงาน Excel</div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input type="text" id="sa-period-input" placeholder="งวด เช่น ม.ค. 2568"
-            style="font-size:12px;padding:6px 11px;border:1px solid #e2e8f0;border-radius:8px;width:140px;font-family:inherit;outline:none;">
-          <label class="sa-btn primary" for="sa-file-input">⬆ เลือกไฟล์ (หลายไฟล์ได้)</label>
-          <input type="file" id="sa-file-input" accept=".xlsx,.xls,.csv" multiple style="display:none;">
+      <input type="text" class="sa-search-box" id="sa-fp-search" placeholder="ค้นหาสินค้า..." oninput="_saApplyFilters()">
+
+      <div class="sa-slicer">
+        <div class="sa-slicer-label">สาขา</div>
+        <div id="sa-fp-branches">
+          <div style="font-size:11px;color:#8a8886;">โหลดไฟล์ก่อน</div>
         </div>
       </div>
-      <!-- Drop zone -->
-      <div id="sa-drop-zone" class="sa-upload-zone">
-        <div style="font-size:32px;margin-bottom:8px;">📂</div>
-        <div style="font-size:14px;font-weight:600;margin-bottom:4px;">ลากหลายไฟล์มาวางพร้อมกันได้เลย</div>
-        <div style="font-size:12px;color:#94a3b8;">รองรับ .xlsx, .xls, .csv &nbsp;•&nbsp; ระบบจะ detect ประเภท report อัตโนมัติ</div>
+
+      <div class="sa-fp-divider"></div>
+
+      <div class="sa-slicer">
+        <div class="sa-slicer-label">หมวดสินค้า</div>
+        <div id="sa-fp-categories">
+          <div style="font-size:11px;color:#8a8886;">โหลดไฟล์ก่อน</div>
+        </div>
       </div>
-      <div id="sa-upload-progress" style="display:none;">
-        <div class="sa-progress-bar"><div class="sa-progress-fill" id="sa-progress-fill" style="width:0%"></div></div>
-        <div class="sa-status" id="sa-status-text">กำลังอ่านไฟล์...</div>
-      </div>
+
+      <button class="sa-fp-clear" onclick="_saFilterClear()">✕ ล้าง Filter ทั้งหมด</button>
     </div>
 
-    <!-- Dashboard content (hidden until data loaded) -->
-    <div id="sa-dashboard-content" style="display:none;">
+    <!-- Main -->
+    <div id="sa-main">
 
-      <!-- ── File tabs (multi-file) ── -->
-      <div id="sa-file-tab-bar" class="sa-file-tabs" style="display:none;"></div>
-
-      <!-- Overview grid (shown when multiple files) -->
-      <div id="sa-overview-section" style="display:none;">
-        <div class="sa-card" style="margin-bottom:14px;">
-          <div class="sa-card-title">ภาพรวมทุก Report</div>
-          <div class="sa-overview-grid" id="sa-overview-grid"></div>
-        </div>
+      <!-- File tabs + upload -->
+      <div class="sa-file-tabs" id="sa-file-tabs">
+        <label class="sa-file-tab-add" for="sa-file-input">+ เพิ่มไฟล์</label>
+        <input type="file" id="sa-file-input" accept=".xlsx,.xls,.csv" multiple style="display:none;">
       </div>
 
-      <!-- Current report bar -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:20px;" id="sa-report-icon">📋</span>
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <div style="font-weight:700;font-size:14px;" id="sa-report-name">—</div>
-              <span class="sa-type-badge" id="sa-report-type-badge"></span>
-            </div>
-            <div style="font-size:11px;color:#94a3b8;margin-top:2px;" id="sa-report-meta">—</div>
+      <!-- Upload zone (shown when no files) -->
+      <div id="sa-upload-card">
+        <div id="sa-upload-zone">
+          <div style="font-size:32px;margin-bottom:8px;">📂</div>
+          <div id="sa-upload-zone-title">ลากไฟล์ Excel มาวางที่นี่</div>
+          <div id="sa-upload-zone-sub">รองรับ .xlsx .xls .csv • สามารถลากหลายไฟล์พร้อมกัน</div>
+          <div id="sa-upload-progress" style="display:none;">
+            <div class="sa-prog-bar"><div class="sa-prog-fill" id="sa-prog-fill" style="width:0%"></div></div>
+            <div class="sa-status" id="sa-status-text"></div>
           </div>
         </div>
-        <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <button class="sa-btn" onclick="_saExportExcel()">📥 Export Excel</button>
-          <button class="sa-btn" onclick="_saExportPDF()">🖨 Export PDF</button>
-          <button class="sa-btn primary" onclick="_saSaveReport()">💾 บันทึก</button>
-          <button class="sa-btn danger"  onclick="_saClearDashboard()">✕ ล้างทั้งหมด</button>
-        </div>
       </div>
 
-      <!-- KPI -->
-      <div id="sa-kpi-container"></div>
+      <!-- Dashboard pages -->
+      <div id="sa-pages" style="display:none;">
 
-      <!-- Filter bar -->
-      <div class="sa-filter-bar" id="sa-filter-bar" style="display:none;">
-        <span class="sa-filter-label">🔍 Filter</span>
-        <div id="sa-filter-branches" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-        <div class="sa-filter-divider" id="sa-filter-div" style="display:none;"></div>
-        <div id="sa-filter-cats" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-        <button class="sa-filter-clear" onclick="_saFilterClear()">✕ ล้าง</button>
-        <span class="sa-filter-summary" id="sa-filter-summary"></span>
-      </div>
-
-      <!-- Charts -->
-      <div class="sa-grid-2">
-        <div class="sa-card">
-          <div class="sa-card-title" id="sa-chart-branch-title">ยอดขายตามสาขา</div>
-          <div style="position:relative;height:250px;"><canvas id="sa-branch-chart"></canvas></div>
-        </div>
-        <div class="sa-card">
-          <div class="sa-card-title">หมวดสินค้า</div>
-          <div class="sa-donut-wrap">
-            <div class="sa-donut-center">
-              <canvas id="sa-cat-chart" width="120" height="120"></canvas>
-              <div class="sa-donut-label">
-                <div class="sa-donut-label-top">รวม</div>
-                <div class="sa-donut-label-val" id="sa-donut-total">—</div>
+        <!-- Overview -->
+        <div id="sa-page-overview">
+          <div id="sa-kpi-container"></div>
+          <div class="pbi-grid-2">
+            <div class="pbi-card">
+              <div class="pbi-card-header">
+                <span class="pbi-card-title">ยอดขายตามสาขา</span>
+              </div>
+              <div style="position:relative;height:240px;"><canvas id="sa-branch-chart"></canvas></div>
+            </div>
+            <div class="pbi-card">
+              <div class="pbi-card-header">
+                <span class="pbi-card-title">สัดส่วนหมวดสินค้า</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+                <canvas id="sa-cat-chart" width="120" height="120" style="flex-shrink:0;"></canvas>
+                <div id="sa-cat-legend" style="flex:1;overflow:hidden;"></div>
               </div>
             </div>
-            <div id="sa-cat-legend" style="flex:1;"></div>
+          </div>
+          <div class="pbi-card">
+            <div class="pbi-card-header">
+              <span class="pbi-card-title">สินค้าขายดี Top 10</span>
+              <div style="display:flex;gap:4px;">
+                <button class="sa-group-tab on" onclick="_saProductTab('revenue',this)">ยอดรวม</button>
+                <button class="sa-group-tab"    onclick="_saProductTab('qty',this)">จำนวน</button>
+              </div>
+            </div>
+            <div style="position:relative;height:320px;"><canvas id="sa-product-chart"></canvas></div>
           </div>
         </div>
-      </div>
 
-      <!-- Top Products -->
-      <div class="sa-card sa-grid-1">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div class="sa-card-title" style="margin-bottom:0;" id="sa-top-chart-title">สินค้าขายดี Top 15</div>
-          <div class="sa-tab-bar">
-            <button class="sa-tab active" onclick="_saProductTab('revenue',this)">ยอดรวม</button>
-            <button class="sa-tab" onclick="_saProductTab('qty',this)">จำนวน</button>
+        <!-- Trend -->
+        <div id="sa-page-trend" style="display:none;">
+          <div class="pbi-card">
+            <div class="pbi-card-header">
+              <span class="pbi-card-title">แนวโน้มยอดขาย</span>
+              <div class="sa-group-tabs">
+                <button class="sa-group-tab on" onclick="_saTrendGroup('day',this)">รายวัน</button>
+                <button class="sa-group-tab"    onclick="_saTrendGroup('week',this)">รายสัปดาห์</button>
+                <button class="sa-group-tab"    onclick="_saTrendGroup('month',this)">รายเดือน</button>
+              </div>
+            </div>
+            <div style="position:relative;height:300px;"><canvas id="sa-trend-chart"></canvas></div>
+          </div>
+          <div class="pbi-card">
+            <div class="pbi-card-header">
+              <span class="pbi-card-title">ยอดขายตามสาขา (Trend)</span>
+            </div>
+            <div style="position:relative;height:250px;"><canvas id="sa-trend-branch-chart"></canvas></div>
           </div>
         </div>
-        <div style="position:relative;height:400px;"><canvas id="sa-product-chart"></canvas></div>
-      </div>
 
-      <!-- Detail Table -->
-      <div class="sa-card sa-grid-1">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-          <div class="sa-card-title" style="margin-bottom:0;">รายละเอียด</div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="text" id="sa-search" placeholder="ค้นหา..."
-              style="font-size:12px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:8px;width:160px;font-family:inherit;outline:none;"
-              oninput="_saApplyFilters()">
-            <span style="font-size:12px;color:#94a3b8;" id="sa-table-count">0 รายการ</span>
+        <!-- Products -->
+        <div id="sa-page-products" style="display:none;">
+          <div class="pbi-card">
+            <div class="pbi-card-header">
+              <span class="pbi-card-title">รายละเอียดสินค้า</span>
+              <span style="font-size:11px;color:#8a8886;" id="sa-table-count"></span>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="pbi-table">
+                <thead><tr>
+                  <th style="width:28px">#</th>
+                  <th>ชื่อสินค้า</th>
+                  <th>หมวด</th>
+                  <th class="num">ยอดขาย (฿)</th>
+                  <th class="num">จำนวน</th>
+                  <th class="num">ราคาเฉลี่ย</th>
+                  <th class="num">สัดส่วน</th>
+                  <th style="min-width:80px;">Data bar</th>
+                </tr></thead>
+                <tbody id="sa-detail-tbody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
-        <div class="sa-table-wrap">
-          <table class="sa-table">
-            <thead><tr id="sa-table-head">
-              <th class="rank">#</th>
-              <th>ชื่อ / รายการ</th>
-              <th>หมวด</th>
-              <th class="num">ยอดขาย (฿)</th>
-              <th class="num">จำนวน</th>
-              <th class="num">ราคาเฉลี่ย</th>
-              <th class="num">สัดส่วน</th>
-            </tr></thead>
-            <tbody id="sa-detail-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div><!-- /dashboard -->
 
-  <!-- ══ VIEW: History ══ -->
-  <div id="sa-view-history" style="display:none;">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-      <div class="sa-card">
-        <div class="sa-card-title">รายงานที่บันทึกไว้</div>
-        <div id="sa-history-list">
-          <div style="text-align:center;padding:32px;color:#94a3b8;"><div style="font-size:32px;margin-bottom:8px;">📂</div><div>ยังไม่มีรายงาน</div></div>
+        <!-- Channel (Bill data) -->
+        <div id="sa-page-channel" style="display:none;">
+          <div id="sa-channel-no-data" style="text-align:center;padding:40px;color:#8a8886;">
+            <div style="font-size:32px;margin-bottom:8px;">📋</div>
+            <div>ต้องการไฟล์ <strong>บิลรายการ</strong> เพื่อแสดงข้อมูล Channel</div>
+          </div>
+          <div id="sa-channel-content" style="display:none;">
+            <div class="pbi-grid-3">
+              <div class="pbi-card">
+                <div class="pbi-card-header"><span class="pbi-card-title">ประเภทการสั่ง</span></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:4px 0;">
+                  <canvas id="sa-ordertype-chart" width="110" height="110" style="flex-shrink:0;"></canvas>
+                  <div id="sa-ordertype-legend" style="flex:1;"></div>
+                </div>
+              </div>
+              <div class="pbi-card">
+                <div class="pbi-card-header"><span class="pbi-card-title">ช่องทาง</span></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:4px 0;">
+                  <canvas id="sa-channel-chart" width="110" height="110" style="flex-shrink:0;"></canvas>
+                  <div id="sa-channel-legend" style="flex:1;"></div>
+                </div>
+              </div>
+              <div class="pbi-card">
+                <div class="pbi-card-header"><span class="pbi-card-title">การชำระเงิน</span></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:4px 0;">
+                  <canvas id="sa-payment-chart" width="110" height="110" style="flex-shrink:0;"></canvas>
+                  <div id="sa-payment-legend" style="flex:1;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="pbi-card">
+              <div class="pbi-card-header"><span class="pbi-card-title">Staff Performance</span></div>
+              <div style="overflow-x:auto;">
+                <table class="pbi-table">
+                  <thead><tr>
+                    <th>#</th><th>ชื่อพนักงาน</th>
+                    <th class="num">ยอดรวม</th><th class="num">จำนวนบิล</th><th class="num">avg/บิล</th>
+                  </tr></thead>
+                  <tbody id="sa-staff-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-        <button class="sa-btn" style="width:100%;margin-top:10px;justify-content:center;" onclick="_saLoadHistory()">🔄 โหลดใหม่</button>
-      </div>
-      <div class="sa-card" id="sa-history-detail">
-        <div class="sa-card-title">รายละเอียด</div>
-        <div style="text-align:center;padding:32px;color:#94a3b8;"><div style="font-size:28px;margin-bottom:8px;">👆</div><div>เลือกรายงานทางซ้าย</div></div>
-      </div>
-    </div>
+
+        <!-- Promo -->
+        <div id="sa-page-promo" style="display:none;">
+          <div id="sa-promo-no-data" style="text-align:center;padding:40px;color:#8a8886;">
+            <div style="font-size:32px;margin-bottom:8px;">🏷</div>
+            <div>ต้องการไฟล์ <strong>โปรโมชั่น</strong> เพื่อแสดงข้อมูล</div>
+          </div>
+          <div id="sa-promo-content" style="display:none;">
+            <div class="pbi-grid-half">
+              <div class="pbi-card">
+                <div class="pbi-card-header"><span class="pbi-card-title">โปรโมชั่นที่ใช้มากสุด (ยอดส่วนลด)</span></div>
+                <div style="position:relative;height:280px;"><canvas id="sa-promo-chart"></canvas></div>
+              </div>
+              <div class="pbi-card">
+                <div class="pbi-card-header"><span class="pbi-card-title">ส่วนลดตามสาขา</span></div>
+                <div style="position:relative;height:280px;"><canvas id="sa-promo-branch-chart"></canvas></div>
+              </div>
+            </div>
+            <div class="pbi-card">
+              <div class="pbi-card-header">
+                <span class="pbi-card-title">รายละเอียดโปรโมชั่น</span>
+                <span id="sa-promo-kpi" style="font-size:11px;color:#8a8886;"></span>
+              </div>
+              <div style="overflow-x:auto;">
+                <table class="pbi-table">
+                  <thead><tr><th>#</th><th>ชื่อโปรโมชั่น</th><th>ประเภท</th>
+                    <th class="num">ครั้งที่ใช้</th><th class="num">ยอดส่วนลด</th><th class="num">สาขา</th>
+                  </tr></thead>
+                  <tbody id="sa-promo-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div id="sa-page-history" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="pbi-card">
+              <div class="pbi-card-header"><span class="pbi-card-title">รายงานที่บันทึกไว้</span></div>
+              <div id="sa-history-list">
+                <div style="text-align:center;padding:28px;color:#8a8886;font-size:12px;">ยังไม่มีรายงาน</div>
+              </div>
+              <button style="width:100%;margin-top:8px;padding:6px;font-size:11px;background:#f3f2f1;border:none;cursor:pointer;font-family:inherit;" onclick="_saLoadHistory()">↻ โหลดใหม่</button>
+            </div>
+            <div class="pbi-card" id="sa-history-detail">
+              <div style="text-align:center;padding:28px;color:#8a8886;font-size:12px;">เลือกรายงานทางซ้าย</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /sa-pages -->
+    </div><!-- /sa-main -->
+  </div><!-- /sa-body -->
+
+  <!-- Page tabs -->
+  <div id="sa-page-tabs">
+    <div class="sa-page-tab on"  onclick="_saPage('overview',this)"  id="sa-tab-overview">Overview</div>
+    <div class="sa-page-tab"     onclick="_saPage('trend',this)"     id="sa-tab-trend">Trend</div>
+    <div class="sa-page-tab"     onclick="_saPage('products',this)"  id="sa-tab-products">สินค้า</div>
+    <div class="sa-page-tab"     onclick="_saPage('channel',this)"   id="sa-tab-channel">Channel</div>
+    <div class="sa-page-tab"     onclick="_saPage('promo',this)"     id="sa-tab-promo">โปรโมชั่น</div>
   </div>
 
-  <!-- ══ VIEW: Compare ══ -->
-  <div id="sa-view-compare" style="display:none;">
-    <div class="sa-card" style="margin-bottom:14px;">
-      <div class="sa-card-title">เปรียบเทียบหลายงวด</div>
-      <div id="sa-compare-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:12px;">
-        <div style="font-size:12px;color:#94a3b8;">กำลังโหลด...</div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button class="sa-btn primary" onclick="_saRunCompare()">📊 เปรียบเทียบ</button>
-        <div class="sa-tab-bar" id="sa-trend-tabs">
-          <button class="sa-tab active" onclick="_saTrendMetric('totalRevenue',this)">ยอดขาย</button>
-          <button class="sa-tab" onclick="_saTrendMetric('totalQty',this)">จำนวน</button>
-          <button class="sa-tab" onclick="_saTrendMetric('totalDiscount',this)">ส่วนลด</button>
-        </div>
-      </div>
-    </div>
-    <div id="sa-compare-charts" style="display:none;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div class="sa-card"><div class="sa-card-title">แนวโน้ม</div>
-          <div style="position:relative;height:250px;"><canvas id="sa-trend-chart"></canvas></div></div>
-        <div class="sa-card"><div class="sa-card-title">เปรียบเทียบสาขา</div>
-          <div style="position:relative;height:250px;"><canvas id="sa-branch-compare-chart"></canvas></div></div>
-      </div>
-    </div>
-  </div>
 </div>`;
 }
 
 // ─── Init events ──────────────────────────────────────────────
 function _initSAEvents() {
+  // toggle codes
   document.getElementById('sa-toggle-codes').addEventListener('change', function() {
     window._saState.showCodes = this.checked;
-    const idx = window._saState.activeFileIdx;
-    if (idx !== null && window._saState.uploadedFiles[idx])
-      _saShowFile(idx);
+    _saRenderAll();
   });
 
-  // Multi-file input
-  document.getElementById('sa-file-input').addEventListener('change', e => {
-    if (e.target.files.length) _saProcessFiles([...e.target.files]);
-  });
+  // file input
+  const fi = document.getElementById('sa-file-input');
+  fi.addEventListener('change', e => { if (e.target.files.length) _saHandleFiles(e.target.files); });
 
-  const dz = document.getElementById('sa-drop-zone');
+  // drag/drop on upload zone
+  const dz = document.getElementById('sa-upload-zone');
+  dz.addEventListener('click', () => fi.click());
   dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
   dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
   dz.addEventListener('drop', e => {
     e.preventDefault(); dz.classList.remove('drag-over');
-    const files = [...e.dataTransfer.files].filter(f => f.name.match(/\.(xlsx|xls|csv)$/i));
-    if (files.length) _saProcessFiles(files);
+    if (e.dataTransfer.files.length) _saHandleFiles(e.dataTransfer.files);
+  });
+
+  // drag/drop on entire shell (after files loaded)
+  const shell = document.getElementById('sa-shell');
+  shell.addEventListener('dragover',  e => { e.preventDefault(); });
+  shell.addEventListener('drop', e => {
+    e.preventDefault();
+    if (e.dataTransfer.files.length) _saHandleFiles(e.dataTransfer.files);
   });
 }
 
-// ─── View switcher ────────────────────────────────────────────
-window._saView = function(v) {
-  ['dashboard','history','compare'].forEach(id => {
-    document.getElementById('sa-view-'+id).style.display = id === v ? '' : 'none';
-    document.getElementById('sa-tab-'+id).classList.toggle('active', id === v);
-  });
-  if (v === 'history' || v === 'compare') _saLoadHistory();
+// ─── Handle dropped/selected files ───────────────────────────
+window._saHandleFiles = async function(fileList) {
+  const files = Array.from(fileList).filter(f => f.name.match(/\.(xlsx|xls|csv)$/i));
+  if (!files.length) { window.toast('❌ รองรับเฉพาะ .xlsx, .xls, .csv', '#c2410c'); return; }
+
+  _saSetProgress(10, 'กำลังตรวจสอบประเภทไฟล์...');
+
+  // detect types
+  const detections = await Promise.all(files.map(async f => {
+    const type = await SA.detectFile(f);
+    return { file:f, type };
+  }));
+
+  _saSetProgress(30, 'ตรวจสอบเสร็จ — กรุณายืนยัน');
+
+  // show confirm modal
+  _saShowConfirmModal(detections);
 };
 
-// ─── Progress ─────────────────────────────────────────────────
-function _saSetProgress(pct, msg) {
-  document.getElementById('sa-upload-progress').style.display = '';
-  document.getElementById('sa-progress-fill').style.width = pct + '%';
-  document.getElementById('sa-status-text').textContent = msg;
-}
+// ─── Confirm modal ────────────────────────────────────────────
+function _saShowConfirmModal(detections) {
+  const typeLabels = {
+    daily_product: { label:'สินค้าตามวัน', color:'#faeeda', text:'#633806' },
+    product      : { label:'ยอดขายตามสินค้า', color:'#faeeda', text:'#633806' },
+    bill         : { label:'บิลรายการ', color:'#e6f1fb', text:'#0c447c' },
+    promo        : { label:'โปรโมชั่น', color:'#ede9fe', text:'#3c3489' },
+    unknown      : { label:'ไม่ทราบ', color:'#f3f2f1', text:'#605e5c' },
+  };
 
-// ─── Process multiple files ───────────────────────────────────
-window._saProcessFiles = async function(files) {
-  const period  = document.getElementById('sa-period-input').value.trim();
-  const total   = files.length;
-  const results = [];
+  const rows = detections.map((d,i) => {
+    const tl = typeLabels[d.type] || typeLabels.unknown;
+    return `
+    <div class="sa-detect-row">
+      <span class="sa-detect-badge" style="background:${tl.color};color:${tl.text};">${tl.label}</span>
+      <span class="fname">${d.file.name}</span>
+      <select id="sa-type-sel-${i}" style="font-size:11px;border:0.5px solid #e1dfdd;padding:3px 6px;border-radius:2px;font-family:inherit;">
+        <option value="daily_product" ${d.type==='daily_product'?'selected':''}>สินค้าตามวัน</option>
+        <option value="product"       ${d.type==='product'?'selected':''}>ยอดขายตามสินค้า</option>
+        <option value="bill"          ${d.type==='bill'?'selected':''}>บิลรายการ</option>
+        <option value="promo"         ${d.type==='promo'?'selected':''}>โปรโมชั่น</option>
+        <option value="unknown"       ${d.type==='unknown'?'selected':''}>—ไม่ใช้—</option>
+      </select>
+    </div>`;
+  }).join('');
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) continue;
-    _saSetProgress(Math.round((i / total) * 80), `กำลังอ่าน ${file.name} (${i+1}/${total})...`);
-    try {
-      const { rows, headers } = await SA.parseExcelFile(file, false);
-      const summary  = SA.aggregateData(rows);
-      const type     = _saDetectReportType(headers);
-      results.push({ fileName: file.name, period, type, rows, summary, headers });
-    } catch (err) {
-      window.toast('❌ อ่านไฟล์ ' + file.name + ' ไม่ได้: ' + err.message, '#c2410c');
-    }
-  }
-
-  if (!results.length) { _saSetProgress(0, '❌ ไม่มีไฟล์ที่อ่านได้'); return; }
-
-  _saSetProgress(90, 'กำลังสร้าง dashboard...');
-
-  // Merge กับ uploadedFiles เดิม (ถ้ามี) — ป้องกัน duplicate ชื่อไฟล์เดิม
-  const st = window._saState;
-  results.forEach(r => {
-    const existIdx = st.uploadedFiles.findIndex(f => f.fileName === r.fileName);
-    if (existIdx >= 0) st.uploadedFiles[existIdx] = r;
-    else st.uploadedFiles.push(r);
-  });
-
-  st.filterBranch = new Set();
-  st.filterCat    = new Set();
-  st.filterSearch = '';
-
-  document.getElementById('sa-dashboard-content').style.display = '';
-  _saRenderFileTabs();
-  _saShowFile(0);
-
-  _saSetProgress(100, `✓ โหลด ${st.uploadedFiles.length} ไฟล์สำเร็จ`);
-  window.toast('✅ โหลด ' + st.uploadedFiles.length + ' ไฟล์สำเร็จ', '#059669');
-  setTimeout(() => { document.getElementById('sa-upload-progress').style.display = 'none'; }, 3000);
-  document.getElementById('sa-file-input').value = '';
-};
-
-// ─── File tabs ────────────────────────────────────────────────
-function _saRenderFileTabs() {
-  const st  = window._saState;
-  const bar = document.getElementById('sa-file-tab-bar');
-  if (!bar) return;
-
-  if (st.uploadedFiles.length <= 1) { bar.style.display = 'none'; }
-  else {
-    bar.style.display = 'flex';
-    bar.innerHTML = st.uploadedFiles.map((f, i) => `
-      <button class="sa-file-tab ${i === st.activeFileIdx ? 'active' : ''}"
-        onclick="_saShowFile(${i})">
-        <span>${f.type.icon}</span>
-        <span>${f.type.label}</span>
-        <span style="font-size:10px;color:#94a3b8;">${f.period || _saShortName(f.fileName)}</span>
-        <button class="sa-file-tab-remove" onclick="event.stopPropagation();_saRemoveFile(${i})" title="ลบ">✕</button>
-      </button>`).join('') +
-      `<button class="sa-file-tab-add" onclick="document.getElementById('sa-file-input').click()">+ เพิ่มไฟล์</button>`;
-
-    // Overview section (2+ files)
-    _saRenderOverview();
-  }
-}
-
-function _saShortName(name) {
-  return name.length > 16 ? name.slice(0, 14) + '…' : name;
-}
-
-window._saRemoveFile = function(idx) {
-  const st = window._saState;
-  st.uploadedFiles.splice(idx, 1);
-  if (!st.uploadedFiles.length) { _saClearDashboard(); return; }
-  const newIdx = Math.min(idx, st.uploadedFiles.length - 1);
-  _saRenderFileTabs();
-  _saShowFile(newIdx);
-};
-
-window._saShowFile = function(idx) {
-  const st   = window._saState;
-  const file = st.uploadedFiles[idx];
-  if (!file) return;
-  st.activeFileIdx = idx;
-
-  // set current report
-  window._saCurrentReport = { ...file.summary, fileName: file.fileName, period: file.period, rows: file.rows, reportType: file.type };
-
-  // Update active tab
-  document.querySelectorAll('.sa-file-tab').forEach((el, i) => el.classList.toggle('active', i === idx));
-
-  // Render dashboard for this file
-  st.filterBranch = new Set();
-  st.filterCat    = new Set();
-  st.filterSearch = '';
-  _saRenderDashboard(window._saCurrentReport);
-};
-
-// ─── Overview (multi-file summary cards) ─────────────────────
-function _saRenderOverview() {
-  const st  = window._saState;
-  const sec = document.getElementById('sa-overview-section');
-  const grid = document.getElementById('sa-overview-grid');
-  if (!sec || !grid) return;
-
-  if (st.uploadedFiles.length < 2) { sec.style.display = 'none'; return; }
-  sec.style.display = '';
-
-  const fmtB = n => '฿' + Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0});
-  grid.innerHTML = st.uploadedFiles.map((f, i) => `
-    <div class="sa-overview-card ${i === st.activeFileIdx ? 'active' : ''}" onclick="_saShowFile(${i})">
-      <div class="sa-overview-card-icon">${f.type.icon}</div>
-      <div class="sa-overview-card-type">${f.type.label}</div>
-      <div class="sa-overview-card-name" title="${f.fileName}">${f.period || _saShortName(f.fileName)}</div>
-      <div class="sa-overview-card-val">${fmtB(f.summary.totalRevenue)}</div>
-      <div class="sa-overview-card-sub">${f.summary.totalQty?.toLocaleString('th-TH')||0} รายการ • ${f.summary.productCount||0} สินค้า</div>
-    </div>`).join('');
-}
-
-// ─── Render dashboard ─────────────────────────────────────────
-window._saRenderDashboard = function(report) {
-  const type  = report.reportType || { id:'product', label:'ยอดขายตามสินค้า', icon:'🛍' };
-  const fmtB  = n => '฿' + Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0});
-
-  document.getElementById('sa-report-icon').textContent   = type.icon;
-  document.getElementById('sa-report-name').textContent   = report.period || report.fileName || 'รายงาน';
-  document.getElementById('sa-report-type-badge').textContent = type.label;
-  document.getElementById('sa-report-meta').textContent   =
-    (report.totalQty||0).toLocaleString('th-TH') + ' รายการ • ' + (report.branchCount||0) + ' สาขา • ' + (report.productCount||0) + ' สินค้า';
-  document.getElementById('sa-donut-total').textContent   = '฿' + Math.round((report.totalRevenue||0)/1000) + 'K';
-
-  // KPIs
-  document.getElementById('sa-kpi-container').innerHTML = `
-    <div class="sa-kpi-grid">
-      <div class="sa-kpi" onclick="_saKPIFilter()">
-        <div class="sa-kpi-label">ยอดขายสุทธิ</div>
-        <div class="sa-kpi-value">${fmtB(report.totalRevenue)}</div>
-        <div class="sa-kpi-sub">ก่อนลด ${fmtB(report.totalGross||0)}</div>
-      </div>
-      <div class="sa-kpi" onclick="_saKPIFilter()">
-        <div class="sa-kpi-label">รายการขาย</div>
-        <div class="sa-kpi-value">${(report.totalQty||0).toLocaleString('th-TH')}</div>
-        <div class="sa-kpi-sub">รายการ</div>
-      </div>
-      <div class="sa-kpi" onclick="_saKPIFilter()">
-        <div class="sa-kpi-label">สินค้า</div>
-        <div class="sa-kpi-value">${(report.productCount||0).toLocaleString('th-TH')}</div>
-        <div class="sa-kpi-sub">${report.branchCount||0} สาขา</div>
-      </div>
-      <div class="sa-kpi" onclick="_saKPIFilter()">
-        <div class="sa-kpi-label">ส่วนลดรวม</div>
-        <div class="sa-kpi-value">${fmtB(report.totalDiscount)}</div>
-        <div class="sa-kpi-sub">${(report.discountRate||0).toFixed(2)}%</div>
+  const overlay = document.createElement('div');
+  overlay.id = 'sa-modal-overlay';
+  overlay.innerHTML = `
+    <div id="sa-modal">
+      <h3>ตรวจพบ ${detections.length} ไฟล์</h3>
+      <div class="sub">ตรวจสอบประเภทไฟล์ก่อนเริ่มวิเคราะห์ แก้ไขได้หากตรวจไม่ถูก</div>
+      ${rows}
+      <div class="sa-modal-btns">
+        <button class="sa-modal-btn cancel" onclick="document.getElementById('sa-modal-overlay').remove();_saSetProgress(0,'');">ยกเลิก</button>
+        <button class="sa-modal-btn confirm" onclick="_saConfirmFiles(${JSON.stringify(detections.map((_,i)=>i))})">เริ่มวิเคราะห์ →</button>
       </div>
     </div>`;
+  document.getElementById('sa-shell').appendChild(overlay);
 
-  _saBuildFilterBar(report);
-  const filtered = _saGetFilteredData(report);
-  _saRenderCharts(filtered, report.totalRevenue);
-  _saRenderTable(filtered.topProducts, report.totalRevenue);
-};
-
-// ─── Filter bar ───────────────────────────────────────────────
-function _saBuildFilterBar(report) {
-  const bar = document.getElementById('sa-filter-bar');
-  if (!bar) return;
-
-  const hasBranches = (report.branches||[]).length > 0;
-  const hasCats     = (report.categories||[]).length > 0;
-  if (!hasBranches && !hasCats) { bar.style.display = 'none'; return; }
-
-  bar.style.display = 'flex';
-  const st  = window._saState;
-  const brEl = document.getElementById('sa-filter-branches');
-  const caEl = document.getElementById('sa-filter-cats');
-  const divEl = document.getElementById('sa-filter-div');
-
-  brEl.innerHTML = (report.branches||[]).map(b => {
-    const label  = b.replace('สาขา','').trim();
-    const active = st.filterBranch.has(b) ? 'active' : '';
-    return `<button class="sa-chip ${active}" onclick="_saFilterBranch('${b.replace(/'/g,"\\'")}',this)">${label}</button>`;
-  }).join('');
-
-  caEl.innerHTML = (report.categories||[]).map(c => {
-    const active = st.filterCat.has(c) ? 'active' : '';
-    return `<button class="sa-chip ${active}" onclick="_saFilterCat('${c.replace(/'/g,"\\'")}',this)">${c}</button>`;
-  }).join('');
-
-  if (divEl) divEl.style.display = (hasBranches && hasCats) ? '' : 'none';
-  _saUpdateFilterSummary();
+  window._saPendingDetections = detections;
 }
 
-function _saUpdateFilterSummary() {
-  const st = window._saState;
-  const el = document.getElementById('sa-filter-summary');
-  if (!el) return;
-  const parts = [];
-  if (st.filterBranch.size) parts.push('สาขา: ' + [...st.filterBranch].map(b=>b.replace('สาขา','').trim()).join(', '));
-  if (st.filterCat.size)    parts.push('หมวด: ' + [...st.filterCat].join(', '));
-  if (st.filterSearch)      parts.push('ค้นหา: ' + st.filterSearch);
-  el.textContent = parts.length ? '→ ' + parts.join(' & ') : '';
-}
+// ─── Confirmed: parse all files ───────────────────────────────
+window._saConfirmFiles = async function(indices) {
+  document.getElementById('sa-modal-overlay')?.remove();
+  const detections = window._saPendingDetections || [];
+  _saSetProgress(40, 'กำลังประมวลผลไฟล์...');
 
-window._saFilterBranch = function(branch, btn) {
-  const st = window._saState;
-  if (st.filterBranch.has(branch)) st.filterBranch.delete(branch);
-  else st.filterBranch.add(branch);
-  if (btn) btn.classList.toggle('active', st.filterBranch.has(branch));
-  _saApplyFilters();
-};
-window._saFilterCat = function(cat, btn) {
-  const st = window._saState;
-  if (st.filterCat.has(cat)) st.filterCat.delete(cat);
-  else st.filterCat.add(cat);
-  if (btn) btn.classList.toggle('active', st.filterCat.has(cat));
-  _saApplyFilters();
-};
-window._saKPIFilter = function() {
-  window._saState.filterBranch = new Set();
-  window._saState.filterCat    = new Set();
-  window._saState.filterSearch = '';
-  document.querySelectorAll('.sa-chip').forEach(c => c.classList.remove('active'));
-  const s = document.getElementById('sa-search'); if (s) s.value = '';
-  _saApplyFilters();
-};
-window._saFilterClear = window._saKPIFilter;
+  let done = 0;
+  for (const det of detections) {
+    const sel = document.getElementById('sa-type-sel-' + detections.indexOf(det));
+    const forcedType = sel ? sel.value : det.type;
+    if (forcedType === 'unknown') { done++; continue; }
 
-window._saApplyFilters = function() {
-  const r = window._saCurrentReport; if (!r) return;
-  window._saState.filterSearch = (document.getElementById('sa-search')?.value||'').trim().toLowerCase();
-  _saUpdateFilterSummary();
-  const filtered = _saGetFilteredData(r);
-  _saRenderCharts(filtered, r.totalRevenue);
-  _saRenderTable(filtered.topProducts, r.totalRevenue);
-};
-
-function _saGetFilteredData(report) {
-  const st = window._saState;
-  if (!st.filterBranch.size && !st.filterCat.size && !st.filterSearch) return report;
-  const rows = (report.rows||[]).filter(r => {
-    if (st.filterBranch.size && !st.filterBranch.has(r.branch)) return false;
-    if (st.filterCat.size && !st.filterCat.has(_saSimplifyCategory(r.category))) return false;
-    if (st.filterSearch) {
-      const n = (st.showCodes ? r.productNameRaw : r.productNameClean)||r.productName||'';
-      if (!n.toLowerCase().includes(st.filterSearch) && !(r.category||'').toLowerCase().includes(st.filterSearch)) return false;
+    try {
+      const result = await SA.parseAnyFile(det.file, forcedType);
+      // aggregate
+      if (result.type === 'bill') {
+        result.summary = SA.aggregateBillData(result.rows);
+        window._saState.data.bill = result;
+      } else if (result.type === 'promo') {
+        result.summary = SA.aggregatePromoData(result.rows);
+        window._saState.data.promo = result;
+      } else {
+        result.summary = SA.aggregateProductData(result.rows);
+        window._saState.data[result.type] = result; // daily_product or product
+      }
+      // update file tabs
+      _saAddFileTab(det.file.name, result.type);
+    } catch(err) {
+      console.error('Parse error:', det.file.name, err);
+      window.toast('❌ ' + det.file.name + ': ' + err.message, '#c2410c');
     }
-    return true;
-  });
-  return SA.aggregateData(rows);
-}
 
-function _saSimplifyCategory(cat) {
-  if (!cat) return 'อื่นๆ';
-  let c = String(cat);
-  for (const pfx of ['TW.','FD.','TW-','FD-']) { if (c.startsWith(pfx)) c = c.slice(pfx.length); }
-  return c.split(' - ')[0].trim() || 'อื่นๆ';
-}
-
-// ─── Charts ───────────────────────────────────────────────────
-function _saRenderCharts(data, originalTotal) {
-  const dp = data.topProducts.map(p => ({
-    ...p, name: window._saState.showCodes ? (p.rawName||p.name) : (p.cleanName||p.name)
-  }));
-  SACharts.renderBranchChart(data.byBranch, 'sa-branch-chart');
-  SACharts.renderCategoryChart(data.byCategory, 'sa-cat-chart', 'sa-cat-legend');
-  SACharts.renderTopProductsChart(dp, 'sa-product-chart', window._saState.productMode);
-  const dEl = document.getElementById('sa-donut-total');
-  if (dEl) dEl.textContent = '฿' + Math.round((data.totalRevenue||0)/1000) + 'K';
-}
-
-window._saProductTab = function(mode, btn) {
-  window._saState.productMode = mode;
-  document.querySelectorAll('#sa-view-dashboard .sa-tab-bar .sa-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  if (window._saCurrentReport) {
-    const filtered = _saGetFilteredData(window._saCurrentReport);
-    const dp = filtered.topProducts.map(p => ({ ...p, name: window._saState.showCodes ? (p.rawName||p.name) : (p.cleanName||p.name) }));
-    SACharts.renderTopProductsChart(dp, 'sa-product-chart', mode);
+    done++;
+    _saSetProgress(40 + Math.round(done / detections.length * 55), `ประมวลผล ${done}/${detections.length}...`);
   }
+
+  _saSetProgress(100, '✓ เสร็จสิ้น');
+  setTimeout(() => {
+    document.getElementById('sa-upload-progress').style.display = 'none';
+  }, 2000);
+
+  _saShowDashboard();
 };
 
-// ─── Table ────────────────────────────────────────────────────
-const _SA_CAT_BADGE = {
-  'เมนูร้อน':'sa-bh','บิงซู':'sa-bb','บิงซูตามใจ':'sa-bp',
-  'เมนูเครื่องดื่ม':'sa-bt','เมนูอาหาร':'sa-bf','เมนูเย็น':'sa-bc'
-};
-function _saGetBadge(cat) {
-  for (const [k,v] of Object.entries(_SA_CAT_BADGE)) { if (cat?.includes(k)) return v; }
-  return 'sa-bg';
+// ─── Show dashboard ───────────────────────────────────────────
+function _saShowDashboard() {
+  document.getElementById('sa-upload-card').style.display = 'none';
+  document.getElementById('sa-pages').style.display = '';
+  _saBuildFilterPane();
+  _saRenderAll();
 }
-function _saRenderTable(products, total) {
-  document.getElementById('sa-table-count').textContent = products.length.toLocaleString('th-TH') + ' รายการ';
-  document.getElementById('sa-detail-tbody').innerHTML = products.map((p, i) => `
-    <tr>
-      <td class="rank">${i+1}</td>
-      <td>${p.name}</td>
-      <td><span class="sa-badge ${_saGetBadge(p.category)}">${p.category||'อื่นๆ'}</span></td>
+
+// ─── Render all active page ───────────────────────────────────
+function _saRenderAll() {
+  const page = window._saState.activePage;
+  if (page === 'overview')  _saRenderOverview();
+  if (page === 'trend')     _saRenderTrend();
+  if (page === 'products')  _saRenderProducts();
+  if (page === 'channel')   _saRenderChannel();
+  if (page === 'promo')     _saRenderPromo();
+}
+
+// ─── getActiveProductData (with filters applied) ──────────────
+function _saGetProductData() {
+  const st    = window._saState;
+  const src   = st.data.daily_product || st.data.product;
+  if (!src) return null;
+  const filter = { branches: st.filterBranch, categories: st.filterCat, search: st.filterSearch };
+  const hasFilter = st.filterBranch.size || st.filterCat.size || st.filterSearch;
+  const rows  = hasFilter ? SA.filterProductRows(src.rows, filter) : src.rows;
+  return hasFilter ? SA.aggregateProductData(rows) : src.summary;
+}
+
+// ─── Page: Overview ──────────────────────────────────────────
+function _saRenderOverview() {
+  const data = window._saState.data;
+  const pd   = _saGetProductData();
+  const bd   = data.bill?.summary;
+  const prd  = data.promo?.summary;
+
+  SACharts.renderKPICards({ product: pd, bill: bd, promo: prd }, 'sa-kpi-container');
+
+  const byBranch   = pd?.byBranch   || bd?.byBranch   || [];
+  const byCategory = pd?.byCategory || bd?.byCategory || [];
+  const topProds   = pd?.topProducts || [];
+
+  SACharts.renderBranchChart(byBranch, 'sa-branch-chart');
+  SACharts.renderCategoryChart(byCategory, 'sa-cat-chart', 'sa-cat-legend');
+
+  const displayProds = topProds.map(p => ({
+    ...p,
+    name: window._saState.showCodes ? (p.rawName || p.name) : p.name
+  }));
+  SACharts.renderTopProductsChart(displayProds, 'sa-product-chart', window._saState.productMode);
+}
+
+// ─── Page: Trend ─────────────────────────────────────────────
+function _saRenderTrend() {
+  const src = window._saState.data.daily_product || window._saState.data.bill;
+  if (!src) { return; }
+  const byDate   = src.summary.byDate || [];
+  const byBranch = src.summary.byBranch || [];
+  SACharts.renderTrendChart(byDate, 'sa-trend-chart', window._saState.trendGroup);
+  SACharts.renderBranchChart(byBranch, 'sa-trend-branch-chart');
+}
+
+// ─── Page: Products ──────────────────────────────────────────
+function _saRenderProducts() {
+  const pd = _saGetProductData();
+  if (!pd) return;
+  const total = pd.totalRevenue || 1;
+  const prods = pd.topProducts || [];
+  document.getElementById('sa-table-count').textContent = prods.length.toLocaleString() + ' รายการ';
+  document.getElementById('sa-detail-tbody').innerHTML = prods.map((p,i) => {
+    const name = window._saState.showCodes ? (p.rawName || p.name) : p.name;
+    const pct  = (p.revenue / total * 100);
+    return `<tr>
+      <td style="color:#8a8886;font-size:10px;">${i+1}</td>
+      <td>${name}</td>
+      <td><span style="font-size:9px;background:#f3f2f1;padding:2px 6px;border-radius:2px;color:#605e5c;">${p.category||'—'}</span></td>
       <td class="num">${p.revenue.toLocaleString('th-TH')}</td>
       <td class="num">${p.qty.toLocaleString('th-TH')}</td>
       <td class="num">฿${(p.avgPrice||0).toLocaleString('th-TH')}</td>
-      <td class="num" style="color:#94a3b8;">${total > 0 ? (p.revenue/total*100).toFixed(1) : 0}%</td>
+      <td class="num" style="color:#8a8886;">${pct.toFixed(1)}%</td>
+      <td><div class="pbi-databar-wrap"><div class="pbi-databar-fill" style="width:${pct*5}%;max-width:100%;background:#f0b429;"></div><span class="pbi-databar-text">${pct.toFixed(1)}%</span></div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── Page: Channel ────────────────────────────────────────────
+function _saRenderChannel() {
+  const bd = window._saState.data.bill?.summary;
+  if (!bd) {
+    document.getElementById('sa-channel-no-data').style.display = '';
+    document.getElementById('sa-channel-content').style.display = 'none';
+    return;
+  }
+  document.getElementById('sa-channel-no-data').style.display  = 'none';
+  document.getElementById('sa-channel-content').style.display  = '';
+
+  SACharts.renderPieChart(bd.byOrderType || [], 'type',        'sa-ordertype-chart', 'sa-ordertype-legend');
+  SACharts.renderPieChart(bd.byChannel   || [], 'channel',     'sa-channel-chart',   'sa-channel-legend');
+  SACharts.renderPieChart(bd.byPayment   || [], 'payment',     'sa-payment-chart',   'sa-payment-legend');
+
+  const fmtB = n => '฿'+Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0});
+  document.getElementById('sa-staff-tbody').innerHTML = (bd.byStaff||[]).slice(0,15).map((s,i) => `
+    <tr>
+      <td style="color:#8a8886;">${i+1}</td>
+      <td>${s.staff}</td>
+      <td class="num">${fmtB(s.revenue)}</td>
+      <td class="num">${s.bills}</td>
+      <td class="num">${fmtB(s.avgBill)}</td>
     </tr>`).join('');
 }
 
-window._saClearDashboard = function() {
-  window._saState.uploadedFiles = [];
-  window._saState.activeFileIdx = null;
-  window._saCurrentReport = null;
-  document.getElementById('sa-dashboard-content').style.display = 'none';
-  document.getElementById('sa-file-tab-bar').style.display = 'none';
-  document.getElementById('sa-overview-section').style.display = 'none';
-  document.getElementById('sa-file-input').value = '';
-  document.getElementById('sa-upload-progress').style.display = 'none';
-};
+// ─── Page: Promo ─────────────────────────────────────────────
+function _saRenderPromo() {
+  const pr = window._saState.data.promo;
+  if (!pr?.summary) {
+    document.getElementById('sa-promo-no-data').style.display    = '';
+    document.getElementById('sa-promo-content').style.display    = 'none';
+    return;
+  }
+  document.getElementById('sa-promo-no-data').style.display  = 'none';
+  document.getElementById('sa-promo-content').style.display  = '';
+  const pd = pr.summary;
+  document.getElementById('sa-promo-kpi').textContent =
+    'ส่วนลดรวม ฿' + (pd.totalDiscount||0).toLocaleString('th-TH') + ' • ' + (pd.totalUsage||0).toLocaleString() + ' ครั้ง';
 
-// ─── Export helpers ───────────────────────────────────────────
-function _saBuildExportReport(r) {
-  return {
-    summary     : { totalRevenue:r.totalRevenue||0, totalGross:r.totalGross||0, totalDiscount:r.totalDiscount||0, discountRate:r.discountRate||0, totalQty:r.totalQty||0, productCount:r.productCount||0, branchCount:r.branchCount||0 },
-    byBranch    : r.byBranch    || [],
-    byCategory  : r.byCategory  || [],
-    topProducts : r.topProducts || [],
-    fileName    : r.fileName    || '',
-    period      : r.period      || '',
-  };
+  SACharts.renderPromoChart(pd.byPromo||[], 'sa-promo-chart');
+
+  // branch bar for promo
+  const branchData = (pd.byBranch||[]).map(b => ({ ...b, revenue: b.discountAmt }));
+  SACharts.renderBranchChart(branchData, 'sa-promo-branch-chart');
+
+  const fmtB = n => '฿'+Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0});
+  document.getElementById('sa-promo-tbody').innerHTML = (pd.byPromo||[]).map((p,i) => `
+    <tr>
+      <td style="color:#8a8886;">${i+1}</td>
+      <td>${p.promoName}</td>
+      <td style="font-size:10px;color:#8a8886;">${p.promoType||'—'}</td>
+      <td class="num">${(p.usageCount||0).toLocaleString()}</td>
+      <td class="num">${fmtB(p.discountAmt)}</td>
+      <td class="num">${p.branches||'—'}</td>
+    </tr>`).join('');
 }
-window._saExportExcel = function() {
-  const r = window._saCurrentReport;
-  if (!r?.topProducts?.length) { window.toast('❌ ไม่มีข้อมูลสำหรับ Export','#c2410c'); return; }
-  if (!window.SAExport?.exportToExcel) { window.toast('❌ โมดูล Export ยังไม่โหลด','#c2410c'); return; }
-  try { SAExport.exportToExcel(_saBuildExportReport(r), window._saState.showCodes); window.toast('✅ Export Excel สำเร็จ','#059669'); }
-  catch(e) { window.toast('❌ Export ล้มเหลว: '+e.message,'#c2410c'); console.error(e); }
-};
-window._saExportPDF = function() {
-  const r = window._saCurrentReport;
-  if (!r?.topProducts?.length) { window.toast('❌ ไม่มีข้อมูลสำหรับ Export','#c2410c'); return; }
-  if (!window.SAExport?.exportToPDF) { window.toast('❌ โมดูล Export ยังไม่โหลด','#c2410c'); return; }
-  try { SAExport.exportToPDF(_saBuildExportReport(r)); }
-  catch(e) { window.toast('❌ Export ล้มเหลว: '+e.message,'#c2410c'); console.error(e); }
+
+// ─── Filter pane ─────────────────────────────────────────────
+function _saBuildFilterPane() {
+  const src = window._saState.data.daily_product || window._saState.data.product || window._saState.data.bill;
+  if (!src) return;
+  const branches   = src.summary.branches   || [];
+  const categories = (src.summary.categories || src.summary.byCategory?.map(c=>c.category) || []).sort();
+  const st = window._saState;
+
+  document.getElementById('sa-fp-branches').innerHTML = branches.map(b => {
+    const label = b.replace('สาขา','').trim();
+    const on    = st.filterBranch.has(b) ? 'on' : '';
+    return `<div class="sa-slicer-item ${on}" onclick="_saToggleBranch('${b.replace(/'/g,"\\'")}',this)">
+      <div class="sa-cb ${on}">${on?'✓':''}</div>${label}
+    </div>`;
+  }).join('');
+
+  document.getElementById('sa-fp-categories').innerHTML = categories.map(c => {
+    const on = st.filterCat.has(c) ? 'on' : '';
+    return `<div class="sa-slicer-item ${on}" onclick="_saToggleCat('${c.replace(/'/g,"\\'")}',this)">
+      <div class="sa-cb ${on}">${on?'✓':''}</div>${c}
+    </div>`;
+  }).join('');
+}
+
+window._saToggleBranch = function(b, el) {
+  const st = window._saState;
+  if (st.filterBranch.has(b)) st.filterBranch.delete(b);
+  else st.filterBranch.add(b);
+  el.classList.toggle('on', st.filterBranch.has(b));
+  el.querySelector('.sa-cb').classList.toggle('on', st.filterBranch.has(b));
+  el.querySelector('.sa-cb').textContent = st.filterBranch.has(b) ? '✓' : '';
+  _saApplyFilters();
 };
 
-// ─── Save ─────────────────────────────────────────────────────
+window._saToggleCat = function(c, el) {
+  const st = window._saState;
+  if (st.filterCat.has(c)) st.filterCat.delete(c);
+  else st.filterCat.add(c);
+  el.classList.toggle('on', st.filterCat.has(c));
+  el.querySelector('.sa-cb').classList.toggle('on', st.filterCat.has(c));
+  el.querySelector('.sa-cb').textContent = st.filterCat.has(c) ? '✓' : '';
+  _saApplyFilters();
+};
+
+window._saFilterClear = function() {
+  window._saState.filterBranch = new Set();
+  window._saState.filterCat    = new Set();
+  window._saState.filterSearch = '';
+  const si = document.getElementById('sa-fp-search');
+  if (si) si.value = '';
+  document.querySelectorAll('.sa-slicer-item').forEach(el => {
+    el.classList.remove('on');
+    const cb = el.querySelector('.sa-cb');
+    if (cb) { cb.classList.remove('on'); cb.textContent = ''; }
+  });
+  _saApplyFilters();
+};
+
+window._saApplyFilters = function() {
+  window._saState.filterSearch = (document.getElementById('sa-fp-search')?.value||'').trim().toLowerCase();
+  _saRenderAll();
+};
+
+// ─── Page navigation ─────────────────────────────────────────
+window._saPage = function(page, btn) {
+  window._saState.activePage = page;
+  document.querySelectorAll('.sa-nav-item').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.sa-page-tab').forEach(b => b.classList.remove('on'));
+  ['overview','trend','products','channel','promo','history'].forEach(p => {
+    const el = document.getElementById('sa-page-'+p);
+    if (el) el.style.display = p === page ? '' : 'none';
+  });
+  document.getElementById('sa-nav-'+page)?.classList.add('on');
+  document.getElementById('sa-tab-'+page)?.classList.add('on');
+
+  if (page === 'history') _saLoadHistory();
+  else _saRenderAll();
+};
+
+// ─── Trend group ─────────────────────────────────────────────
+window._saTrendGroup = function(g, btn) {
+  window._saState.trendGroup = g;
+  document.querySelectorAll('#sa-page-trend .sa-group-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  _saRenderTrend();
+};
+
+// ─── Product tab ─────────────────────────────────────────────
+window._saProductTab = function(mode, btn) {
+  window._saState.productMode = mode;
+  document.querySelectorAll('#sa-page-overview .sa-group-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  const pd = _saGetProductData();
+  if (!pd) return;
+  const prods = pd.topProducts.map(p => ({...p, name: window._saState.showCodes?(p.rawName||p.name):p.name}));
+  SACharts.renderTopProductsChart(prods, 'sa-product-chart', mode);
+};
+
+// ─── File tab management ─────────────────────────────────────
+function _saAddFileTab(fileName, type) {
+  const typeLabel = { daily_product:'สินค้าตามวัน', product:'สินค้า', bill:'บิล', promo:'โปรโม' };
+  const tabs = document.getElementById('sa-file-tabs');
+  const shortName = fileName.length > 22 ? fileName.slice(0,22)+'…' : fileName;
+  const existing  = tabs.querySelector(`[data-type="${type}"]`);
+  if (existing) { existing.textContent = shortName; return; }
+  const tab = document.createElement('button');
+  tab.className = 'sa-file-tab on';
+  tab.setAttribute('data-type', type);
+  tab.textContent = shortName;
+  tab.title = `${typeLabel[type]||type}: ${fileName}`;
+  tabs.insertBefore(tab, tabs.querySelector('.sa-file-tab-add'));
+}
+
+// ─── Progress ────────────────────────────────────────────────
+function _saSetProgress(pct, msg) {
+  const prog = document.getElementById('sa-upload-progress');
+  const fill = document.getElementById('sa-prog-fill');
+  const txt  = document.getElementById('sa-status-text');
+  if (!prog) return;
+  prog.style.display = pct > 0 ? '' : 'none';
+  if (fill) fill.style.width = pct + '%';
+  if (txt)  txt.textContent  = msg;
+}
+
+// ─── Export ──────────────────────────────────────────────────
+window._saExportExcel = function() {
+  const src = window._saState.data.daily_product || window._saState.data.product;
+  if (!src) { window.toast('❌ ไม่มีข้อมูลสำหรับ Export','#c2410c'); return; }
+  if (!window.SAExport?.exportToExcel) { window.toast('❌ โมดูล Export ยังไม่โหลด','#c2410c'); return; }
+  try {
+    const pd  = src.summary;
+    const bd  = window._saState.data.bill?.summary;
+    const prd = window._saState.data.promo?.summary;
+    const report = {
+      ...pd,
+      fileName : src.fileName,
+      period   : src.fileName?.split('.')[0] || '',
+      byOrderType : bd?.byOrderType || [],
+      byPromo     : prd?.byPromo    || [],
+    };
+    SAExport.exportToExcel(report, window._saState.showCodes);
+    window.toast('✅ Export Excel สำเร็จ','#059669');
+  } catch(e) { window.toast('❌ '+e.message,'#c2410c'); console.error(e); }
+};
+
+window._saExportPDF = function() {
+  const src = window._saState.data.daily_product || window._saState.data.product;
+  if (!src) { window.toast('❌ ไม่มีข้อมูลสำหรับ Export','#c2410c'); return; }
+  if (!window.SAExport?.exportToPDF) { window.toast('❌ โมดูล Export ยังไม่โหลด','#c2410c'); return; }
+  try { SAExport.exportToPDF(SAExport.buildExportReport(src.summary)); }
+  catch(e) { window.toast('❌ '+e.message,'#c2410c'); console.error(e); }
+};
+
+// ─── Save to Firestore ────────────────────────────────────────
 window._saSaveReport = async function() {
-  const r = window._saCurrentReport;
-  if (!r) { window.toast('ไม่มีข้อมูล','#c2410c'); return; }
+  const src = window._saState.data.daily_product || window._saState.data.product;
+  if (!src) { window.toast('ไม่มีข้อมูล','#c2410c'); return; }
   try {
     window.toast('⏳ กำลังบันทึก...');
-    const id = await SA.saveReportToFirestore(window.db, { fileName:r.fileName, period:r.period, summary:r, rows:r.rows||[] });
-    window._saCurrentReport._firestoreId = id;
+    const id = await SA.saveReportToFirestore(window.db, {
+      fileName : src.fileName,
+      period   : src.fileName?.split('.')[0] || '',
+      summary  : src.summary,
+      rows     : src.rows || [],
+    });
     window.toast('✅ บันทึกสำเร็จ','#059669');
-  } catch(e) { window.toast('❌ บันทึกไม่สำเร็จ: '+e.message,'#c2410c'); }
+  } catch(e) { window.toast('❌ '+e.message,'#c2410c'); }
 };
 
-// ─── History ──────────────────────────────────────────────────
+// ─── History ─────────────────────────────────────────────────
 window._saLoadHistory = async function() {
   try {
     window._saState.savedReports = await SA.loadReportList(window.db, 30);
     _saRenderHistory();
-    _saRenderCompareList();
   } catch(e) {
     document.getElementById('sa-history-list').innerHTML =
-      '<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px;">❌ โหลดไม่ได้: '+e.message+'</div>';
+      `<div style="font-size:11px;color:#d83b01;padding:12px;">❌ โหลดไม่ได้: ${e.message}</div>`;
   }
 };
 
 function _saRenderHistory() {
-  const el = document.getElementById('sa-history-list');
   const reports = window._saState.savedReports || [];
-  if (!reports.length) {
-    el.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8;"><div style="font-size:32px;margin-bottom:8px;">📂</div><div>ยังไม่มีรายงาน</div></div>';
-    return;
-  }
+  const el = document.getElementById('sa-history-list');
+  if (!reports.length) { el.innerHTML='<div style="font-size:11px;color:#8a8886;padding:12px;text-align:center;">ยังไม่มีรายงาน</div>'; return; }
+  const fmtB = n => '฿'+Math.round((n||0)/1000)+'K';
   el.innerHTML = reports.map(r => {
     const date = r.uploadedAt?.toDate ? r.uploadedAt.toDate().toLocaleDateString('th-TH') : '—';
-    return `<div class="sa-report-item" onclick="_saHistoryDetail('${r.id}')" id="sa-ri-${r.id}">
-      <span style="font-size:18px;">📋</span>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.period||r.fileName||r.id}</div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:1px;">${date} • ${r.summary?.branchCount||0} สาขา</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0;">
-        <div style="font-size:13px;font-weight:700;">฿${Math.round((r.summary?.totalRevenue||0)/1000)}K</div>
-        <button class="sa-btn danger" style="font-size:11px;padding:3px 8px;margin-top:3px;"
-          onclick="event.stopPropagation();_saDeleteReport('${r.id}')">ลบ</button>
-      </div>
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:0.5px solid #e1dfdd;border-radius:2px;margin-bottom:5px;cursor:pointer;font-size:11px;background:white;" onclick="_saHistoryDetail('${r.id}')">
+      <div style="flex:1;overflow:hidden;"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.period||r.fileName||r.id}</div>
+      <div style="color:#8a8886;">${date} • ${r.summary?.branchCount||0} สาขา</div></div>
+      <div style="font-weight:600;">${fmtB(r.summary?.totalRevenue)}</div>
+      <button style="font-size:10px;padding:2px 7px;border:0.5px solid #fca5a5;background:white;cursor:pointer;color:#d83b01;border-radius:2px;" onclick="event.stopPropagation();_saDeleteReport('${r.id}')">ลบ</button>
     </div>`;
   }).join('');
 }
 
 window._saHistoryDetail = function(id) {
-  document.querySelectorAll('.sa-report-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('sa-ri-'+id)?.classList.add('active');
-  const r = (window._saState.savedReports||[]).find(x => x.id === id);
+  const r = (window._saState.savedReports||[]).find(x=>x.id===id);
   if (!r) return;
   const fmtB = n => '฿'+Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0});
-  const fmtN = n => Number(n||0).toLocaleString('th-TH');
-  const brRows = (r.byBranch||[]).map((b,i) =>
-    `<tr><td class="rank">${i+1}</td><td>${b.branch}</td><td class="num">${fmtB(b.revenue)}</td><td class="num">${fmtN(b.qty)}</td></tr>`).join('');
   document.getElementById('sa-history-detail').innerHTML = `
-    <div class="sa-card-title">${r.period||r.fileName||''}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-      <div class="sa-kpi"><div class="sa-kpi-label">ยอดขาย</div><div class="sa-kpi-value" style="font-size:16px;">${fmtB(r.summary?.totalRevenue)}</div></div>
-      <div class="sa-kpi"><div class="sa-kpi-label">รายการ</div><div class="sa-kpi-value" style="font-size:16px;">${fmtN(r.summary?.totalQty)}</div></div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;">${r.period||r.fileName||''}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">
+      <div class="pbi-kpi pbi-kpi-rev"><div class="pbi-kpi-label">ยอดขาย</div><div style="font-size:16px;font-weight:300;">${fmtB(r.summary?.totalRevenue)}</div></div>
+      <div class="pbi-kpi pbi-kpi-qty"><div class="pbi-kpi-label">รายการ</div><div style="font-size:16px;font-weight:300;">${(r.summary?.totalQty||0).toLocaleString()}</div></div>
     </div>
-    <div class="sa-table-wrap" style="margin-bottom:12px;">
-      <table class="sa-table"><thead><tr><th>#</th><th>สาขา</th><th class="num">ยอดขาย</th><th class="num">จำนวน</th></tr></thead>
-      <tbody>${brRows}</tbody></table>
-    </div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;">
-      <button class="sa-btn primary" onclick="_saOpenHistoryDashboard('${id}')">เปิด Dashboard ↗</button>
-      <button class="sa-btn" onclick="SAExport&&SAExport.exportToExcel(_saBuildExportReport(window._saState.savedReports.find(x=>x.id==='${id}')||{}))">Excel</button>
-      <button class="sa-btn" onclick="SAExport&&SAExport.exportToPDF(_saBuildExportReport(window._saState.savedReports.find(x=>x.id==='${id}')||{}))">PDF</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="sa-tbtn save" style="font-size:11px;" onclick="_saOpenHistoryDashboard('${id}')">เปิด Dashboard</button>
+      <button class="sa-tbtn exp" style="font-size:11px;" onclick="SAExport.exportToExcel(SAExport.buildExportReport(window._saState.savedReports.find(x=>x.id==='${id}')||{}))">Excel</button>
+      <button class="sa-tbtn exp" style="font-size:11px;" onclick="SAExport.exportToPDF(SAExport.buildExportReport(window._saState.savedReports.find(x=>x.id==='${id}')||{}))">PDF</button>
     </div>`;
 };
 
@@ -836,9 +955,9 @@ window._saOpenHistoryDashboard = async function(id) {
     window.toast('⏳ กำลังโหลด...');
     const r = await SA.loadReport(window.db, id);
     if (!r) { window.toast('❌ ไม่พบรายงาน','#c2410c'); return; }
-    window._saCurrentReport = { ...r, ...r.summary };
-    _saView('dashboard');
-    _saRenderDashboard(window._saCurrentReport);
+    window._saState.data.product = { rows:[], summary: { ...r, ...r.summary }, fileName: r.fileName };
+    _saShowDashboard();
+    _saPage('overview', document.getElementById('sa-nav-overview'));
     window.toast('✅ โหลดสำเร็จ','#059669');
   } catch(e) { window.toast('❌ '+e.message,'#c2410c'); }
 };
@@ -849,33 +968,5 @@ window._saDeleteReport = async function(id) {
   catch(e) { window.toast('❌ '+e.message,'#c2410c'); }
 };
 
-// ─── Compare ──────────────────────────────────────────────────
-function _saRenderCompareList() {
-  const el = document.getElementById('sa-compare-list');
-  const reports = window._saState.savedReports || [];
-  if (!reports.length) { el.innerHTML = '<div style="font-size:12px;color:#94a3b8;">ยังไม่มีรายงาน</div>'; return; }
-  el.innerHTML = reports.map(r => {
-    const date = r.uploadedAt?.toDate ? r.uploadedAt.toDate().toLocaleDateString('th-TH') : '—';
-    return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e8ecf0;border-radius:9px;cursor:pointer;font-size:12px;background:white;">
-      <input type="checkbox" value="${r.id}" onchange="_saToggleCompare('${r.id}',this.checked)">
-      <span>${r.period||r.fileName||r.id} <span style="color:#94a3b8;">(${date})</span></span>
-    </label>`;
-  }).join('');
-}
-window._saToggleCompare = function(id, c) { if(c) window._saState.compareSet.add(id); else window._saState.compareSet.delete(id); };
-window._saTrendMetric = function(m, btn) {
-  window._saState.trendMode = m;
-  document.querySelectorAll('#sa-trend-tabs .sa-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  _saRunCompare();
-};
-window._saRunCompare = function() {
-  const selected = (window._saState.savedReports||[]).filter(r => window._saState.compareSet.has(r.id));
-  if (!selected.length) { window.toast('⚠️ เลือกอย่างน้อย 1 รายงาน','#c2410c'); return; }
-  document.getElementById('sa-compare-charts').style.display = '';
-  SACharts.renderTrendChart(selected, 'sa-trend-chart', window._saState.trendMode);
-  SACharts.renderBranchCompareChart(selected, 'sa-branch-compare-chart');
-};
-
-// ─── Register hash nav (ไม่กระทบ home.html) ─────────────────
+// ─── Register hash nav ────────────────────────────────────────
 if (window.navFnMap) window.navFnMap['sales-analytics'] = () => window.openSalesAnalytics();
