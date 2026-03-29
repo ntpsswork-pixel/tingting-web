@@ -2673,9 +2673,16 @@ ${r.zone}`);
                     <b style="font-size:13px;color:#065f46;">${currentUser?.name||''}</b>
                 </div>
             </div>
-            <div style="margin-bottom:12px;" class="no-print">
-                <input type="text" placeholder="🔍 ค้นหาสินค้า..." oninput="filterBMCRows(this.value)"
-                    style="width:100%;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
+            <div class="no-print" style="position:sticky;top:0;z-index:50;background:var(--bg,#fff);padding:10px 0 8px;margin-bottom:4px;backdrop-filter:blur(8px);">
+                <input type="text" id="bmcSearchInput" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ)..." oninput="filterBMCRows(this.value)"
+                    style="width:100%;padding:11px 16px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;transition:border .2s;"
+                    onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                <div id="bmcProgress" style="margin-top:8px;display:flex;align-items:center;gap:10px;">
+                    <div style="flex:1;height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+                        <div id="bmcProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3b82f6,#10b981);border-radius:99px;transition:width .3s;"></div>
+                    </div>
+                    <span id="bmcProgressText" style="font-size:11px;color:#94a3b8;white-space:nowrap;">กรอกแล้ว 0 / 0 รายการ</span>
+                </div>
             </div>
             <div id="bmcTableWrap" style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;min-width:600px;" id="bmcTable">
@@ -2690,22 +2697,25 @@ ${r.zone}`);
                 <tbody id="bmcTbody">
                 ${groups.map(grp=>{
                     const grpItems = tmpl.items.filter(i=>(i.group||i.category||'ทั่วไป')===grp);
-                    const header = `<tr><td colspan="4" style="padding:10px 16px;background:linear-gradient(90deg,#f0f9ff,#f8fafc);font-weight:700;font-size:12px;color:#0369a1;border-top:2px solid #bae6fd;letter-spacing:.5px;">▌ ${grp.toUpperCase()}</td></tr>`;
+                    const grpKey = grp.replace(/"/g,'&quot;');
+                    const header = `<tr class="bmc-group-header" data-group="${grpKey}"><td colspan="4" style="padding:10px 16px;background:linear-gradient(90deg,#f0f9ff,#f8fafc);font-weight:700;font-size:12px;color:#0369a1;border-top:2px solid #bae6fd;letter-spacing:.5px;">▌ ${grp.toUpperCase()}</td></tr>`;
                     const rows = grpItems.map(it=>{
                         const prev = prefillMap[it.id];
                         const prevVal = prev?.balance != null ? prev.balance : '';
                         const prevNote = prev?.note || '';
                         const hasPrev = prevVal !== '';
                         return `
-                        <tr class="bmc-row" data-search="${it.id.toLowerCase()} ${it.name.toLowerCase()}" style="border-bottom:1px solid #f1f5f9;${hasPrev?'background:#fffbeb;':''}">
+                        <tr class="bmc-row" data-group="${grpKey}" data-search="${it.id.toLowerCase()} ${it.name.toLowerCase()}" style="border-bottom:1px solid #f1f5f9;${hasPrev?'background:#fffbeb;':''}">
                             <td style="padding:12px 16px;">
                                 <div style="font-weight:700;font-size:13px;">${it.id}</div>
                                 <div style="color:#475569;font-size:12px;">${it.name}</div>
                             </td>
                             <td style="padding:12px;text-align:center;">
                                 <input type="number" id="bmc_${it.id}" min="0" placeholder="0" value="${prevVal}"
-                                    style="width:90px;padding:9px;border-radius:10px;border:2px solid ${hasPrev?'#f59e0b':'#3b82f6'};text-align:center;font-weight:700;font-size:16px;outline:none;"
-                                    onfocus="this.style.borderColor='#1d4ed8'" onblur="this.style.borderColor='${hasPrev?`#f59e0b`:`#3b82f6`}'">
+                                    inputmode="numeric"
+                                    style="width:80px;padding:10px 6px;border-radius:10px;border:2px solid ${hasPrev?'#f59e0b':'#3b82f6'};text-align:center;font-weight:700;font-size:18px;outline:none;"
+                                    onfocus="this.style.borderColor='#1d4ed8'" onblur="this.style.borderColor='${hasPrev?`#f59e0b`:`#3b82f6`}'"
+                                    oninput="updateBMCProgress()">
                             </td>
                             <td style="padding:12px;text-align:center;color:#64748b;font-size:13px;">${it.unit||''}</td>
                             <td style="padding:12px;">
@@ -2727,12 +2737,36 @@ ${r.zone}`);
             </div>`;
             // ลงทะเบียน draft protection หลัง DOM render
             if(window._DM_startMonthlyCount) setTimeout(()=>_DM_startMonthlyCount(tmplId, tmpl, defaultZone), 400);
+            setTimeout(()=>updateBMCProgress(), 100);
         };
 
         window.filterBMCRows = function(q) {
+            const term = q.toLowerCase();
+            // ซ่อน/แสดง rows
             document.querySelectorAll('.bmc-row').forEach(r=>{
-                r.style.display = (!q||r.dataset.search.includes(q.toLowerCase())) ? '' : 'none';
+                r.style.display = (!term || r.dataset.search.includes(term)) ? '' : 'none';
             });
+            // ซ่อน group header ถ้าไม่มี row ที่ visible ในกลุ่มนั้น
+            document.querySelectorAll('.bmc-group-header').forEach(hdr=>{
+                const grp = hdr.dataset.group;
+                const hasVisible = [...document.querySelectorAll(`.bmc-row[data-group="${grp}"]`)]
+                    .some(r => r.style.display !== 'none');
+                hdr.style.display = hasVisible ? '' : 'none';
+            });
+        };
+
+        window.updateBMCProgress = function() {
+            const allInputs = [...document.querySelectorAll('#bmcTbody input[type="number"]')];
+            const total = allInputs.length;
+            const filled = allInputs.filter(i => i.value !== '' && i.value !== null).length;
+            const pct = total ? Math.round(filled / total * 100) : 0;
+            const bar = document.getElementById('bmcProgressBar');
+            const txt = document.getElementById('bmcProgressText');
+            if (!bar || !txt) return;
+            bar.style.width = pct + '%';
+            bar.style.background = pct === 100 ? '#10b981' : 'linear-gradient(90deg,#3b82f6,#10b981)';
+            txt.textContent = `กรอกแล้ว ${filled} / ${total} รายการ`;
+            txt.style.color = pct === 100 ? '#059669' : '#94a3b8';
         };
 
         window.saveBranchMonthlyCount = async function(tmplId, _zoneFromBtn) {
