@@ -35,6 +35,11 @@
                     </select></div>
                 <div class="input-group" style="background:#f1f5f9;"><label>📝 ผู้ทำรายการหลัก</label><b>${currentUser.name}</b></div>
             </div>
+            <div class="no-print" style="margin-bottom:12px;">
+                <input type="text" id="stockSearch" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ)..." oninput="filterStockRows(this.value)"
+                    style="width:100%;padding:11px 16px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;transition:border 0.2s;"
+                    onfocus="this.style.borderColor='var(--info)'" onblur="this.style.borderColor='#e2e8f0'">
+            </div>
             <table class="stock-table">${zoneProds.map(p=>{
                 const units=p.units||[{name:p.unit||'',rate:0},{name:p.subUnit||'',rate:0}].filter(u=>u.name);
                 const pending=tempCountData[p.id];
@@ -65,11 +70,6 @@
                     </div>
                 </td></tr>`;}).join('')}</table>
             <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:5px;" class="no-print">💡 กรอกจำนวนแล้วกด Enter ในช่องนั้น หรือกด ＋ เพื่อเพิ่มทุกช่องพร้อมกัน</p>
-            <div class="no-print" style="margin-bottom:12px;">
-                <input type="text" id="stockSearch" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ)..." oninput="filterStockRows(this.value)"
-                    style="width:100%;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;transition:border 0.2s;"
-                    onfocus="this.style.borderColor='var(--info)'" onblur="this.style.borderColor='#e2e8f0'">
-            </div>
             <div style="margin-top:25px;text-align:center;" class="no-print">
                 <button onclick="finalSaveStock('${zone}')" style="background:var(--success);color:white;padding:18px 60px;border:none;border-radius:15px;font-size:20px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">💾 ยืนยันและบันทึกข้อมูลทั้งหมด</button>
             </div>`;

@@ -826,9 +826,10 @@
                 💡 <b>วิธีใช้:</b> ยอดยกมา = ดึงจากเมื่อวานอัตโนมัติ | จ่ายออก = ดึงจากใบเบิกอัตโนมัติ | กรอกแค่ "รับเข้า" และ "คงเหลือเย็น" แล้วบันทึก
             </div>
 
-            <div style="margin-bottom:12px;">
-                <input type="text" placeholder="🔍 ค้นหาสินค้า..." oninput="filterDSCRows(this.value)"
-                    style="width:100%;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
+            <div style="margin-bottom:12px;" class="no-print">
+                <input type="text" id="dscSearch" placeholder="🔍 ค้นหาสินค้า..." oninput="filterDSCRows(this.value)"
+                    style="width:100%;padding:11px 16px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;transition:border .2s;"
+                    onfocus="this.style.borderColor='var(--info)'" onblur="this.style.borderColor='#e2e8f0'">
             </div>
 
             <div id="dscTableContainer"></div>
