@@ -176,22 +176,37 @@
             </div>
             <!-- Pre Count Modal -->
             <div id="preCountModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;">
-                <div style="background:white;border-radius:16px;padding:28px;width:420px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-                    <h3 style="margin:0 0 4px;font-size:16px;color:#6d28d9;">📋 บันทึก Pre Count</h3>
+                <div style="background:white;border-radius:16px;padding:24px;width:460px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                        <h3 style="margin:0;font-size:16px;color:#6d28d9;">📋 บันทึก Pre Count</h3>
+                        <button onclick="deleteCurrentPreCount('${zone}')"
+                            style="background:#fee2e2;color:#ef4444;border:none;padding:5px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:bold;">
+                            🗑️ ลบทั้งหมด
+                        </button>
+                    </div>
                     <p style="color:#64748b;font-size:13px;margin:0 0 12px;">โซน: <b>${zone}</b> — กรอกยอดคร่าวก่อนนับจริง</p>
-                    <div style="margin-bottom:12px;">
+                    <div style="margin-bottom:10px;">
                         <label style="font-size:12px;font-weight:bold;color:#475569;display:block;margin-bottom:4px;">📅 วันที่นับคร่าว</label>
                         <input type="date" id="pcDate" value="${selectedDate}"
                             style="width:100%;padding:8px;border:1.5px solid #c4b5fd;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;">
                     </div>
-                    <div id="pcItemsList" style="max-height:45vh;overflow-y:auto;border:1px solid #f1f5f9;border-radius:10px;margin-bottom:14px;">
+                    <div style="margin-bottom:10px;">
+                        <input type="text" id="pcSearch" placeholder="🔍 ค้นหาสินค้า..." oninput="filterPCItems(this.value)"
+                            style="width:100%;padding:9px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;"
+                            onfocus="this.style.borderColor='#c4b5fd'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                    <div id="pcItemsList" style="flex:1;overflow-y:auto;border:1px solid #f1f5f9;border-radius:10px;margin-bottom:14px;max-height:42vh;">
                     ${zoneProds.map(p=>{
                         const units=p.units||[{name:p.unit||''}].filter(u=>u.name);
                         const uName=units[0]?.name||'';
-                        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #f8fafc;">
+                        const prefill=preCountMap[p.id]?.qty||0;
+                        return `<div class="pc-item-row" data-search="${p.id.toLowerCase()} ${p.name.toLowerCase()}"
+                            style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #f8fafc;">
                             <div style="flex:1;font-size:13px;"><b>${p.id}</b><br><span style="color:#64748b;font-size:12px;">${p.name}</span></div>
                             <input type="number" min="0" inputmode="numeric" id="pc_${p.id}" placeholder="0"
-                                style="width:70px;padding:7px;border:1.5px solid #c4b5fd;border-radius:8px;text-align:center;font-weight:bold;font-size:14px;outline:none;">
+                                value="${prefill>0?prefill:''}"
+                                style="width:70px;padding:7px;border:1.5px solid ${prefill>0?'#7c3aed':'#c4b5fd'};border-radius:8px;text-align:center;font-weight:bold;font-size:14px;outline:none;"
+                                onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor=this.value?'#7c3aed':'#c4b5fd'">
                             <span style="font-size:12px;color:#64748b;min-width:32px;">${uName}</span>
                         </div>`;
                     }).join('')}
@@ -201,7 +216,7 @@
                         <button onclick="document.getElementById('preCountModal').style.display='none'" style="background:#f1f5f9;color:#475569;border:none;padding:12px 16px;border-radius:10px;font-size:15px;cursor:pointer;">ยกเลิก</button>
                     </div>
                 </div>
-            </div>`;
+            </div>`
         };
 
         window.openPreCountModal=function(zone){
@@ -236,6 +251,28 @@
                 toast('🗑️ ล้าง Pre Count แล้ว','#64748b');
                 renderStockTool(zone);
             }catch(e){toast('❌ ลบไม่สำเร็จ','#c2410c');}
+        };
+
+        window.deleteCurrentPreCount=async function(zone){
+            if(!window._currentPreCountId){
+                toast('ไม่มี Pre Count ที่จะลบ','#64748b');return;
+            }
+            if(!confirm('ลบ Pre Count ทั้งหมดของโซนนี้?'))return;
+            try{
+                const {deleteDoc,doc:fsDoc}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+                await deleteDoc(fsDoc(db,'preCountDrafts',window._currentPreCountId));
+                window._currentPreCountId=null;
+                document.getElementById('preCountModal').style.display='none';
+                toast('🗑️ ลบ Pre Count แล้ว','#64748b');
+                renderStockTool(zone);
+            }catch(e){toast('❌ ลบไม่สำเร็จ','#c2410c');}
+        };
+
+        window.filterPCItems=function(q){
+            const term=q.toLowerCase().trim();
+            document.querySelectorAll('.pc-item-row').forEach(row=>{
+                row.style.display=(!term||row.dataset.search.includes(term))?'':'none';
+            });
         };
 
         window.openAdjustModal=function(id,name){

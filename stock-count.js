@@ -358,24 +358,35 @@
                         </div>
                     </div>
                     <table style="width:100%;border-collapse:collapse;">
-                        <thead><tr style="background:#f8fafc;">
-                            <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">รหัส</th>
-                            <th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">ชื่อสินค้า</th>
-                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">จำนวน</th>
-                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
-                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">จำนวน</th>
-                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
-                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">จำนวน</th>
-                            <th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>
-                        </tr></thead>
-                        <tbody>${(s.items||[]).map(it=>{
-                            // support both old and new format
-                            const amounts=it.amounts||[{amount:it.amountMain||it.amount||0,unit:it.unit||''},{amount:it.amountSub||0,unit:it.subUnit||''}].filter(a=>a.unit);
-                            return `<tr style="border-top:1px solid #f1f5f9;">
-                            <td style="padding:10px;font-weight:bold;">${it.id}</td>
-                            <td style="padding:10px;color:#475569;">${it.name}</td>
-                            ${amounts.map(a=>`<td style="padding:10px;text-align:center;font-weight:bold;color:var(--success);">${a.amount>0?a.amount:'-'}</td><td style="padding:10px;text-align:center;color:#64748b;">${a.unit}</td>`).join('')}
-                        </tr>`;}).join('')}</tbody>
+                        <thead><tr style="background:#f8fafc;">${(()=>{
+                            // หา max units จาก session นี้เพื่อสร้าง header ให้ตรง
+                            const maxU=Math.max(1,...(s.items||[]).map(it=>{
+                                const amounts=it.amounts||[{amount:it.amountMain||it.amount||0,unit:it.unit||''},{amount:it.amountSub||0,unit:it.subUnit||''}].filter(a=>a.unit);
+                                return amounts.length;
+                            }));
+                            const unitCols=Array.from({length:maxU},(_,i)=>`<th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">จำนวน</th><th style="padding:10px;text-align:center;font-size:12px;color:#64748b;">หน่วย</th>`).join('');
+                            return `<th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">รหัส</th><th style="padding:10px;text-align:left;font-size:12px;color:#64748b;">ชื่อสินค้า</th>${unitCols}`;
+                        })()}</tr></thead>
+                        <tbody>${(()=>{
+                            const maxU=Math.max(1,...(s.items||[]).map(it=>{
+                                const amounts=it.amounts||[{amount:it.amountMain||it.amount||0,unit:it.unit||''},{amount:it.amountSub||0,unit:it.subUnit||''}].filter(a=>a.unit);
+                                return amounts.length;
+                            }));
+                            return (s.items||[]).map(it=>{
+                                const amounts=it.amounts||[{amount:it.amountMain||it.amount||0,unit:it.unit||''},{amount:it.amountSub||0,unit:it.subUnit||''}].filter(a=>a.unit);
+                                const cells=Array.from({length:maxU},(_,i)=>{
+                                    const a=amounts[i];
+                                    return a
+                                        ?`<td style="padding:10px;text-align:center;font-weight:bold;color:var(--success);">${a.amount>0?a.amount:'-'}</td><td style="padding:10px;text-align:center;color:#64748b;">${a.unit}</td>`
+                                        :`<td style="padding:10px;text-align:center;color:#e2e8f0;">-</td><td style="padding:10px;"></td>`;
+                                }).join('');
+                                return `<tr style="border-top:1px solid #f1f5f9;">
+                                <td style="padding:10px;font-weight:bold;">${it.id}</td>
+                                <td style="padding:10px;color:#475569;">${it.name}</td>
+                                ${cells}
+                            </tr>`;
+                            }).join('');
+                        })()}</tbody>
                     </table>
                 </div>`).join('');
             } catch(e){console.error(e);container.innerHTML='<p style="color:var(--danger);text-align:center;padding:40px;">❌ โหลดข้อมูลไม่สำเร็จ</p>';}
