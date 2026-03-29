@@ -1504,6 +1504,51 @@
                 const text=row.innerText.toLowerCase();
                 row.style.display=(!q||text.includes(q))?'':'none';
             });
+            // sync floating input
+            const fi=document.getElementById('stockFloatingInput');
+            const si=document.getElementById('stockSearch');
+            if(fi&&si&&fi.value!==si.value) fi.value=si.value;
+        };
+
+        window._setupStockFloatingSearch=function(){
+            const old=document.getElementById('stockFloatingBar');
+            if(old) old.remove();
+            if(window._stockScrollHandler) window.removeEventListener('scroll',window._stockScrollHandler);
+
+            const anchor=document.getElementById('stockSearchAnchor');
+            if(!anchor) return;
+
+            const bar=document.createElement('div');
+            bar.id='stockFloatingBar';
+            bar.className='no-print';
+            bar.style.cssText='display:none;position:fixed;top:0;left:0;right:0;z-index:999;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.12);padding:10px 24px 10px;';
+            bar.innerHTML=`<input type="text" id="stockFloatingInput" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ)..."
+                style="width:100%;padding:10px 16px;border:1.5px solid var(--info,#3b82f6);border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;"
+                oninput="filterStockRows(this.value);document.getElementById('stockSearch').value=this.value;">`;
+            document.body.appendChild(bar);
+
+            window._stockScrollHandler=function(){
+                if(!document.getElementById('stockSearchAnchor')){
+                    window.removeEventListener('scroll',window._stockScrollHandler);
+                    const b=document.getElementById('stockFloatingBar');
+                    if(b) b.remove();
+                    return;
+                }
+                const rect=anchor.getBoundingClientRect();
+                bar.style.display=rect.bottom<0?'block':'none';
+            };
+            window.addEventListener('scroll',window._stockScrollHandler);
+
+            const observer=new MutationObserver(()=>{
+                if(!document.getElementById('stockSearchAnchor')){
+                    window.removeEventListener('scroll',window._stockScrollHandler);
+                    const b=document.getElementById('stockFloatingBar');
+                    if(b) b.remove();
+                    observer.disconnect();
+                }
+            });
+            const container=document.getElementById('toolAppContainer');
+            if(container) observer.observe(container,{childList:true,subtree:false});
         };
 
         // ---- DELETE HISTORY (Admin only) ----
