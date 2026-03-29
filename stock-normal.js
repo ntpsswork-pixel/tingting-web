@@ -27,11 +27,14 @@
             let preCountMap={};
             try{
                 const pcSnap=await getDocs(query(collection(db,'preCountDrafts'),
-                    where('zone','==',zone),orderBy('createdAt','desc'),limit(1)));
+                    where('zone','==',zone),limit(20)));
                 if(!pcSnap.empty){
-                    const pcData=pcSnap.docs[0].data();
+                    // sort ใน JS แทน orderBy เพื่อไม่ต้องสร้าง Firestore composite index
+                    const sorted=pcSnap.docs.map(d=>({id:d.id,...d.data()}))
+                        .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+                    const pcData=sorted[0];
                     (pcData.items||[]).forEach(it=>{preCountMap[it.id]=it;});
-                    window._currentPreCountId=pcSnap.docs[0].id;
+                    window._currentPreCountId=pcData.id;
                     window._currentPreCountDate=pcData.countDate||'';
                 }else{ window._currentPreCountId=null; window._currentPreCountDate=''; }
             }catch(e){ window._currentPreCountId=null; window._currentPreCountDate=''; }
