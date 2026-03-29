@@ -2673,7 +2673,7 @@ ${r.zone}`);
                     <b style="font-size:13px;color:#065f46;">${currentUser?.name||''}</b>
                 </div>
             </div>
-            <div class="no-print" style="position:sticky;top:0;z-index:50;background:var(--bg,#fff);padding:10px 0 8px;margin-bottom:4px;backdrop-filter:blur(8px);">
+            <div id="bmcSearchAnchor" class="no-print" style="margin-bottom:4px;">
                 <input type="text" id="bmcSearchInput" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ)..." oninput="filterBMCRows(this.value)"
                     style="width:100%;padding:11px 16px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;transition:border .2s;"
                     onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
@@ -2737,7 +2737,10 @@ ${r.zone}`);
             </div>`;
             // ลงทะเบียน draft protection หลัง DOM render
             if(window._DM_startMonthlyCount) setTimeout(()=>_DM_startMonthlyCount(tmplId, tmpl, defaultZone), 400);
-            setTimeout(()=>updateBMCProgress(), 100);
+            setTimeout(()=>{
+                updateBMCProgress();
+                _setupBMCFloatingSearch();
+            }, 100);
         };
 
         window.filterBMCRows = function(q) {
@@ -2767,6 +2770,70 @@ ${r.zone}`);
             bar.style.background = pct === 100 ? '#10b981' : 'linear-gradient(90deg,#3b82f6,#10b981)';
             txt.textContent = `กรอกแล้ว ${filled} / ${total} รายการ`;
             txt.style.color = pct === 100 ? '#059669' : '#94a3b8';
+            // sync ค่าใน floating bar ด้วย
+            const fBar = document.getElementById('bmcFloatingProgressBar');
+            const fTxt = document.getElementById('bmcFloatingProgressText');
+            if (fBar) { fBar.style.width = pct + '%'; fBar.style.background = pct === 100 ? '#10b981' : 'linear-gradient(90deg,#3b82f6,#10b981)'; }
+            if (fTxt) { fTxt.textContent = `กรอกแล้ว ${filled} / ${total} รายการ`; fTxt.style.color = pct === 100 ? '#059669' : '#94a3b8'; }
+        };
+
+        window._setupBMCFloatingSearch = function() {
+            // ลบ floating bar เก่าออกก่อนถ้ามี (กันซ้ำ)
+            const old = document.getElementById('bmcFloatingBar');
+            if (old) old.remove();
+            if (window._bmcScrollHandler) window.removeEventListener('scroll', window._bmcScrollHandler);
+
+            const anchor = document.getElementById('bmcSearchAnchor');
+            if (!anchor) return;
+
+            // สร้าง floating bar
+            const bar = document.createElement('div');
+            bar.id = 'bmcFloatingBar';
+            bar.className = 'no-print';
+            bar.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;z-index:999;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.12);padding:10px 24px 8px;';
+            bar.innerHTML = `
+                <input type="text" id="bmcFloatingInput" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ)..."
+                    style="width:100%;padding:10px 16px;border:1.5px solid #3b82f6;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;"
+                    oninput="filterBMCRows(this.value);document.getElementById('bmcSearchInput').value=this.value;">
+                <div style="margin-top:6px;display:flex;align-items:center;gap:10px;">
+                    <div style="flex:1;height:5px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+                        <div id="bmcFloatingProgressBar" style="height:100%;width:0%;border-radius:99px;transition:width .3s;"></div>
+                    </div>
+                    <span id="bmcFloatingProgressText" style="font-size:11px;color:#94a3b8;white-space:nowrap;">กรอกแล้ว 0 / 0 รายการ</span>
+                </div>`;
+            document.body.appendChild(bar);
+
+            // scroll handler — show floating bar เมื่อ anchor เลื่อนพ้น viewport
+            window._bmcScrollHandler = function() {
+                if (!document.getElementById('bmcSearchAnchor')) {
+                    window.removeEventListener('scroll', window._bmcScrollHandler);
+                    const b = document.getElementById('bmcFloatingBar');
+                    if (b) b.remove();
+                    return;
+                }
+                const rect = anchor.getBoundingClientRect();
+                const show = rect.bottom < 0;
+                bar.style.display = show ? 'block' : 'none';
+                // sync ค่า input
+                if (show) {
+                    const fi = document.getElementById('bmcFloatingInput');
+                    const si = document.getElementById('bmcSearchInput');
+                    if (fi && si && fi.value !== si.value) fi.value = si.value;
+                }
+            };
+            window.addEventListener('scroll', window._bmcScrollHandler);
+
+            // cleanup เมื่อ toolAppContainer ถูก clear (ออกจากหน้า)
+            const observer = new MutationObserver(()=>{
+                if (!document.getElementById('bmcSearchAnchor')) {
+                    window.removeEventListener('scroll', window._bmcScrollHandler);
+                    const b = document.getElementById('bmcFloatingBar');
+                    if (b) b.remove();
+                    observer.disconnect();
+                }
+            });
+            const container = document.getElementById('toolAppContainer');
+            if (container) observer.observe(container, { childList: true, subtree: false });
         };
 
         window.saveBranchMonthlyCount = async function(tmplId, _zoneFromBtn) {
