@@ -623,17 +623,198 @@ window.renderMapping=function(){
     const c=document.getElementById('mappingContainer'); if(!c) return;
     const mappedProducts=allProducts.filter(p=>mapped.has(p.id));
     const cnt=document.getElementById('mappedCount'); if(cnt) cnt.textContent=mappedProducts.length;
+    const isAdmin=(window.currentUser?.role==='admin');
     if(mappedProducts.length===0){
         c.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:32px;color:#94a3b8;font-size:12px;">ยังไม่มีสินค้าที่ผูกกับ Zone นี้<br>ค้นหาสินค้าด้านบนเพื่อเพิ่ม</div>';
         return;
     }
-    c.innerHTML=mappedProducts.map(p=>`<label style="display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;border:1.5px solid #059669;background:#f0fdf4;cursor:pointer;transition:all .15s;"
-        onclick="togglePdMapping('${zone}','${p.id}');renderMapping();filterMapping(document.getElementById('mappingSearch').value)">
-        <input type="checkbox" id="map_${p.id}" checked style="width:15px;height:15px;accent-color:#059669;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();togglePdMapping('${zone}','${p.id}');renderMapping();filterMapping(document.getElementById('mappingSearch').value)">
-        <div style="min-width:0;"><div style="font-weight:700;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.id}</div>
-            <div style="font-size:10px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-            ${p.category?`<span style="font-size:8px;color:#a16207;background:#fef9c3;padding:1px 4px;border-radius:4px;">🏷️ ${p.category}</span>`:''}        </div></label>`).join('');
-}
+    c.innerHTML=mappedProducts.map(p=>{
+        const editBtn=isAdmin
+            ? `<button onclick="event.stopPropagation();openMappingEditModal('${p.id}')"
+                title="แก้ไขข้อมูลสินค้า (Admin)"
+                style="position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:5px;border:none;
+                       background:rgba(59,130,246,0.15);color:#2563eb;cursor:pointer;font-size:11px;
+                       display:flex;align-items:center;justify-content:center;line-height:1;
+                       transition:background .15s;z-index:2;"
+                onmouseover="this.style.background='rgba(59,130,246,0.3)'"
+                onmouseout="this.style.background='rgba(59,130,246,0.15)'">✏️</button>`
+            : '';
+        return `<div style="position:relative;">
+            <label style="display:flex;align-items:center;gap:9px;padding:9px 11px;${isAdmin?'padding-right:30px;':''}border-radius:9px;border:1.5px solid #059669;background:#f0fdf4;cursor:pointer;transition:all .15s;width:100%;box-sizing:border-box;"
+                onclick="togglePdMapping('${zone}','${p.id}');renderMapping();filterMapping(document.getElementById('mappingSearch').value)">
+                <input type="checkbox" id="map_${p.id}" checked style="width:15px;height:15px;accent-color:#059669;cursor:pointer;flex-shrink:0;"
+                    onclick="event.stopPropagation();togglePdMapping('${zone}','${p.id}');renderMapping();filterMapping(document.getElementById('mappingSearch').value)">
+                <div style="min-width:0;">
+                    <div style="font-weight:700;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.id}</div>
+                    <div style="font-size:10px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+                    ${p.category?`<span style="font-size:8px;color:#a16207;background:#fef9c3;padding:1px 4px;border-radius:4px;">🏷️ ${p.category}</span>`:''}
+                    ${p.supplier?`<span style="font-size:8px;color:#0891b2;background:#f0f9ff;padding:1px 4px;border-radius:4px;border:1px solid #bae6fd;margin-left:2px;">🏢 ${p.supplier}</span>`:''}
+                </div>
+            </label>
+            ${editBtn}
+        </div>`;
+    }).join('');
+};
+
+// ── Mapping Edit Modal (Admin Only) ─────────────────────────────────
+window.openMappingEditModal=function(productId){
+    if(window.currentUser?.role!=='admin'){toast('⛔ เฉพาะ Admin เท่านั้น','#c2410c');return;}
+    const p=allProducts.find(x=>x.id===productId);
+    if(!p){toast('❌ ไม่พบสินค้า','#c2410c');return;}
+    const units=p.units||[{name:p.unit||'',rate:0}];
+    const existing=document.getElementById('mappingEditModal');
+    if(existing) existing.remove();
+
+    const modal=document.createElement('div');
+    modal.id='mappingEditModal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    // build units rows HTML
+    let unitsHTML='';
+    for(let ui=0;ui<3;ui++){
+        const uname=units[ui]?.name||'';
+        const urate=units[ui]?.rate||'';
+        unitsHTML+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+            <input id="medit_unit${ui}" value="${uname}" placeholder="หน่วย ${ui+1}"
+                style="padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-family:inherit;outline:none;"
+                onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0';_meditRefreshExportUnit()">
+            ${ui<2
+                ? `<input id="medit_rate${ui}" value="${urate}" placeholder="อัตราแปลง" type="number" min="1"
+                    style="padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;"
+                    onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">`
+                : '<div></div>'
+            }
+        </div>`;
+    }
+    const exportOpts=units.map(u=>`<option value="${u.name}" ${p.exportUnit===u.name?'selected':''}>${u.name}</option>`).join('');
+
+    modal.innerHTML=`
+    <div style="background:white;border-radius:20px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;
+                box-shadow:0 32px 80px rgba(0,0,0,0.3);">
+        <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:18px 22px;border-radius:20px 20px 0 0;
+                    display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="color:white;font-weight:800;font-size:15px;">✏️ แก้ไขข้อมูลสินค้า</div>
+                <div style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px;">${p.id} — เฉพาะ Admin</div>
+            </div>
+            <button onclick="document.getElementById('mappingEditModal').remove()"
+                style="background:rgba(255,255,255,0.15);color:white;border:none;width:30px;height:30px;
+                       border-radius:8px;cursor:pointer;font-size:16px;line-height:1;">✕</button>
+        </div>
+        <div style="padding:22px;">
+            <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:10px;margin-bottom:12px;">
+                <div>
+                    <label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">รหัสสินค้า</label>
+                    <input value="${p.id}" readonly style="width:100%;padding:9px 11px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:12px;font-weight:800;color:#64748b;background:#f8fafc;box-sizing:border-box;font-family:monospace;">
+                </div>
+                <div>
+                    <label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">ชื่อสินค้า <span style="color:#ef4444;">*</span></label>
+                    <input id="medit_name" value="${p.name.replace(/"/g,'&quot;')}"
+                        style="width:100%;padding:9px 11px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;font-weight:600;box-sizing:border-box;outline:none;font-family:inherit;"
+                        onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div>
+                    <label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">🏢 Supplier</label>
+                    <input id="medit_supplier" value="${(p.supplier||'').replace(/"/g,'&quot;')}"
+                        style="width:100%;padding:9px 11px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:12px;box-sizing:border-box;outline:none;font-family:inherit;"
+                        onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div>
+                    <label style="font-size:10px;font-weight:700;color:#a16207;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">🏷️ หมวดหมู่</label>
+                    <input id="medit_category" value="${(p.category||'').replace(/"/g,'&quot;')}" list="categoryDatalist"
+                        style="width:100%;padding:9px 11px;border:1.5px solid #fde68a;border-radius:9px;font-size:12px;box-sizing:border-box;outline:none;font-family:inherit;background:#fffbeb;"
+                        onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#fde68a'">
+                </div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">📦 Barcode</label>
+                <input id="medit_barcode" value="${(p.barcode||'').replace(/"/g,'&quot;')}"
+                    style="width:100%;padding:9px 11px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:12px;box-sizing:border-box;outline:none;font-family:monospace;"
+                    onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+            </div>
+            <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:14px;margin-bottom:16px;">
+                <div style="font-size:10px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">📦 หน่วยและอัตราแปลง</div>
+                ${unitsHTML}
+                <div style="display:flex;align-items:center;gap:8px;padding-top:8px;border-top:1px dashed #ddd6fe;">
+                    <span style="font-size:10px;color:#0369a1;font-weight:700;white-space:nowrap;">📤 Export Unit:</span>
+                    <select id="medit_exportUnit"
+                        style="flex:1;padding:7px 10px;border:1.5px solid #bae6fd;border-radius:8px;font-size:12px;color:#0369a1;font-weight:600;outline:none;background:#f0f9ff;">
+                        ${exportOpts}
+                    </select>
+                </div>
+            </div>
+            <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:9px;padding:10px 13px;margin-bottom:16px;font-size:11px;color:#c2410c;">
+                ⚠️ การแก้ไขจะมีผลทันทีและบันทึก Audit Log อัตโนมัติ
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="document.getElementById('mappingEditModal').remove()"
+                    style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:11px;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;font-family:inherit;">ยกเลิก</button>
+                <button onclick="saveMappingEdit('${p.id}')"
+                    style="flex:2;background:linear-gradient(135deg,#1e40af,#2563eb);color:white;border:none;padding:11px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit;">💾 บันทึกการแก้ไข</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{ if(e.target===modal) modal.remove(); });
+};
+
+window._meditRefreshExportUnit=function(){
+    const sel=document.getElementById('medit_exportUnit'); if(!sel) return;
+    const cur=sel.value;
+    const opts=[0,1,2].map(i=>document.getElementById(`medit_unit${i}`)?.value.trim()||'').filter(Boolean);
+    sel.innerHTML=opts.map(u=>`<option value="${u}" ${u===cur?'selected':''}>${u}</option>`).join('');
+};
+
+window.saveMappingEdit=async function(productId){
+    if(window.currentUser?.role!=='admin'){toast('⛔ เฉพาะ Admin','#c2410c');return;}
+    const idx=allProducts.findIndex(x=>x.id===productId);
+    if(idx===-1){toast('❌ ไม่พบสินค้า','#c2410c');return;}
+
+    const name=document.getElementById('medit_name')?.value.trim();
+    if(!name){toast('⚠️ กรุณาระบุชื่อสินค้า','#c2410c');return;}
+
+    if(allProducts.some((p,i)=>i!==idx&&p.name.trim().toLowerCase()===name.toLowerCase())){
+        toast(`❌ ชื่อ "${name}" ซ้ำกับสินค้าอื่น`,'#c2410c');return;
+    }
+
+    const newUnits=[];
+    for(let ui=0;ui<3;ui++){
+        const un=document.getElementById(`medit_unit${ui}`)?.value.trim()||'';
+        const ur=parseFloat(document.getElementById(`medit_rate${ui}`)?.value)||0;
+        if(un) newUnits.push({name:un,rate:ur});
+    }
+    if(!newUnits.length){toast('⚠️ กรุณาระบุหน่วยอย่างน้อย 1 หน่วย','#c2410c');return;}
+
+    const before={...allProducts[idx]};
+
+    allProducts[idx].name       = name;
+    allProducts[idx].supplier   = document.getElementById('medit_supplier')?.value.trim()||'';
+    allProducts[idx].category   = document.getElementById('medit_category')?.value.trim()||'';
+    allProducts[idx].barcode    = document.getElementById('medit_barcode')?.value.trim()||'';
+    allProducts[idx].units      = newUnits;
+    allProducts[idx].unit       = newUnits[0]?.name||'';
+    allProducts[idx].subUnit    = newUnits[1]?.name||'';
+    allProducts[idx].exportUnit = document.getElementById('medit_exportUnit')?.value||newUnits[0]?.name||'';
+
+    try{
+        await saveConfig();
+        const {addDoc,collection}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        await addDoc(collection(db,'auditLog'),{
+            type:'editProduct', productId,
+            before:{ name:before.name, supplier:before.supplier, category:before.category, barcode:before.barcode, units:before.units, exportUnit:before.exportUnit },
+            after:{ name:allProducts[idx].name, supplier:allProducts[idx].supplier, category:allProducts[idx].category, barcode:allProducts[idx].barcode, units:allProducts[idx].units, exportUnit:allProducts[idx].exportUnit },
+            by: window.currentUser?.name||'admin',
+            at: new Date().toISOString()
+        });
+    } catch(e){ console.warn('auditLog:',e); }
+
+    document.getElementById('mappingEditModal')?.remove();
+    toast(`✅ แก้ไขสินค้า [${productId}] เรียบร้อย`,'#059669');
+    renderMapping();
+    if(typeof renderPdList==='function') try{ renderPdList(); } catch(e){}
+};
 window.togglePdMapping=function(z,id){ if(!zoneProductMap[z])zoneProductMap[z]=[]; const i=zoneProductMap[z].indexOf(id); if(i>-1)zoneProductMap[z].splice(i,1); else zoneProductMap[z].push(id); saveConfig(); };
 window.selectAllMapping=function(checked){ const zone=document.getElementById('selectZoneMap')?.value||''; zoneProductMap[zone]=checked?allProducts.map(p=>p.id):[]; saveConfig(); renderMapping(); };
 window.filterMapping=function(q){
