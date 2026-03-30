@@ -237,7 +237,7 @@
                 return amounts.filter(a=>a.amount>0).length>1;
             }));
             if(!hasMultiUnit){_doWriteHistory(sessions,'__original__');return;}
-            // Modal เลือก "ระดับหน่วย" แทนชื่อหน่วย
+            // Modal เลือก "ระดับหน่วย"
             const existing=document.getElementById('exportUnitModalH');if(existing)existing.remove();
             const modal=document.createElement('div');
             modal.id='exportUnitModalH';
@@ -251,13 +251,25 @@
                 if(u[1]?.name&&!ex1.includes(u[1].name))ex1.push(u[1].name);
                 if(u[2]?.name&&!ex2.includes(u[2].name))ex2.push(u[2].name);
             }));
-            const levelLabel=(arr,lvl)=>arr.length?`<span style="color:#94a3b8;font-size:11px;">(เช่น ${arr.slice(0,3).join(', ')})</span>`:'';
+            // ตัวอย่าง exportUnit ที่ตั้งไว้
+            const exExport=[];
+            sessions.forEach(s=>(s.items||[]).forEach(it=>{
+                const p=allProducts.find(x=>x.id===it.id);
+                if(p?.exportUnit&&!exExport.includes(p.exportUnit))exExport.push(p.exportUnit);
+            }));
             modal.innerHTML=`<div style="background:white;border-radius:20px;padding:28px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
                 <h3 style="margin:0 0 6px;font-family:inherit;">📥 Export — เลือกระดับหน่วย</h3>
                 <p style="font-size:13px;color:#64748b;margin:0 0 16px;">แต่ละสินค้าจะรวมยอดให้เป็น <b>หน่วยของตัวเอง</b> ในระดับที่เลือก</p>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+                    <label style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid #10b981;border-radius:10px;cursor:pointer;background:#f0fdf4;">
+                        <input type="radio" name="exportUnitH" value="__exportUnit__" checked style="width:16px;height:16px;accent-color:#10b981;">
+                        <div>
+                            <div style="font-weight:700;color:#065f46;">⭐ ตามที่ตั้งค่าสินค้าไว้ (แนะนำ)</div>
+                            <div style="font-size:11px;color:#059669;">ใช้ Export Unit ของแต่ละสินค้า${exExport.length?` เช่น ${exExport.slice(0,4).join(', ')}`:''}</div>
+                        </div>
+                    </label>
                     <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;">
-                        <input type="radio" name="exportUnitH" value="__original__" checked style="width:16px;height:16px;accent-color:#3b82f6;">
+                        <input type="radio" name="exportUnitH" value="__original__" style="width:16px;height:16px;accent-color:#3b82f6;">
                         <div><div style="font-weight:600;">📋 แยกคอลัมน์ตามที่นับ (ไม่รวม)</div><div style="font-size:11px;color:#94a3b8;">แสดงทุกหน่วยแยกกัน</div></div>
                     </label>
                     ${ex0.length?`<label style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;">
@@ -282,15 +294,16 @@
             document.body.appendChild(modal);
         };
         window._confirmExportHistory=function(){
-            const sel=document.querySelector('input[name="exportUnitH"]:checked')?.value||'__original__';
+            const sel=document.querySelector('input[name="exportUnitH"]:checked')?.value||'__exportUnit__';
             const ids=JSON.parse(document.getElementById('exportUnitModalH')?.dataset.sessions||'[]');
             document.getElementById('exportUnitModalH')?.remove();
             const sessions=currentHistoryData.filter(s=>ids.includes(s.id));
             _doWriteHistory(sessions,sel);
         };
         window._doWriteHistory=function(sessions,targetLevel){
-            // targetLevel: '__original__' | '__level0__' | '__level1__' | '__level2__'
+            // targetLevel: '__exportUnit__' | '__original__' | '__level0__' | '__level1__' | '__level2__'
             const levelIdx={'__level0__':0,'__level1__':1,'__level2__':2};
+            const useExportUnit=(targetLevel==='__exportUnit__');
             const rows=targetLevel==='__original__'
                 ?[["วันที่","คลัง","รหัสสินค้า","ชื่อสินค้า","จำนวนนับ","หน่วย","จำนวนนับ","หน่วย","จำนวนนับ","หน่วย","คนนับ","บันทึกโดย"]]
                 :[["วันที่","คลัง","รหัสสินค้า","ชื่อสินค้า","จำนวนนับ","หน่วย","คนนับ","บันทึกโดย"]];
@@ -310,18 +323,25 @@
                             padded[2].amount,padded[2].unit,
                             s.countedBy||'',s.recordedBy||'']);
                     } else {
-                        // แปลงทุกหน่วยให้เป็น units[targetIdx] ของสินค้านั้น
-                        const tIdx=levelIdx[targetLevel]??0;
-                        // ถ้าสินค้าไม่มีหน่วยในระดับนั้น ใช้หน่วยที่มีมากที่สุด (หน่วยสุดท้าย)
-                        const realTIdx=Math.min(tIdx, units.length-1);
-                        const targetUnitName=units[realTIdx]?.name||units[0]?.name||'';
+                        // หา targetUnitName
+                        let targetUnitName;
+                        if(useExportUnit){
+                            // ใช้ exportUnit ที่ตั้งค่าไว้ในสินค้า
+                            targetUnitName=p?.exportUnit||units[0]?.name||'';
+                        } else {
+                            const tIdx=levelIdx[targetLevel]??0;
+                            const realTIdx=Math.min(tIdx,units.length-1);
+                            targetUnitName=units[realTIdx]?.name||units[0]?.name||'';
+                        }
+                        // แปลงทุก amount → targetUnitName
                         let total=0;
                         amounts.forEach(a=>{
                             if(!a.amount||a.amount<=0)return;
                             const srcIdx=units.findIndex(u=>u.name===a.unit);
                             if(srcIdx<0){total+=a.amount;return;}
+                            const tIdx=units.findIndex(u=>u.name===targetUnitName);
+                            const realTIdx=tIdx>=0?tIdx:Math.min(levelIdx[targetLevel]??0,units.length-1);
                             let v=a.amount;
-                            // convert srcIdx → realTIdx
                             if(realTIdx>srcIdx){
                                 for(let i=srcIdx;i<realTIdx;i++) v*=(units[i]?.rate||1);
                             } else if(realTIdx<srcIdx){
@@ -339,7 +359,8 @@
             XLSX.utils.book_append_sheet(wb,ws,"StockHistory");
             const zone=document.getElementById('filterZone')?.value||'all';
             const dateStr=new Date().toLocaleDateString('th-TH').replace(/\//g,'-');
-            const suffix=targetLevel==='__original__'?'':('_'+{'__level0__':'หน่วยใหญ่','__level1__':'หน่วยกลาง','__level2__':'หน่วยเล็ก'}[targetLevel]);
+            const suffixMap={'__exportUnit__':'ตามตั้งค่า','__level0__':'หน่วยใหญ่','__level1__':'หน่วยกลาง','__level2__':'หน่วยเล็ก'};
+            const suffix=targetLevel==='__original__'?'':('_'+(suffixMap[targetLevel]||''));
             XLSX.writeFile(wb,`StockHistory_${zone}${suffix}_${dateStr}.xlsx`);
             toast('📥 Export เรียบร้อย','#10b981');
         };
