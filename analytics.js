@@ -174,77 +174,38 @@ ${it.zone}`);
 
         window.exportInventoryExcel=function(){
             if(!window._invExportData?.length){toast('❌ ไม่มีข้อมูล','#c2410c');return;}
-            // รวบรวมหน่วยทั้งหมดจากสินค้าที่มีใน export data
-            const exportIds=new Set(window._invExportData.map(r=>r['รหัส']||r['รหัสสินค้า']||r['id']||''));
-            const unitOptions=[];
-            allProducts.forEach(p=>{
-                if(!exportIds.has(p.id))return;
-                (p.units||[]).forEach(u=>{
-                    if(u.name&&!unitOptions.find(x=>x.name===u.name)) unitOptions.push({name:u.name,rate:u.rate,pid:p.id});
-                });
+            // ใช้ exportUnit ของแต่ละสินค้าโดยตรง ไม่ต้องถาม
+            let data=window._invExportData.map(r=>{
+                const pid=r['รหัส']||r['รหัสสินค้า']||r['id']||'';
+                const p=allProducts.find(x=>x.id===pid);
+                const targetUnit=p?.exportUnit||(p?.units||[])[0]?.name||'';
+                if(!targetUnit) return {...r};
+                const units=p?.units||[];
+                const targetIdx=units.findIndex(u=>u.name===targetUnit);
+                const srcIdx=0;
+                let converted=r['ยอดคงเหลือ']||r['balance']||0;
+                if(targetIdx>0 && srcIdx!==targetIdx){
+                    for(let i=srcIdx;i<targetIdx;i++) converted*=(units[i]?.rate||1);
+                    converted=Math.round(converted*100)/100;
+                } else if(targetIdx<0){
+                    // หน่วยไม่ตรง ใช้ค่าเดิม
+                }
+                const newR={...r};
+                const balKey=Object.keys(r).find(k=>k.includes('ยอด')||k.includes('balance'));
+                if(balKey) newR[balKey]=converted;
+                if('หน่วย' in newR) newR['หน่วย']=targetUnit||newR['หน่วย'];
+                return newR;
             });
-            // ถ้าไม่มีหน่วยพิเศษเลย export ตรงๆ
-            if(unitOptions.length<=1){
-                const rows=[Object.keys(window._invExportData[0]),...window._invExportData.map(r=>Object.values(r))];
-                const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb,ws,'InventoryHistory');
-                XLSX.writeFile(wb,`Inventory_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
-                return;
-            }
-            // สร้าง modal เลือกหน่วย
-            const existing=document.getElementById('exportUnitModal');if(existing)existing.remove();
-            const modal=document.createElement('div');
-            modal.id='exportUnitModal';
-            modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
-            modal.innerHTML=`<div style="background:white;border-radius:20px;padding:28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
-                <h3 style="margin:0 0 8px;font-family:inherit;">📥 Export สต๊อก — เลือกหน่วย</h3>
-                <p style="font-size:13px;color:#64748b;margin:0 0 18px;">ระบบจะแปลงยอดสต๊อกเป็นหน่วยที่เลือก (ใช้อัตราแปลงที่ตั้งไว้)</p>
-                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
-                    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;">
-                        <input type="radio" name="exportUnit" value="__original__" checked style="width:16px;height:16px;">
-                        <span style="font-weight:600;">📦 หน่วยเดิม (ไม่แปลง)</span>
-                    </label>
-                    ${unitOptions.map(u=>`<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;">
-                        <input type="radio" name="exportUnit" value="${u.name}" style="width:16px;height:16px;">
-                        <span style="font-weight:600;">${u.name} ${u.rate>0?'<span style=color:#94a3b8;font-size:11px;>(×'+u.rate+')</span>':''}</span>
-                    </label>`).join('')}
-                </div>
-                <div style="display:flex;gap:10px;">
-                    <button onclick="document.getElementById('exportUnitModal').remove()" style="flex:1;background:#f1f5f9;color:#475569;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:600;font-family:inherit;">ยกเลิก</button>
-                    <button onclick="doExportInventoryWithUnit()" style="flex:1;background:#10b981;color:white;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:700;font-family:inherit;">📥 Export</button>
-                </div>
-            </div>`;
-            document.body.appendChild(modal);
-        };
-        window.doExportInventoryWithUnit=function(){
-            const sel=document.querySelector('input[name="exportUnit"]:checked')?.value||'__original__';
-            document.getElementById('exportUnitModal')?.remove();
-            let data=window._invExportData.map(r=>({...r}));
-            if(sel!=='__original__'){
-                data=data.map(r=>{
-                    const pid=r['รหัส']||r['รหัสสินค้า']||r['id']||'';
-                    const p=allProducts.find(x=>x.id===pid);
-                    const units=p?.units||[];
-                    const targetIdx=units.findIndex(u=>u.name===sel);
-                    const srcIdx=0; // ยอดเดิมเป็น unit[0]
-                    let converted=r['ยอดคงเหลือ']||r['balance']||0;
-                    if(targetIdx>0){
-                        // คูณ rate ทีละขั้น
-                        for(let i=srcIdx;i<targetIdx;i++) converted*=(units[i]?.rate||1);
-                        converted=Math.round(converted*100)/100;
-                    }
-                    const newR={...r};
-                    const balKey=Object.keys(r).find(k=>k.includes('ยอด')||k.includes('balance'));
-                    if(balKey) newR[balKey]=converted;
-                    newR['หน่วย']=sel;
-                    return newR;
-                });
-            }
             const rows=[Object.keys(data[0]),...data.map(r=>Object.values(r))];
             const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb,ws,'InventoryHistory');
-            XLSX.writeFile(wb,`Inventory_${sel==='__original__'?'':sel+'_'}${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
+            XLSX.writeFile(wb,`Inventory_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.xlsx`);
             toast('📥 Export เรียบร้อย','#10b981');
+        };
+        // doExportInventoryWithUnit ยังคงไว้ backward compat
+        window.doExportInventoryWithUnit=function(){
+            document.getElementById('exportUnitModal')?.remove();
+            exportInventoryExcel();
         };
 
         // ======== MIN/MAX & PURCHASE ORDER ========
