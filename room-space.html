@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Room Space Calculator — TTGPlus</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:     #0f172a;
+    --bg2:    #1a2540;
+    --bg3:    #1e2d4a;
+    --border: #2a3a5c;
+    --gold:   #f0b429;
+    --cream:  #e2e8f0;
+    --muted:  #64748b;
+    --ok:     #10b981;
+    --warn:   #f59e0b;
+    --danger: #ef4444;
+    --r:      10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Prompt', sans-serif; background: var(--bg); color: var(--cream); min-height: 100vh; font-size: 14px; overflow-x: hidden; overflow-y: auto; }
+
+  /* Topbar */
+  .topbar { height: 52px; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; padding: 0 20px; position: sticky; top: 0; z-index: 200; }
+  .topbar-logo  { font-size: 16px; font-weight: 700; color: var(--gold); }
+  .topbar-sep   { color: var(--border); }
+  .topbar-title { font-size: 13px; font-weight: 500; }
+  .topbar-right { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* Layout */
+  .layout { display: flex; height: calc(100vh - 52px); overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar { width: 256px; flex-shrink: 0; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .sb-hdr  { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .sb-hdr span { flex: 1; font-size: 12px; font-weight: 600; }
+  .room-list { flex: 1; overflow-y: auto; padding: 6px; min-height: 0; }
+  .room-item { padding: 9px 11px; border-radius: 8px; cursor: pointer; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; transition: background .12s; }
+  .room-item:hover  { background: var(--bg3); }
+  .room-item.active { background: rgba(240,180,41,.12); border-color: rgba(240,180,41,.3); }
+  .room-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .room-info { flex: 1; min-width: 0; }
+  .room-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .room-meta { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .room-pct  { font-size: 11px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; flex-shrink: 0; }
+  .import-zone { margin: 8px; border: 2px dashed var(--border); border-radius: 8px; padding: 14px 10px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; color: var(--muted); flex-shrink: 0; display: block; }
+  .import-zone:hover, .import-zone.drag-over { border-color: var(--gold); color: var(--cream); background: rgba(240,180,41,.04); }
+  .import-zone p { font-size: 11px; margin-top: 4px; line-height: 1.5; }
+  #file-input { display: none; }
+
+  /* Main */
+  .main { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 7px; border: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; transition: filter .12s; white-space: nowrap; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn-gold  { background: var(--gold); color: #0f172a; }
+  .btn-ghost { background: transparent; color: var(--cream); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-red   { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-red:hover { background: rgba(239,68,68,.08); }
+  .btn-sm { padding: 4px 9px; font-size: 11px; }
+
+  /* Card */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); }
+  .card-hdr { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .card-hdr h3 { font-size: 13px; font-weight: 600; flex: 1; }
+  .card-body { padding: 16px; }
+
+  /* Room edit */
+  .edit-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .ifield { background: var(--bg3); border: 1px solid var(--border); color: var(--cream); border-radius: 6px; padding: 6px 10px; font-family: inherit; font-size: 13px; outline: none; transition: border-color .15s; }
+  .ifield:focus { border-color: var(--gold); }
+  .w-name { width: 155px; }
+  .w-size { width: 78px; }
+  .w-unit { width: 68px; cursor: pointer; }
+
+  /* KPI — 2 col default, 4 col on wide */
+  .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  @media (min-width: 860px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
+  .kpi { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .kpi-val   { font-size: 19px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; margin-top: 4px; line-height: 1; }
+  .kpi-sub   { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .kpi.ok    { border-color: rgba(16,185,129,.3); } .kpi.ok .kpi-val  { color: var(--ok); }
+  .kpi.warn  { border-color: rgba(245,158,11,.3); } .kpi.warn .kpi-val { color: var(--warn); }
+  .kpi.danger{ border-color: rgba(239,68,68,.3); }  .kpi.danger .kpi-val { color: var(--danger); }
+
+  /* Progress */
+  .prog-wrap { margin-top: 12px; }
+  .prog-lbl  { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .prog-bar  { height: 7px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+
+  /* Diagram — KEY FIX: position:relative + explicit height + overflow:hidden */
+  .diagram-wrap { background: var(--bg3); border-radius: 8px; padding: 14px; }
+  .diagram-canvas {
+    position: relative;          /* boxes inside use position:absolute */
+    border: 2px solid rgba(240,180,41,.35);
+    border-radius: 5px;
+    background: rgba(240,180,41,.02);
+    min-height: 80px;            /* never collapses to 0 */
+    overflow: hidden;            /* clip boxes that exceed bounds */
+    /* height is set inline via JS */
+  }
+  .eq-box {
+    position: absolute;
+    border-radius: 3px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 9px; text-align: center;
+    border: 1.5px solid; overflow: hidden; padding: 2px;
+    /* NO transition/animation that could cause reflow issues */
+  }
+  .eq-label { font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); line-height: 1.2; font-size: 9px; word-break: break-all; }
+  .eq-size  { font-size: 8px; color: rgba(255,255,255,.65); margin-top: 1px; }
+  .room-sz-lbl { position: absolute; bottom: 4px; right: 6px; font-size: 9px; color: rgba(240,180,41,.45); font-family: 'IBM Plex Mono', monospace; pointer-events: none; }
+  .diagram-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+  .legend-dot  { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Table */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--bg3); }
+  th { text-align: left; padding: 9px 11px; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 9px 8px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,.02); }
+  .chip { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: var(--bg3); padding: 2px 6px; border-radius: 4px; color: var(--gold); }
+
+  /* Add form */
+  .add-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg3); }
+  .add-form .field { display: flex; flex-direction: column; gap: 3px; }
+  .add-form label  { font-size: 10px; color: var(--muted); }
+  .add-form .ifield { padding: 6px 8px; font-size: 12px; }
+  .f-name { width: 145px; } .f-num { width: 70px; } .f-unit { width: 64px; cursor: pointer; } .f-note { width: 115px; }
+
+  /* Empty */
+  .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--muted); text-align: center; padding: 60px 20px; }
+  .empty-icon { font-size: 44px; opacity: .35; }
+  .empty h2   { font-size: 17px; color: var(--cream); }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 12px; z-index: 9999; opacity: 0; transform: translateY(8px); transition: all .22s; pointer-events: none; max-width: 300px; }
+  #toast.show  { opacity: 1; transform: translateY(0); }
+  #toast.t-ok  { border-left: 3px solid var(--ok); }
+  #toast.t-warn{ border-left: 3px solid var(--warn); }
+  #toast.t-bad { border-left: 3px solid var(--danger); }
+
+  /* View-only mode for non-admin */
+  body.view-only .add-form       { display: none !important; }
+  body.view-only .btn-red        { display: none !important; }
+  body.view-only .edit-row       { pointer-events: none; opacity: .45; }
+  body.view-only #sb-add-btn     { display: none !important; }
+  body.view-only .view-only-badge{ display: inline-flex !important; }
+  .view-only-badge { display: none; align-items: center; gap: 4px;
+    font-size: 11px; color: #64748b; background: rgba(100,116,139,.1);
+    border: 1px solid rgba(100,116,139,.2); border-radius: 5px; padding: 3px 8px; }
+
+  /* Tooltip */
+  .fp-tooltip {
+    position: fixed; z-index: 9999; pointer-events: none;
+    background: #0f172a; border: 1px solid var(--gold);
+    border-radius: 8px; padding: 8px 12px; font-size: 12px;
+    color: var(--cream); box-shadow: 0 4px 20px rgba(0,0,0,.6);
+    max-width: 200px; display: none;
+  }
+  .fp-tooltip.show { display: block; }
+  .fp-tooltip-name { font-weight: 600; color: var(--gold); margin-bottom: 3px; }
+  .fp-tooltip-row  { color: var(--muted); font-size: 11px; line-height: 1.6; }
+
+  /* Legend */
+  .fp-legend {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 10px 14px; border-top: 1px solid var(--border);
+    background: var(--bg3); border-radius: 0 0 8px 8px;
+  }
+  .fp-legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--cream); background: var(--bg2);
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 3px 8px; white-space: nowrap;
+  }
+  .fp-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .fp-legend-num { font-size: 9px; color: var(--muted); margin-left: 2px; }
+
+  /* Edit modal */
+  .eq-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    backdrop-filter: blur(4px); z-index: 5000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .eq-modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; width: 420px;
+    max-width: 95vw; box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  }
+  .eq-modal h3 { font-size: 15px; font-weight: 700; color: var(--gold); margin-bottom: 18px; }
+  .eq-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .eq-modal-full { grid-column: 1/-1; }
+  .eq-modal label { font-size: 10px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
+  .eq-modal input, .eq-modal select {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--cream); border-radius: 6px; padding: 8px 10px;
+    font-family: inherit; font-size: 13px; outline: none;
+  }
+  .eq-modal input:focus, .eq-modal select:focus { border-color: var(--gold); }
+  .eq-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* Merge modal */
+  .merge-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    backdrop-filter: blur(4px); z-index: 5500;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .merge-modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; width: 480px; max-width: 95vw;
+    max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  }
+  .merge-modal h3 { font-size: 15px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+  .merge-modal p  { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .merge-room-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .merge-room-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg3);
+    cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .merge-room-item:hover { border-color: var(--gold); background: rgba(240,180,41,.06); }
+  .merge-room-item.selected { border-color: var(--gold); background: rgba(240,180,41,.12); }
+  .merge-room-item input[type=checkbox] { accent-color: var(--gold); width:15px; height:15px; flex-shrink:0; cursor:pointer; }
+  .merge-room-info { flex:1; min-width:0; }
+  .merge-room-name { font-size:13px; font-weight:500; }
+  .merge-room-meta { font-size:10px; color:var(--muted); margin-top:1px; }
+  .merge-room-dot  { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .merge-layout-row { display:flex; gap:8px; margin-bottom:14px; align-items:flex-end; }
+  .merge-layout-row .field { display:flex; flex-direction:column; gap:3px; }
+  .merge-layout-row label  { font-size:10px; color:var(--muted); }
+  .merge-actions { display:flex; gap:8px; justify-content:flex-end; }
+  /* hide merge btn in view-only */
+  body.view-only #sb-merge-btn { display:none !important; }
+  .share-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    backdrop-filter: blur(4px); z-index: 6000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .share-modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 26px; width: 460px; max-width: 95vw;
+    box-shadow: 0 24px 60px rgba(0,0,0,.55);
+  }
+  .share-modal h3 { font-size: 15px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+  .share-modal p  { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .share-url-box  { display: flex; gap: 6px; align-items: center; }
+  .share-url-input {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--cream); border-radius: 6px; padding: 8px 10px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; outline: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .share-url-input:focus { border-color: var(--gold); }
+  .share-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .share-badge { font-size: 10px; color: var(--ok); background: rgba(16,185,129,.1);
+    border: 1px solid rgba(16,185,129,.25); border-radius: 4px; padding: 2px 7px;
+    display: inline-block; margin-bottom: 10px; }
+
+  /* Notes panel — shown next to floor plan */
+  .fp-notes-panel {
+    width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 0;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden;
+  }
+  .fp-notes-hdr {
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .fp-notes-textarea {
+    flex: 1; width: 100%; min-height: 180px;
+    background: transparent; border: none; outline: none; resize: none;
+    color: var(--cream); font-family: 'Prompt', sans-serif; font-size: 12px;
+    line-height: 1.65; padding: 10px 12px;
+  }
+  .fp-notes-textarea::placeholder { color: var(--muted); }
+  .fp-notes-footer {
+    padding: 5px 10px; border-top: 1px solid var(--border);
+    font-size: 10px; color: var(--muted); text-align: right;
+  }
+  /* Wrapper that places canvas + notes side by side */
+  .fp-body-wrap {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 12px;
+  }
+  /* Canvas scroll container — scrollable in both axes after zoom */
+  .fp-canvas-wrap {
+    flex: 1; min-width: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch; /* smooth momentum scroll on iOS */
+    cursor: grab;
+  }
+  .fp-canvas-wrap:active { cursor: grabbing; }
+
+  .mobile-hint { display: none; }
+  @media (max-width: 760px) {
+    .desktop-hint { display: none; }
+    .mobile-hint  { display: inline; }
+
+    /* Table — hide detail columns, show inline meta under name */
+    .eq-desktop { display: none !important; }
+    .eq-mobile-meta { display: block !important; }
+    .tbl-wrap { overflow-x: visible; }
+
+    .fp-body-wrap { flex-direction: column; }
+    .fp-notes-panel { width: 100%; }
+
+    /* Topbar — hide title text, shrink buttons */
+    .topbar { padding: 0 10px; gap: 6px; }
+    .topbar-title { display: none; }
+    .topbar-sep   { display: none; }
+    .topbar-right { gap: 4px; }
+    .topbar-right .btn { padding: 5px 7px; font-size: 11px; }
+
+    /* Layout — stack vertically instead of side-by-side */
+    .layout { flex-direction: column; height: auto; overflow: visible; }
+
+    /* Sidebar — horizontal scrollable room list across top */
+    .sidebar {
+      width: 100%; flex-direction: column;
+      border-right: none; border-bottom: 1px solid var(--border);
+      max-height: none; overflow: visible;
+    }
+    .room-list {
+      display: flex; flex-direction: row; overflow-x: auto; overflow-y: visible;
+      padding: 6px; gap: 6px; flex: none;
+      /* hide scrollbar but keep scrollable */
+      scrollbar-width: none;
+    }
+    .room-list::-webkit-scrollbar { display: none; }
+    .room-item {
+      min-width: 140px; flex-shrink: 0; margin-bottom: 0;
+      flex-direction: column; align-items: flex-start; gap: 3px;
+    }
+    .room-pct { margin-left: auto; align-self: flex-end; }
+    .import-zone { display: none; } /* hide import on mobile — use topbar instead */
+
+    /* Main — full width, normal scroll */
+    .main { overflow-y: visible; padding: 12px; gap: 12px; }
+
+    /* KPI — 2 col always on mobile */
+    .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+
+    /* Edit row wrap nicely */
+    .edit-row { gap: 6px; }
+    .w-name { width: 100%; }
+
+    /* Add form stack */
+    .add-form { flex-direction: column; gap: 8px; }
+    .add-form .field { width: 100%; }
+    .add-form .ifield { width: 100%; }
+    .f-name, .f-num, .f-unit, .f-note { width: 100% !important; }
+
+    /* Table horizontal scroll */
+    .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  }
+
+  @media print {
+    .fp-notes-panel { display: none !important; }
+
+    /* ── Hide UI chrome ── */
+    .topbar, .sidebar, .add-form, .btn, #toast,
+    .fp-tooltip, .eq-modal-overlay, .card-hdr .btn,
+    .view-only-badge { display: none !important; }
+
+    /* ── Page setup — A4 portrait ── */
+    @page { size: A4 portrait; margin: 10mm 10mm 10mm 10mm; }
+
+    /* ── Layout ── */
+    .layout { display: block !important; overflow: visible !important; height: auto !important; }
+    .main   { overflow: visible !important; padding: 0 !important; gap: 6px !important; display: flex !important; flex-direction: column !important; }
+    body    { background: #fff !important; color: #000 !important; font-size: 11px; }
+
+    /* ── All cards together, no page break inside ── */
+    .card { border: 1px solid #bbb !important; margin-bottom: 6px !important;
+            box-shadow: none !important; background: #fff !important;
+            break-inside: avoid; page-break-inside: avoid; }
+    .card-hdr     { padding: 5px 10px !important; border-bottom: 1px solid #ddd !important; background: #f0f0f0 !important; }
+    .card-hdr h3  { color: #000 !important; font-size: 11px !important; }
+    .card-body    { padding: 6px 10px !important; overflow: visible !important; }
+
+    /* ── Hide KPI, progress, edit row — save vertical space ── */
+    .kpi-grid, .prog-wrap, .edit-row { display: none !important; }
+
+    /* ── Show compact summary line ── */
+    .print-summary { display: block !important; font-size: 10px; color: #333; padding: 2px 0 4px; }
+
+    /* ── Floor plan canvas ── */
+    #fp-canvas {
+      width: 100% !important;
+      height: auto !important;
+      max-height: 50vh !important;
+      object-fit: contain !important;
+      filter: invert(1) hue-rotate(180deg) !important;
+      border: 1px solid #666 !important;
+      border-radius: 3px !important;
+      display: block !important;
+    }
+    .fp-body-wrap { flex-direction: column !important; padding: 6px !important; }
+    .fp-legend { background: #f5f5f5 !important; padding: 4px 8px !important;
+                 flex-wrap: wrap !important; gap: 3px !important; border-top: 1px solid #ddd !important; }
+    .fp-legend-item { background: #fff !important; border: 1px solid #ccc !important;
+                      color: #000 !important; font-size: 9px !important; padding: 2px 5px !important; }
+    .fp-legend-num { color: #666 !important; }
+
+    /* ── Compact table — fits more rows per page ── */
+    table   { width: 100% !important; font-size: 9px !important; border-collapse: collapse !important; }
+    thead tr { background: #e8e8e8 !important; }
+    th  { background: #e8e8e8 !important; color: #222 !important;
+          padding: 3px 6px !important; border: 1px solid #ccc !important; font-size: 9px !important; }
+    td  { color: #000 !important; padding: 3px 6px !important;
+          border: 1px solid #e0e0e0 !important; vertical-align: middle !important; }
+    .chip  { background: #f0f0f0 !important; color: #333 !important;
+             font-size: 8px !important; padding: 1px 4px !important; border-radius: 2px !important; }
+    .tbl-wrap { overflow: visible !important; }
+    tbody tr:hover { background: transparent !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-logo">TTGPlus</span>
+  <span class="topbar-sep">/</span>
+  <span class="topbar-title">คำนวณพื้นที่ห้อง</span>
+  <span class="view-only-badge">👁 ดูอย่างเดียว</span>
+  <span id="sync-status" style="font-size:11px;color:#64748b;margin-right:4px;"></span>
+  <div class="topbar-right">
+    <button class="btn btn-ghost" onclick="shareViewOnly()" title="แชร์ลิงก์ให้คนอื่นดูได้เฉยๆ">🔗 แชร์</button>
+    <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Template</button>
+    <button class="btn btn-ghost" onclick="exportCSV()">📊 CSV</button>
+    <button class="btn btn-ghost" onclick="exportExcel()">📋 Excel</button>
+    <button class="btn btn-ghost" onclick="exportRoomPDF()">📄 PDF รายห้อง</button>
+    <button class="btn btn-ghost" onclick="window.print()">🖨 Print</button>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sb-hdr">
+      <span>ห้องทั้งหมด</span>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-sm" id="sb-merge-btn" onclick="openMergeModal()" title="สร้างห้องรวมจากหลายห้อง">⊕ รวม</button>
+        <button class="btn btn-gold btn-sm" id="sb-add-btn" onclick="addRoom()">+ เพิ่ม</button>
+      </div>
+    </div>
+    <div class="room-list" id="room-list"></div>
+    <label class="import-zone" id="drop-zone">
+      <div style="font-size:22px">📂</div>
+      <p>Import Excel<br>ลาก .xlsx มาวาง หรือคลิกเลือกไฟล์</p>
+      <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFileInput(this)">
+    </label>
+  </div>
+
+  <!-- Main content -->
+  <div class="main" id="main"></div>
+</div>
+
+<div id="toast"></div>
+<div class="fp-tooltip" id="fp-tooltip">
+  <div class="fp-tooltip-name" id="fp-tt-name"></div>
+  <div class="fp-tooltip-row" id="fp-tt-info"></div>
+</div>
+
+<script>
+// ────────────────────────────────────────────
+//  State & constants
+// ────────────────────────────────────────────
+let rooms = [], activeId = null;
+
+const COLORS = [
+  {bg:'rgba(239,68,68,.5)',   bd:'#ef4444'},
+  {bg:'rgba(59,130,246,.5)',  bd:'#3b82f6'},
+  {bg:'rgba(16,185,129,.5)',  bd:'#10b981'},
+  {bg:'rgba(168,85,247,.5)',  bd:'#a855f7'},
+  {bg:'rgba(245,158,11,.5)',  bd:'#f59e0b'},
+  {bg:'rgba(236,72,153,.5)',  bd:'#ec4899'},
+  {bg:'rgba(6,182,212,.5)',   bd:'#06b2d4'},
+  {bg:'rgba(132,204,22,.5)',  bd:'#84cc16'},
+];
+
+// ────────────────────────────────────────────
+//  Utils
+// ────────────────────────────────────────────
+function uid()       { return '_' + Math.random().toString(36).slice(2,9); }
+function toCm(v,u)   { return u === 'm' ? +v * 100 : +v; }
+function roomArea(r) { return toCm(+r.width,r.unit) * toCm(+r.length,r.unit); }
+function eqArea(e,ru){ const u=e.unit||ru; return toCm(+e.width,u)*toCm(+e.length,u)*(+e.quantity||1); }
+function totalEq(r)  { return r.equipment.reduce((s,e)=>s+eqArea(e,r.unit),0); }
+function pct(r)      { const ra=roomArea(r); return ra ? Math.min(totalEq(r)/ra*100, 999) : 0; }
+function pctCls(p)   { return p<60?'ok':p<85?'warn':'danger'; }
+function colorOf(i)  { return COLORS[i % COLORS.length]; }
+function fmtM2(cm2)  { return (cm2/10000).toFixed(2) + ' m²'; }
+
+// ────────────────────────────────────────────
+//  Toast
+// ────────────────────────────────────────────
+let _toastTimer;
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show t-${type==='danger'?'bad':type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.className = '', 2800);
+}
+
+// ────────────────────────────────────────────
+//  Room CRUD
+// ────────────────────────────────────────────
+function addRoom() {
+  if (!guardEdit()) return;
+  const r = { id:uid(), name:`ห้องที่ ${rooms.length+1}`, width:400, length:600, unit:'cm', equipment:[] };
+  rooms.push(r); activeId = r.id;
+  renderAll();
+}
+function deleteRoom(id) {
+  if (!guardEdit()) return;
+  if (!confirm('ลบห้องนี้?')) return;
+  rooms = rooms.filter(r => r.id !== id);
+  activeId = rooms[0]?.id || null;
+  renderAll();
+}
+function selectRoom(id) { activeId = id; FP.selected.clear(); FP.marquee = null; FP.groupDrag = null; renderAll(); }
+function setRoom(id, key, val) {
+  if (!guardEdit()) return;
+  const r = rooms.find(x => x.id === id); if (!r) return;
+  r[key] = (key==='width'||key==='length') ? +val : val;
+  // Surgical update — only refresh KPIs, progress bar, canvas; do NOT re-render whole page
+  _updateKPI(r);
+  saveData();
+  if (activeId === id) requestAnimationFrame(() => fpInit(id));
+}
+
+function _updateKPI(r) {
+  const ra = roomArea(r), ea = totalEq(r), p = pct(r), cls = pctCls(p);
+  // KPI values
+  const kpis = document.querySelectorAll('.kpi');
+  if (kpis[0]) { kpis[0].querySelector('.kpi-val').textContent = fmtM2(ra); kpis[0].querySelector('.kpi-sub').textContent = `${r.width} × ${r.length} ${r.unit}`; }
+  if (kpis[1]) { kpis[1].querySelector('.kpi-val').textContent = fmtM2(ea); kpis[1].querySelector('.kpi-sub').textContent = `${r.equipment.length} รายการ`; }
+  if (kpis[2]) {
+    kpis[2].className = `kpi ${cls}`;
+    kpis[2].querySelector('.kpi-val').textContent = `${p.toFixed(1)}%`;
+    kpis[2].querySelector('.kpi-sub').textContent = p>100?'⚠️ เกินพื้นที่':p>85?'⚠️ ใกล้เต็ม':p>60?'ปกติ':'ยังมีพื้นที่';
+  }
+  if (kpis[3]) { kpis[3].querySelector('.kpi-val').textContent = fmtM2(Math.max(ra-ea,0)); kpis[3].querySelector('.kpi-sub').textContent = `${Math.max(100-p,0).toFixed(1)}% ว่าง`; }
+  // Progress bar
+  const fill = document.querySelector('.prog-fill');
+  if (fill) { fill.style.width = `${Math.min(p,100)}%`; fill.style.background = `var(--${cls})`; }
+  const progPct = document.querySelector('.prog-lbl span:last-child');
+  if (progPct) { progPct.style.color = `var(--${cls})`; progPct.textContent = `${p.toFixed(1)}%`; }
+  // Room title in card header
+  const hdr = document.querySelector('.card-hdr h3[style*="gold"]');
+  if (hdr) hdr.textContent = r.name;
+  // Sidebar
+  renderSidebar();
+}
+
+// ────────────────────────────────────────────
+//  Equipment CRUD
+// ────────────────────────────────────────────
+function addEquip(roomId) {
+  if (!guardEdit()) return;
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  const name = document.getElementById('f-name').value.trim();
+  const w    = parseFloat(document.getElementById('f-w').value);
+  const l    = parseFloat(document.getElementById('f-l').value);
+  const qty  = parseInt(document.getElementById('f-qty').value) || 1;
+  const unit = document.getElementById('f-unit').value;
+  const note = document.getElementById('f-note').value.trim();
+  if (!name || !w || !l) { toast('กรุณากรอกชื่อและขนาด','warn'); return; }
+  r.equipment.push({ id:uid(), name, width:w, length:l, quantity:qty, unit, note });
+  renderAll();
+  ['f-name','f-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-qty').value = '1';
+  toast(`เพิ่ม "${name}" แล้ว`);
+}
+function delEquip(roomId, eqId) {
+  if (!guardEdit()) return;
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  r.equipment = r.equipment.filter(e => e.id !== eqId);
+  renderAll();
+}
+
+// ────────────────────────────────────────────
+//  Render
+// ────────────────────────────────────────────
+
+// ────────────────────────────────────────────
+//  Firestore sync
+// ────────────────────────────────────────────
+const FIRESTORE_DOC = 'config/roomSpace';
+let _db = null, _savePending = false, _saveTimer = null, _dataLoaded = false;
+
+async function getDb() {
+  if (_db) return _db;
+  // Reuse Firebase from home.html if opened via TTGPlus, else init standalone
+  if (window.db) { _db = window.db; return _db; }
+  try {
+    const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+    const { getFirestore } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const cfg = {
+      apiKey: "AIzaSyDOduBfKHKwObxOk3MUMGxj1PGT23p_swM",
+      authDomain: "tingting-3d57f.firebaseapp.com",
+      projectId: "tingting-3d57f",
+      storageBucket: "tingting-3d57f.firebasestorage.app",
+      messagingSenderId: "998609441304",
+      appId: "1:998609441304:web:0c7fbedf869fa2335d296d"
+    };
+    const app = getApps().length ? getApps()[0] : initializeApp(cfg);
+    _db = getFirestore(app);
+  } catch(e) { console.error('Firebase init failed:', e); }
+  return _db;
+}
+
+function isAdmin() {
+  if (window._forceViewOnly) return false;
+  try {
+    const u = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    // If opened via TTGPlus with login → check role
+    if (u !== null) return u && u.role === 'admin';
+    // If opened standalone (no login system) → allow editing
+    return true;
+  } catch(e) { return true; }
+}
+
+function guardEdit() {
+  if (!isAdmin()) {
+    toast('เฉพาะ Admin เท่านั้นที่แก้ไขได้', 'warn');
+    return false;
+  }
+  return true;
+}
+
+function saveData() {
+  if (!_dataLoaded) return;
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async () => {
+    if (!_dataLoaded) return;
+    const db = await getDb(); if (!db) return;
+    try {
+      const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const ts = Date.now();
+      setStatus('กำลังบันทึก...');
+      await setDoc(doc(db, FIRESTORE_DOC), { rooms, updatedAt: ts });
+      setStatus('✓ บันทึกแล้ว');
+      setTimeout(() => setStatus(''), 2000);
+      if (window._onSnapshotSetLastSaved) window._onSnapshotSetLastSaved();
+    } catch(e) {
+      console.error('Save failed:', e);
+      setStatus('⚠️ บันทึกไม่สำเร็จ');
+    }
+  }, 800);
+}
+
+async function loadData() {
+  setStatus('กำลังโหลด...');
+  const db = await getDb(); if (!db) { setStatus(''); return; }
+  try {
+    const { doc, getDoc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const ref = doc(db, FIRESTORE_DOC);
+    // Initial load
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const d = snap.data();
+      if (Array.isArray(d.rooms) && d.rooms.length) {
+        rooms = d.rooms;
+        // activeId is local — pick first room, don't read from Firestore
+        activeId = rooms[0]?.id || null;
+      }
+    }
+    renderAll_noSave();
+    setStatus('');
+    _dataLoaded = true; // safe to save from this point on
+    // Expose setter for saveData to mark own saves
+    let _skipNextSnapshot = false;
+    window._onSnapshotSetLastSaved = () => { _skipNextSnapshot = true; };
+
+    // Real-time listener — update when others save
+    onSnapshot(ref, snap => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      if (!Array.isArray(d.rooms)) return;
+
+      // Skip echo of our own save (fired once after each saveData)
+      if (_skipNextSnapshot) { _skipNextSnapshot = false; return; }
+
+      // Check if only _fp (box positions) changed — if so, just redraw canvas, no full re-render
+      const onlyPositionsChanged = (() => {
+        if (d.rooms.length !== rooms.length) return false;
+        for (let i = 0; i < d.rooms.length; i++) {
+          const nr = d.rooms[i], or = rooms[i];
+          if (nr.name !== or.name || nr.width !== or.width || nr.length !== or.length ||
+              nr.unit !== or.unit || nr.note !== or.note) return false;
+          if (nr.equipment.length !== or.equipment.length) return false;
+          for (let j = 0; j < nr.equipment.length; j++) {
+            const ne = nr.equipment[j], oe = or.equipment[j];
+            if (ne.id !== oe.id || ne.name !== oe.name ||
+                ne.width !== oe.width || ne.length !== oe.length ||
+                ne.quantity !== oe.quantity) return false;
+          }
+        }
+        return true;
+      })();
+
+      // Always update rooms data, keep local activeId intact
+      rooms = d.rooms;
+
+      if (onlyPositionsChanged) {
+        if (activeId) requestAnimationFrame(() => fpInit(activeId));
+      } else {
+        // Structural change — full re-render, but keep current activeId if still valid
+        if (!rooms.find(r => r.id === activeId)) activeId = rooms[0]?.id || null;
+        renderAll_noSave();
+      }
+    });
+  } catch(e) {
+    console.error('Load failed:', e);
+    setStatus('⚠️ โหลดไม่ได้ — ตรวจสอบการเชื่อมต่อ');
+  }
+}
+
+function setStatus(msg) {
+  const el = document.getElementById('sync-status');
+  if (el) el.textContent = msg;
+}
+
+// renderAll without triggering save (used by onSnapshot)
+function renderAll_noSave() {
+  document.body.classList.toggle('view-only', !isAdmin());
+  renderSidebar();
+  const mainEl = document.getElementById('main');
+  const savedScroll = mainEl ? mainEl.scrollTop : 0;
+  renderMain();
+  // Restore scroll synchronously — must happen before browser paints
+  // Using setTimeout(0) so DOM is written but before next frame renders
+  if (savedScroll > 0 && mainEl) {
+    setTimeout(() => { mainEl.scrollTop = savedScroll; }, 0);
+  }
+  requestAnimationFrame(() => { if (activeId) fpInit(activeId); });
+}
+
+function renderAll() { saveData(); renderAll_noSave(); }
+
+function renderSidebar() {
+  const el = document.getElementById('room-list');
+  if (!rooms.length) {
+    el.innerHTML = '<div style="padding:14px;font-size:11px;color:var(--muted);text-align:center;">ยังไม่มีห้อง</div>';
+    return;
+  }
+  el.innerHTML = rooms.map((r,i) => {
+    const p = pct(r), cls = pctCls(p), col = colorOf(i);
+    const mergedBadge = r._mergedFrom
+      ? `<span style="font-size:9px;background:rgba(240,180,41,.15);color:var(--gold);border:1px solid rgba(240,180,41,.3);border-radius:3px;padding:1px 4px;margin-left:4px">รวม</span>`
+      : '';
+    return `<div class="room-item ${r.id===activeId?'active':''}" onclick="selectRoom('${r.id}')">
+      <div class="room-dot" style="background:${col.bd}"></div>
+      <div class="room-info">
+        <div class="room-name">${r.name}${mergedBadge}</div>
+        <div class="room-meta">${r.width}×${r.length} ${r.unit} · ${r.equipment.length} รายการ</div>
+      </div>
+      <span class="room-pct" style="color:var(--${cls})">${p.toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function renderMain() {
+  const el = document.getElementById('main');
+  if (!rooms.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🏠</div>
+      <h2>ยังไม่มีข้อมูลห้อง</h2>
+      <p style="font-size:13px">กด "+ เพิ่ม" หรือ Import Excel</p>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-gold" onclick="addRoom()">+ เพิ่มห้องแรก</button>
+        <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Template</button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const r   = rooms.find(x => x.id === activeId) || rooms[0];
+  activeId  = r.id;
+  const idx = rooms.indexOf(r);
+  const ra  = roomArea(r);
+  const ea  = totalEq(r);
+  const p   = pct(r);
+  const cls = pctCls(p);
+
+  el.innerHTML = `
+  <!-- ① Room settings card -->
+  <div class="card">
+    <div class="card-hdr">
+      <h3 style="color:var(--gold)">${r.name}</h3>
+      ${r._mergedFrom ? `<span style="font-size:10px;color:var(--muted);background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.2);border-radius:4px;padding:2px 7px">⊕ รวมจาก: ${rooms.filter(x=>r._mergedFrom.includes(x.id)).map(x=>x.name).join(', ') || r.note?.replace('รวมจาก: ','') || '—'}</span>` : ''}
+      <button class="btn btn-red btn-sm" onclick="deleteRoom('${r.id}')">🗑 ลบห้อง</button>
+    </div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--muted)">แก้ไขชื่อและขนาดห้อง</div>
+      <div class="edit-row">
+        <input class="ifield w-name" value="${r.name}" placeholder="ชื่อห้อง"
+          onchange="setRoom('${r.id}','name',this.value)">
+        <input class="ifield w-size" type="number" value="${r.width}" placeholder="กว้าง"
+          onchange="setRoom('${r.id}','width',this.value)">
+        <span style="color:var(--muted)">×</span>
+        <input class="ifield w-size" type="number" value="${r.length}" placeholder="ยาว"
+          onchange="setRoom('${r.id}','length',this.value)">
+        <select class="ifield w-unit" onchange="setRoom('${r.id}','unit',this.value)">
+          <option value="cm" ${r.unit==='cm'?'selected':''}>cm</option>
+          <option value="m"  ${r.unit==='m' ?'selected':''}>m</option>
+        </select>
+      </div>
+
+      <!-- Print summary (shown only in print, replaces KPI grid) -->
+      <div class="print-summary" style="display:none">
+        ห้อง: <b>${r.name}</b> | ขนาด: <b>${r.width}×${r.length} ${r.unit}</b> |
+        พื้นที่ห้อง: <b>${fmtM2(ra)}</b> | พื้นที่อุปกรณ์: <b>${fmtM2(ea)}</b> |
+        ใช้ไป: <b>${p.toFixed(1)}%</b> | เหลือ: <b>${fmtM2(Math.max(ra-ea,0))}</b>
+      </div>
+      <!-- KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">พื้นที่ห้อง</div>
+          <div class="kpi-val" style="color:var(--cream)">${fmtM2(ra)}</div>
+          <div class="kpi-sub">${r.width} × ${r.length} ${r.unit}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">พื้นที่อุปกรณ์รวม</div>
+          <div class="kpi-val" style="color:var(--gold)">${fmtM2(ea)}</div>
+          <div class="kpi-sub">${r.equipment.length} รายการ</div>
+        </div>
+        <div class="kpi ${cls}">
+          <div class="kpi-label">% พื้นที่ที่ใช้</div>
+          <div class="kpi-val">${p.toFixed(1)}%</div>
+          <div class="kpi-sub">${p>100?'⚠️ เกินพื้นที่':p>85?'⚠️ ใกล้เต็ม':p>60?'ปกติ':'ยังมีพื้นที่'}</div>
+        </div>
+        <div class="kpi ok">
+          <div class="kpi-label">พื้นที่เหลือ</div>
+          <div class="kpi-val">${fmtM2(Math.max(ra-ea,0))}</div>
+          <div class="kpi-sub">${Math.max(100-p,0).toFixed(1)}% ว่าง</div>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="prog-wrap">
+        <div class="prog-lbl">
+          <span>พื้นที่ที่ใช้ไป</span>
+          <span style="color:var(--${cls})">${p.toFixed(1)}%</span>
+        </div>
+        <div class="prog-bar">
+          <div class="prog-fill" style="width:${Math.min(p,100)}%;background:var(--${cls})"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② Floor Plan card -->
+  <div class="card">
+    <div class="card-hdr">
+      <h3>📐 Floor Plan</h3>
+      <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:10px;color:var(--muted)">Zoom</span>
+          <input type="range" id="fp-zoom" min="0.5" max="4" step="0.1" value="1"
+            style="width:90px;accent-color:var(--gold);cursor:pointer"
+            oninput="fpSetZoom(this.value,'${r.id}')">
+          <span id="fp-zoom-label" style="font-size:10px;color:var(--gold);font-family:'IBM Plex Mono',monospace;min-width:32px">1×</span>
+        </div>
+        <span style="font-size:10px;color:var(--muted)" class="desktop-hint">ลาก=เลือกกลุ่ม · Shift+คลิก=เพิ่ม · ดับเบิลคลิก=หมุน · Esc=ยกเลิก</span>
+        <span style="font-size:10px;color:var(--muted)" class="mobile-hint">นิ้วเดียวลาก · สองนิ้ว zoom · แตะ2ครั้งหมุน</span>
+        <button class="btn btn-ghost btn-sm" onclick="resetLayout('${r.id}')">↺ Reset</button>
+      </div>
+    </div>
+    <div class="fp-body-wrap">
+      <div class="fp-canvas-wrap">
+        <canvas id="fp-canvas" style="border-radius:6px;cursor:grab;display:block;flex-shrink:0"></canvas>
+      </div>
+      <div class="fp-notes-panel">
+        <div class="fp-notes-hdr">📝 หมายเหตุ</div>
+        <textarea class="fp-notes-textarea" id="fp-notes-area"
+          placeholder="เขียนรายละเอียดเพิ่มเติม&#10;เช่น ทิศทางประตู, ตำแหน่งเสา,&#10;จุดระวัง, หมายเหตุพิเศษ..."
+          ${!isAdmin() ? 'readonly' : ''}
+          oninput="fpSaveNote('${r.id}', this.value)">${r.note ? r.note.replace(/</g,'&lt;') : ''}</textarea>
+        <div class="fp-notes-footer" id="fp-notes-status">—</div>
+      </div>
+    </div>
+    <div class="fp-legend" id="fp-legend"></div>
+  </div>
+
+  <!-- ③ Equipment list card -->
+  <div class="card">
+    <div class="card-hdr">
+      <h3>📦 รายการอุปกรณ์</h3>
+      <span style="font-size:10px;color:var(--muted)">${r.equipment.length} รายการ</span>
+    </div>
+    ${buildTable(r)}
+    <!-- Add equipment form (admin only) -->
+    <div class="add-form">
+      <div class="field"><label>ชื่ออุปกรณ์</label>
+        <input class="ifield f-name" id="f-name" placeholder="เช่น โต๊ะ"></div>
+      <div class="field"><label>กว้าง</label>
+        <input class="ifield f-num" id="f-w" type="number" placeholder="60"></div>
+      <div class="field"><label>ยาว</label>
+        <input class="ifield f-num" id="f-l" type="number" placeholder="120"></div>
+      <div class="field"><label>จำนวน</label>
+        <input class="ifield f-num" id="f-qty" type="number" value="1" min="1"></div>
+      <div class="field"><label>หน่วย</label>
+        <select class="ifield f-unit" id="f-unit">
+          <option value="cm">cm</option><option value="m">m</option>
+        </select></div>
+      <div class="field"><label>หมายเหตุ</label>
+        <input class="ifield f-note" id="f-note" placeholder="เช่น ติดผนัง"></div>
+      <button class="btn btn-gold" onclick="addEquip('${r.id}')" style="align-self:flex-end">+ เพิ่ม</button>
+    </div>
+  </div>`;
+}
+
+function buildTable(r) {
+  if (!r.equipment.length) {
+    return `<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px;">ยังไม่มีอุปกรณ์ — เพิ่มด้านล่าง</div>`;
+  }
+  const ra = roomArea(r);
+  const rows = r.equipment.map((e,i) => {
+    const col = colorOf(i), ea = eqArea(e,r.unit), p = ra ? (ea/ra*100).toFixed(1) : '—';
+    const adminBtns = isAdmin() ? `
+      <button class="btn btn-ghost btn-sm" onclick="openEditEquip('${r.id}','${e.id}')" title="แก้ไข">✏️</button>
+      <button class="btn btn-red btn-sm" onclick="delEquip('${r.id}','${e.id}')" title="ลบ">🗑</button>` : '';
+    return `<tr class="eq-row">
+      <td class="eq-col-num" style="text-align:center;padding:9px 6px;vertical-align:middle">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:3px;background:${col.bd};color:#fff;font-size:9px;font-weight:700;flex-shrink:0">${i+1}</span>
+      </td>
+      <td class="eq-col-name" style="vertical-align:middle">
+        <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
+        <div class="eq-mobile-meta" style="display:none;font-size:10px;color:var(--muted);margin-top:2px">
+          ${e.width}×${e.length} ${e.unit||r.unit} · ${e.quantity} ชิ้น · ${fmtM2(ea)} · ${p}%
+          ${e.note ? `<span style="font-style:italic"> · ${e.note}</span>` : ''}
+        </div>
+      </td>
+      <td class="eq-col-size eq-desktop"><span class="chip">${e.width}×${e.length} ${e.unit||r.unit}</span></td>
+      <td class="eq-col-qty eq-desktop" style="font-family:'IBM Plex Mono',monospace;text-align:center">${e.quantity}</td>
+      <td class="eq-col-area eq-desktop"><span class="chip">${fmtM2(ea)}</span></td>
+      <td class="eq-col-pct eq-desktop" style="font-family:'IBM Plex Mono',monospace;color:var(--muted);text-align:center">${p}%</td>
+      <td class="eq-col-note eq-desktop" style="font-size:11px;color:var(--muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${e.note||'—'}</td>
+      <td class="eq-col-act" style="white-space:nowrap;text-align:right;vertical-align:middle">${adminBtns}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse">
+    <thead class="eq-thead"><tr>
+      <th style="width:34px;text-align:center;padding:9px 6px">#</th>
+      <th style="padding:9px 8px">ชื่อ</th>
+      <th class="eq-desktop" style="width:108px;padding:9px 8px">ขนาด</th>
+      <th class="eq-desktop" style="width:54px;text-align:center;padding:9px 8px">จำนวน</th>
+      <th class="eq-desktop" style="width:82px;padding:9px 8px">พื้นที่</th>
+      <th class="eq-desktop" style="width:54px;text-align:center;padding:9px 8px">%ห้อง</th>
+      <th class="eq-desktop" style="width:90px;padding:9px 8px">หมายเหตุ</th>
+      <th style="width:72px;padding:9px 8px;text-align:right"></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+// Edit equipment modal
+function openEditEquip(roomId, eqId) {
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  const e = r.equipment.find(x => x.id === eqId); if (!e) return;
+  const existing = document.getElementById('eq-edit-modal');
+  if (existing) existing.remove();
+  const m = document.createElement('div');
+  m.className = 'eq-modal-overlay'; m.id = 'eq-edit-modal';
+  m.innerHTML = `
+    <div class="eq-modal" onclick="event.stopPropagation()">
+      <h3>✏️ แก้ไขอุปกรณ์</h3>
+      <div class="eq-modal-grid">
+        <div class="eq-modal-full">
+          <label>ชื่ออุปกรณ์</label>
+          <input id="em-name" value="${e.name}" placeholder="ชื่ออุปกรณ์">
+        </div>
+        <div><label>กว้าง</label><input id="em-w" type="number" value="${e.width}"></div>
+        <div><label>ยาว</label><input id="em-l" type="number" value="${e.length}"></div>
+        <div><label>จำนวน</label><input id="em-qty" type="number" value="${e.quantity}" min="1"></div>
+        <div><label>หน่วย</label>
+          <select id="em-unit">
+            <option value="cm" ${(e.unit||'cm')==='cm'?'selected':''}>cm</option>
+            <option value="m"  ${e.unit==='m'?'selected':''}>m</option>
+          </select>
+        </div>
+        <div class="eq-modal-full">
+          <label>หมายเหตุ</label>
+          <input id="em-note" value="${e.note||''}" placeholder="เช่น ติดผนัง">
+        </div>
+      </div>
+      <div class="eq-modal-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('eq-edit-modal').remove()">ยกเลิก</button>
+        <button class="btn btn-gold" onclick="saveEditEquip('${roomId}','${eqId}')">💾 บันทึก</button>
+      </div>
+    </div>`;
+  m.addEventListener('click', () => m.remove());
+  document.body.appendChild(m);
+  setTimeout(() => document.getElementById('em-name')?.focus(), 50);
+}
+
+function saveEditEquip(roomId, eqId) {
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  const e = r.equipment.find(x => x.id === eqId); if (!e) return;
+  const name = document.getElementById('em-name').value.trim();
+  const w    = parseFloat(document.getElementById('em-w').value);
+  const l    = parseFloat(document.getElementById('em-l').value);
+  const qty  = parseInt(document.getElementById('em-qty').value) || 1;
+  const unit = document.getElementById('em-unit').value;
+  const note = document.getElementById('em-note').value.trim();
+  if (!name || !w || !l) { toast('กรุณากรอกชื่อและขนาด','warn'); return; }
+  Object.assign(e, { name, width:w, length:l, quantity:qty, unit, note });
+  document.getElementById('eq-edit-modal')?.remove();
+  FP.boxes = []; // reset positions so new size re-packs
+  renderAll();
+  toast(`แก้ไข "${name}" เรียบร้อย`);
+}
+
+function buildDiagram(r) { /* replaced by canvas */ }
+
+// ────────────────────────────────────────────
+//  Canvas Floor Plan — blueprint style + drag
+// ────────────────────────────────────────────
+// ────────────────────────────────────────────
+//  Canvas Floor Plan — blueprint style + drag
+// ────────────────────────────────────────────
+const FP = {
+  canvas: null, ctx: null, room: null,
+  dpr: 1, cssW: 0, cssH: 0,
+  scale: 1, baseScale: 1, zoom: 1, PAD: 44,
+  boxes: [], drag: null, hovered: -1, lastClick: 0,
+  selected: new Set(),   // indices of selected boxes
+  marquee: null,         // {x0,y0,x1,y1} during rubber-band select
+  groupDrag: null,       // {ox,oy, startPos:[{idx,x,y}]} during group move
+  PALETTE: [
+    {fill:'rgba(59,130,246,.3)',  stroke:'#60a5fa', text:'#bfdbfe'},
+    {fill:'rgba(16,185,129,.3)',  stroke:'#34d399', text:'#a7f3d0'},
+    {fill:'rgba(245,158,11,.3)',  stroke:'#fbbf24', text:'#fde68a'},
+    {fill:'rgba(239,68,68,.3)',   stroke:'#f87171', text:'#fecaca'},
+    {fill:'rgba(168,85,247,.3)',  stroke:'#c084fc', text:'#e9d5ff'},
+    {fill:'rgba(236,72,153,.3)',  stroke:'#f472b6', text:'#fce7f3'},
+    {fill:'rgba(6,182,212,.3)',   stroke:'#22d3ee', text:'#cffafe'},
+    {fill:'rgba(132,204,22,.3)',  stroke:'#a3e635', text:'#ecfccb'},
+  ],
+};
+
+function fpSetup(canvas, cssW, cssH) {
+  // Set canvas physical pixels and return a fresh ctx — called ONCE per init
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // clean scale, no accumulation
+  return { ctx, dpr };
+}
+
+function fpInit(roomId) {
+  const r = rooms.find(x => x.id === roomId);
+  if (!r) return;
+  FP.room = r;
+
+  const canvas = document.getElementById('fp-canvas');
+  if (!canvas) return;
+
+  const rw = toCm(+r.width,  r.unit);
+  const rl = toCm(+r.length, r.unit);
+  if (!rw || !rl) { fpEmpty(canvas); return; }
+
+  const PAD       = FP.PAD;
+  const wrapW     = Math.max(canvas.parentElement.clientWidth - 24, 200);
+  // baseScale fits the room inside the wrap at zoom=1
+  const scaleByW  = (wrapW  - PAD * 2) / rw;
+  const maxCssH   = Math.max(window.innerHeight - 340, 260);
+  const scaleByH  = (maxCssH - PAD * 2 - 28) / rl;
+  FP.baseScale    = Math.min(scaleByW, scaleByH);
+  FP.scale        = FP.baseScale * FP.zoom;
+  // Canvas size follows actual scaled room — may be wider than wrap (scroll handles it)
+  const cssW      = Math.round(rw * FP.scale) + PAD * 2;
+  const cssH      = Math.round(rl * FP.scale) + PAD * 2 + 28;
+
+  FP.cssW = cssW; FP.cssH = cssH;
+  const {ctx, dpr} = fpSetup(canvas, cssW, cssH);
+  FP.canvas = canvas; FP.ctx = ctx; FP.dpr = dpr;
+
+  // Keep existing drag positions
+  const saved = {};
+  (FP.boxes || []).forEach(b => { saved[b.eqId + '_' + b.qi] = {x: b.x, y: b.y}; });
+
+  FP.boxes = [];
+  let cx = PAD, cy = PAD, rowH = 0;
+
+  r.equipment.forEach((e, ei) => {
+    const pal = FP.PALETTE[ei % FP.PALETTE.length];
+    const u   = e.unit || r.unit;
+    const bw  = Math.max(toCm(+e.width, u)  * FP.scale, 8);
+    const bh  = Math.max(toCm(+e.length, u) * FP.scale, 8);
+    const qty = +e.quantity || 1;
+    for (let qi = 0; qi < qty; qi++) {
+      const key = e.id + '_' + qi;
+      let bx = cx, by = cy;
+      // Restore from Firestore-persisted position if available
+      // Restore position + rotation from persisted _fp data
+      const fp_ = e._fp && (e._fp['q' + qi] || e._fp[qi]);
+      if (fp_ && typeof fp_.nx === 'number') {
+        const rw_ = toCm(+r.width,  r.unit) * FP.scale;
+        const rl_ = toCm(+r.length, r.unit) * FP.scale;
+        bx = PAD + fp_.nx * rw_;
+        by = PAD + fp_.ny * rl_;
+        // Clamp to room bounds
+        bx = Math.max(PAD, Math.min(bx, PAD + rw_ - bw));
+        by = Math.max(PAD, Math.min(by, PAD + rl_ - bh));
+      } else if (saved[key]) {
+        bx = saved[key].x; by = saved[key].y;
+      } else {
+        if (cx + bw > cssW - PAD) { cx = PAD; cy += rowH + 6; rowH = 0; bx = cx; by = cy; }
+        cx += bw + 6; rowH = Math.max(rowH, bh);
+      }
+      const isRotated = fp_ && fp_.rotated;
+      const finalW = isRotated ? bh : bw;
+      const finalH = isRotated ? bw : bh;
+      const sub_ = isRotated ? `${e.length}×${e.width} ${u}` : `${e.width}×${e.length} ${u}`;
+      FP.boxes.push({ eqId: e.id, qi, idx: FP.boxes.length, label: e.name,
+        sub: sub_, x: bx, y: by, w: finalW, h: finalH, pal, rotated: isRotated });
+    }
+  });
+
+  fpDraw();
+  fpRenderLegend();
+  fpBind();
+}
+
+function fpEmpty(canvas) {
+  const cssW = Math.max(canvas.parentElement.clientWidth - 24, 200);
+  const {ctx} = fpSetup(canvas, cssW, 110);
+  FP.canvas = canvas; FP.ctx = ctx; FP.cssW = cssW; FP.cssH = 110;
+  ctx.fillStyle = '#0d1b36'; ctx.fillRect(0, 0, cssW, 110);
+  ctx.fillStyle = '#475569'; ctx.font = '13px Prompt,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('กรอกขนาดห้องเพื่อดู Floor Plan', cssW / 2, 55);
+}
+
+function fpDraw() {
+  const {ctx, cssW, cssH, PAD, scale, room, boxes, hovered} = FP;
+  if (!ctx) return;
+  const rw = toCm(+room.width,  room.unit);
+  const rl = toCm(+room.length, room.unit);
+  const rpw = rw * scale, rph = rl * scale;
+
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  // Background
+  ctx.fillStyle = '#0d1b36';
+  ctx.fillRect(0, 0, cssW, cssH);
+
+  // Dot grid
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  const gCm = rw > 800 ? 100 : rw > 200 ? 50 : 20;
+  for (let x = 0; x <= rw; x += gCm) {
+    for (let y = 0; y <= rl; y += gCm) {
+      const px = PAD + x * scale, py = PAD + y * scale;
+      ctx.beginPath(); ctx.arc(px, py, 1, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // Room fill
+  ctx.fillStyle = 'rgba(240,180,41,0.04)';
+  ctx.fillRect(PAD, PAD, rpw, rph);
+
+  // Room wall — thick gold
+  ctx.strokeStyle = '#f0b429';
+  ctx.lineWidth   = 5;
+  ctx.lineJoin    = 'miter';
+  ctx.strokeRect(PAD, PAD, rpw, rph);
+
+  // Corner marks
+  ctx.strokeStyle = '#f0b429';
+  ctx.lineWidth   = 1.5;
+  [[PAD,PAD],[PAD+rpw,PAD],[PAD,PAD+rph],[PAD+rpw,PAD+rph]].forEach(([x,y]) => {
+    const s = 10;
+    ctx.beginPath(); ctx.moveTo(x-s,y); ctx.lineTo(x+s,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x,y-s); ctx.lineTo(x,y+s); ctx.stroke();
+  });
+
+  // Dimension: width (top)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(240,180,41,0.6)'; ctx.lineWidth = 1;
+  // arrow line top
+  const ay = PAD - 16;
+  ctx.beginPath(); ctx.moveTo(PAD,ay); ctx.lineTo(PAD+rpw,ay); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD,ay-4); ctx.lineTo(PAD,ay+4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD+rpw,ay-4); ctx.lineTo(PAD+rpw,ay+4); ctx.stroke();
+  ctx.fillStyle = '#f0b429'; ctx.font = 'bold 11px "IBM Plex Mono",monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${room.width} ${room.unit}`, PAD + rpw/2, ay);
+  ctx.restore();
+
+  // Dimension: length (left)
+  ctx.save();
+  ctx.translate(PAD - 18, PAD + rph/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.strokeStyle = 'rgba(240,180,41,0.6)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-rph/2,0); ctx.lineTo(rph/2,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-rph/2,-4); ctx.lineTo(-rph/2,4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rph/2,-4);  ctx.lineTo(rph/2,4);  ctx.stroke();
+  ctx.fillStyle = '#f0b429'; ctx.font = 'bold 11px "IBM Plex Mono",monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${room.length} ${room.unit}`, 0, 0);
+  ctx.restore();
+
+  // Equipment boxes
+  boxes.forEach((b, idx) => {
+    const isHov  = idx === hovered;
+    const isDrag = FP.drag && FP.drag.boxIdx === idx;
+    const isSel  = FP.selected.has(idx);
+    const isGrpDrag = FP.groupDrag !== null && isSel;
+
+    // Glow for hover/drag/selected
+    if (isHov || isDrag || isSel) {
+      ctx.shadowColor = isSel ? '#f0b429' : b.pal.stroke;
+      ctx.shadowBlur  = isSel ? 10 : 14;
+    }
+
+    ctx.fillStyle = (isDrag || isGrpDrag) ? b.pal.stroke + '80' : b.pal.fill;
+    fpRoundRect(ctx, b.x, b.y, b.w, b.h, 4);
+    ctx.fill();
+
+    ctx.shadowBlur  = 0;
+    ctx.strokeStyle = isSel ? '#f0b429' : b.pal.stroke;
+    ctx.lineWidth   = isSel ? 2.5 : (isHov || isDrag ? 2.5 : 1.5);
+    fpRoundRect(ctx, b.x, b.y, b.w, b.h, 4);
+    ctx.stroke();
+
+    // Selected corner marks
+    if (isSel) {
+      const cs = 6;
+      ctx.strokeStyle = '#f0b429'; ctx.lineWidth = 2;
+      [[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]].forEach(([cx,cy],ci) => {
+        const sx = ci%2===0?1:-1, sy = ci<2?1:-1;
+        ctx.beginPath(); ctx.moveTo(cx,cy+sy*cs); ctx.lineTo(cx,cy); ctx.lineTo(cx+sx*cs,cy); ctx.stroke();
+      });
+    }
+
+    // Rotate hint icon on hover
+    if (isHov && !isDrag && b.w > 20 && b.h > 20) {
+      const iconSize = Math.min(14, b.w * 0.3, b.h * 0.3);
+      const ix = b.x + b.w - iconSize - 3, iy = b.y + 3;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath(); ctx.arc(ix + iconSize/2, iy + iconSize/2, iconSize/2 + 2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = `${iconSize}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('↻', ix + iconSize/2, iy + iconSize/2 + 1);
+    }
+
+    // Labels — show number index when too small, full name when big enough
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const mx = b.x + b.w/2, my = b.y + b.h/2;
+    if (b.w < 22 || b.h < 16) {
+      // Too small: show index number only
+      ctx.font = `700 ${Math.min(9, b.w-2)}px Prompt,sans-serif`;
+      ctx.fillStyle = '#fff';
+      ctx.fillText(String(b.idx+1), mx, my);
+    } else if (b.h > 36) {
+      // Big enough: name + size
+      ctx.font = `600 ${Math.min(11,b.w/5+3)}px Prompt,sans-serif`;
+      ctx.fillStyle = b.pal.text;
+      ctx.fillText(fpTrunc(ctx, b.label, b.w-8), mx, my - 8);
+      ctx.font = '9px "IBM Plex Mono",monospace';
+      ctx.fillStyle = b.pal.stroke;
+      ctx.fillText(b.sub, mx, my + 8);
+    } else {
+      // Medium: name only
+      ctx.font = `600 ${Math.min(10,b.w/5+3)}px Prompt,sans-serif`;
+      ctx.fillStyle = b.pal.text;
+      ctx.fillText(fpTrunc(ctx, b.label, b.w-6), mx, my);
+    }
+  });
+
+  // Scale bar (bottom)
+  const bx = PAD, by2 = PAD + rph + 14;
+  const barPx = gCm * scale;
+  ctx.strokeStyle = 'rgba(240,180,41,0.45)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(bx, by2); ctx.lineTo(bx+barPx, by2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx,      by2-4); ctx.lineTo(bx,      by2+4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx+barPx,by2-4); ctx.lineTo(bx+barPx,by2+4); ctx.stroke();
+  ctx.fillStyle = 'rgba(240,180,41,0.5)';
+  ctx.font = '10px "IBM Plex Mono",monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${gCm} ${room.unit}`, bx + barPx + 6, by2);
+
+  // Marquee selection rectangle
+  if (FP.marquee) {
+    const {x0,y0,x1,y1} = FP.marquee;
+    const mx = Math.min(x0,x1), my = Math.min(y0,y1);
+    const mw = Math.abs(x1-x0), mh = Math.abs(y1-y0);
+    ctx.fillStyle = 'rgba(240,180,41,0.08)';
+    ctx.fillRect(mx,my,mw,mh);
+    ctx.strokeStyle = '#f0b429'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([5,4]); ctx.strokeRect(mx,my,mw,mh); ctx.setLineDash([]);
+  }
+
+  // Group selection bounding box
+  if (FP.selected.size > 1) {
+    let gx1=Infinity,gy1=Infinity,gx2=-Infinity,gy2=-Infinity;
+    FP.selected.forEach(i => {
+      const b = FP.boxes[i]; if (!b) return;
+      gx1=Math.min(gx1,b.x); gy1=Math.min(gy1,b.y);
+      gx2=Math.max(gx2,b.x+b.w); gy2=Math.max(gy2,b.y+b.h);
+    });
+    ctx.strokeStyle='rgba(240,180,41,0.5)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+    ctx.strokeRect(gx1-4,gy1-4,gx2-gx1+8,gy2-gy1+8); ctx.setLineDash([]);
+  }
+}
+
+function fpRoundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);   ctx.arcTo(x+w, y,   x+w, y+r,   r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h);   ctx.arcTo(x,   y+h, x,   y+h-r, r);
+  ctx.lineTo(x, y+r);     ctx.arcTo(x,   y,   x+r, y,     r);
+  ctx.closePath();
+}
+
+function fpTrunc(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  while (text.length > 1 && ctx.measureText(text+'…').width > maxW) text = text.slice(0,-1);
+  return text + '…';
+}
+
+function fpHitTest(mx, my) {
+  for (let i = FP.boxes.length - 1; i >= 0; i--) {
+    const b = FP.boxes[i];
+    if (mx >= b.x && mx <= b.x+b.w && my >= b.y && my <= b.y+b.h) return i;
+  }
+  return -1;
+}
+
+function fpShowTooltip(b, evt) {
+  const tt = document.getElementById('fp-tooltip'); if (!tt) return;
+  document.getElementById('fp-tt-name').textContent = `${b.idx+1}. ${b.label}`;
+  document.getElementById('fp-tt-info').innerHTML =
+    `ขนาด: ${b.sub}<br>พื้นที่: ${fmtM2(b.w/FP.scale * b.h/FP.scale)}`;
+  tt.classList.add('show');
+  fpMoveTooltip(evt);
+}
+function fpMoveTooltip(evt) {
+  const tt = document.getElementById('fp-tooltip'); if (!tt) return;
+  const t = evt.touches ? evt.touches[0] : evt;
+  tt.style.left = (t.clientX + 14) + 'px';
+  tt.style.top  = (t.clientY - 10) + 'px';
+}
+function fpHideTooltip() {
+  const tt = document.getElementById('fp-tooltip'); if (tt) tt.classList.remove('show');
+}
+
+function fpRenderLegend() {
+  const el = document.getElementById('fp-legend'); if (!el || !FP.room) return;
+  if (!FP.room.equipment.length) { el.innerHTML = ''; return; }
+  // Deduplicate by eqId (show each equipment once)
+  const seen = new Set();
+  const items = FP.boxes.filter(b => { if (seen.has(b.eqId)) return false; seen.add(b.eqId); return true; });
+  el.innerHTML = items.map(b =>
+    `<div class="fp-legend-item">
+      <div class="fp-legend-dot" style="background:${b.pal.stroke}"></div>
+      <span>${b.idx+1}</span>
+      <span>${b.label}</span>
+      <span class="fp-legend-num">${b.sub}${b.rotated?' ↻':''}</span>
+    </div>`
+  ).join('');
+}
+
+function fpSavePositions() {
+  if (!FP.room || !FP.scale) return;
+  const r = rooms.find(x => x.id === FP.room.id); if (!r) return;
+  const rw = toCm(+r.width,  r.unit); // room size in cm (not scaled)
+  const rl = toCm(+r.length, r.unit);
+  if (!rw || !rl) return;
+
+  FP.boxes.forEach(b => {
+    const e = r.equipment.find(x => x.id === b.eqId); if (!e) return;
+    if (!e._fp) e._fp = {};
+    // Use string key to avoid Firestore array conversion
+    // Store position as fraction of room size in cm (scale-independent)
+    e._fp['q' + b.qi] = {
+      nx: (b.x - FP.PAD) / (rw * FP.scale),   // 0-1 fraction
+      ny: (b.y - FP.PAD) / (rl * FP.scale),
+      rotated: !!b.rotated
+    };
+  });
+  saveData();
+}
+
+function fpRotateBox(idx) {
+  const b = FP.boxes[idx]; if (!b) return;
+  // Swap w <-> h, keep center position
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  [b.w, b.h] = [b.h, b.w];
+  b.x = cx - b.w / 2; b.y = cy - b.h / 2;
+  // Clamp inside room
+  const PAD = FP.PAD;
+  const rw = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
+  const rl = toCm(+FP.room.length, FP.room.unit) * FP.scale;
+  b.x = Math.max(PAD, Math.min(b.x, PAD + rw - b.w));
+  b.y = Math.max(PAD, Math.min(b.y, PAD + rl - b.h));
+  // Toggle sub label (swap dimensions display)
+  const parts = b.sub.split('×');
+  if (parts.length >= 2) {
+    const unit = parts[1].replace(/[0-9.]/g,'').trim();
+    b.sub = parts[1].replace(/[^0-9.]/g,'').trim() + '×' + parts[0].trim() + ' ' + unit;
+  }
+  b.rotated = !b.rotated;
+  fpDraw(); fpRenderLegend();
+  fpSavePositions();
+  toast('หมุน 90° แล้ว');
+}
+
+function fpBind() {
+  const canvas = FP.canvas; if (!canvas) return;
+  if (FP._ac) FP._ac.abort();
+  FP._ac = new AbortController();
+  const sig = { signal: FP._ac.signal };
+
+  const pos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = FP.cssW / rect.width;
+    const t = e.touches ? e.touches[0] : e;
+    return { mx: (t.clientX - rect.left) * scaleX, my: (t.clientY - rect.top) * scaleX };
+  };
+
+  const clampBox = (b) => {
+    const PAD = FP.PAD;
+    const rw = toCm(+FP.room.width,  FP.room.unit) * FP.scale;
+    const rl = toCm(+FP.room.length, FP.room.unit) * FP.scale;
+    b.x = Math.max(PAD, Math.min(b.x, PAD + rw - b.w));
+    b.y = Math.max(PAD, Math.min(b.y, PAD + rl - b.h));
+  };
+
+  // ── Mouse ──────────────────────────────────
+  const onDown = (e) => {
+    const {mx, my} = pos(e);
+    const idx = fpHitTest(mx, my);
+
+    if (idx >= 0) {
+      // ── Click on a box ──
+      e.preventDefault();
+
+      // Double-click = rotate
+      const now = Date.now();
+      if (now - FP.lastClick < 300 && FP.lastClickIdx === idx) {
+        fpRotateBox(idx); FP.lastClick = 0; FP.selected.clear(); fpDraw(); return;
+      }
+      FP.lastClick = now; FP.lastClickIdx = idx;
+
+      // Shift-click = add/remove from selection
+      if (e.shiftKey) {
+        if (FP.selected.has(idx)) FP.selected.delete(idx); else FP.selected.add(idx);
+        fpDraw(); return;
+      }
+
+      // If clicking a selected box — start group drag
+      if (FP.selected.has(idx)) {
+        FP.groupDrag = {
+          ox: mx, oy: my,
+          startPos: [...FP.selected].map(i => ({ i, x: FP.boxes[i].x, y: FP.boxes[i].y }))
+        };
+        canvas.style.cursor = 'grabbing';
+        return;
+      }
+
+      // Click unselected box — clear selection, single drag
+      FP.selected.clear();
+      FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
+      canvas.style.cursor = 'grabbing';
+
+    } else {
+      // ── Click on empty area — start marquee ──
+      if (!e.shiftKey) FP.selected.clear();
+      FP.marquee = { x0: mx, y0: my, x1: mx, y1: my };
+      canvas.style.cursor = 'crosshair';
+      fpDraw();
+    }
+  };
+
+  const onMove = (e) => {
+    const {mx, my} = pos(e);
+
+    if (FP.groupDrag) {
+      e.preventDefault();
+      const dx = mx - FP.groupDrag.ox, dy = my - FP.groupDrag.oy;
+      FP.groupDrag.startPos.forEach(({i, x, y}) => {
+        FP.boxes[i].x = x + dx; FP.boxes[i].y = y + dy;
+        clampBox(FP.boxes[i]);
+      });
+      fpDraw(); fpHideTooltip();
+      return;
+    }
+
+    if (FP.marquee) {
+      FP.marquee.x1 = mx; FP.marquee.y1 = my;
+      // Highlight boxes inside marquee
+      const x0=Math.min(FP.marquee.x0,mx), x1=Math.max(FP.marquee.x0,mx);
+      const y0=Math.min(FP.marquee.y0,my), y1=Math.max(FP.marquee.y0,my);
+      FP.boxes.forEach((b,i) => {
+        const inside = b.x < x1 && b.x+b.w > x0 && b.y < y1 && b.y+b.h > y0;
+        if (inside) FP.selected.add(i); else if (!e.shiftKey) FP.selected.delete(i);
+      });
+      fpDraw(); return;
+    }
+
+    if (FP.drag !== null) {
+      e.preventDefault();
+      const b = FP.boxes[FP.drag.boxIdx];
+      b.x = mx - FP.drag.ox; b.y = my - FP.drag.oy;
+      clampBox(b);
+      fpDraw(); fpHideTooltip();
+    } else {
+      const prev = FP.hovered;
+      FP.hovered = fpHitTest(mx, my);
+      canvas.style.cursor = FP.hovered >= 0
+        ? (FP.selected.has(FP.hovered) ? 'grab' : 'grab')
+        : 'default';
+      if (prev !== FP.hovered) {
+        fpDraw();
+        if (FP.hovered >= 0) fpShowTooltip(FP.boxes[FP.hovered], e);
+        else fpHideTooltip();
+      } else if (FP.hovered >= 0) fpMoveTooltip(e);
+    }
+  };
+
+  const onUp = (e) => {
+    if (FP.groupDrag) { fpSavePositions(); FP.groupDrag = null; }
+    if (FP.drag !== null) { fpSavePositions(); FP.drag = null; }
+    if (FP.marquee) {
+      // Finalise marquee — if tiny click (not drag) clear selection
+      const dx = Math.abs(FP.marquee.x1 - FP.marquee.x0);
+      const dy = Math.abs(FP.marquee.y1 - FP.marquee.y0);
+      if (dx < 4 && dy < 4) FP.selected.clear();
+      FP.marquee = null;
+    }
+    canvas.style.cursor = 'default'; fpHideTooltip(); fpDraw();
+  };
+
+  // Escape key clears selection
+  const onKey = (e) => {
+    if (e.key === 'Escape') { FP.selected.clear(); FP.marquee = null; FP.groupDrag = null; fpDraw(); }
+  };
+
+  canvas.addEventListener('mousedown',  onDown, sig);
+  canvas.addEventListener('mousemove',  onMove, sig);
+  canvas.addEventListener('mouseup',    onUp,   sig);
+  canvas.addEventListener('mouseleave', onUp,   sig);
+  document.addEventListener('keydown',  onKey,  sig);
+
+  // ── Touch (mobile) — pinch-zoom + pan + drag + tap-select ──
+  let _pinchDist0 = null, _pinchZoom0 = null, _panStart = null;
+  let _touchBoxIdx = -1, _lastTap = 0, _lastTapIdx = -1;
+
+  const touchDist = (touches) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx*dx + dy*dy);
+  };
+
+  const onTouchStart = (e) => {
+    fpHideTooltip();
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      _pinchDist0 = touchDist(e.touches); _pinchZoom0 = FP.zoom;
+      _touchBoxIdx = -1; _panStart = null; return;
+    }
+    if (e.touches.length === 1) {
+      const {mx, my} = pos(e);
+      const idx = fpHitTest(mx, my);
+      if (idx >= 0) {
+        e.preventDefault();
+        const now = Date.now();
+        if (now - _lastTap < 300 && _lastTapIdx === idx) {
+          fpRotateBox(idx); _lastTap = 0; FP.selected.clear(); return;
+        }
+        _lastTap = now; _lastTapIdx = idx; _touchBoxIdx = idx;
+
+        if (FP.selected.has(idx)) {
+          // drag group
+          FP.groupDrag = {
+            ox: mx, oy: my,
+            startPos: [...FP.selected].map(i => ({ i, x: FP.boxes[i].x, y: FP.boxes[i].y }))
+          };
+        } else {
+          FP.selected.clear();
+          FP.drag = { boxIdx: idx, ox: mx - FP.boxes[idx].x, oy: my - FP.boxes[idx].y };
+        }
+        _panStart = null;
+      } else {
+        _touchBoxIdx = -1; FP.drag = null; FP.groupDrag = null;
+        const wrap = canvas.parentElement;
+        _panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, sl: wrap?.scrollLeft||0, st: wrap?.scrollTop||0 };
+        // Start marquee on long-press? (skip for simplicity — pan on empty)
+        FP.selected.clear(); fpDraw();
+      }
+    }
+  };
+
+  const onTouchMove = (e) => {
+    if (e.touches.length === 2 && _pinchDist0 !== null) {
+      e.preventDefault();
+      const dist = touchDist(e.touches);
+      const newZoom = Math.min(4, Math.max(0.5, _pinchZoom0 * dist / _pinchDist0));
+      const r = FP.room; if (!r) return;
+      const rw = toCm(+r.width,r.unit), rl = toCm(+r.length,r.unit); if (!rw||!rl) return;
+      const ratio = (FP.baseScale * newZoom) / FP.scale;
+      FP.zoom = newZoom; FP.scale = FP.baseScale * FP.zoom;
+      FP.boxes.forEach(b => { b.x=FP.PAD+(b.x-FP.PAD)*ratio; b.y=FP.PAD+(b.y-FP.PAD)*ratio; b.w*=ratio; b.h*=ratio; });
+      const cssH = Math.round(rl*FP.scale)+FP.PAD*2+28, cssW = Math.round(rw*FP.scale)+FP.PAD*2;
+      FP.cssW=cssW; FP.cssH=cssH;
+      const {ctx} = fpSetup(FP.canvas,cssW,cssH); FP.ctx=ctx;
+      const sl=document.getElementById('fp-zoom'); if(sl) sl.value=FP.zoom;
+      const lb=document.getElementById('fp-zoom-label'); if(lb) lb.textContent=FP.zoom.toFixed(1)+'×';
+      fpDraw(); return;
+    }
+    if (e.touches.length === 1) {
+      if (FP.groupDrag) {
+        e.preventDefault();
+        const {mx,my}=pos(e);
+        const dx=mx-FP.groupDrag.ox, dy=my-FP.groupDrag.oy;
+        FP.groupDrag.startPos.forEach(({i,x,y})=>{ FP.boxes[i].x=x+dx; FP.boxes[i].y=y+dy; clampBox(FP.boxes[i]); });
+        fpDraw(); return;
+      }
+      if (FP.drag !== null && _touchBoxIdx >= 0) {
+        e.preventDefault();
+        const {mx,my}=pos(e); const b=FP.boxes[FP.drag.boxIdx];
+        b.x=mx-FP.drag.ox; b.y=my-FP.drag.oy; clampBox(b); fpDraw();
+      } else if (_panStart) {
+        const wrap=canvas.parentElement; if (!wrap) return;
+        wrap.scrollLeft=_panStart.sl-(e.touches[0].clientX-_panStart.x);
+        wrap.scrollTop =_panStart.st-(e.touches[0].clientY-_panStart.y);
+      }
+    }
+  };
+
+  const onTouchEnd = (e) => {
+    if (e.touches.length < 2) _pinchDist0 = null;
+    if (e.touches.length === 0) {
+      if (FP.groupDrag) fpSavePositions();
+      if (FP.drag !== null) fpSavePositions();
+      FP.drag=null; FP.groupDrag=null; _touchBoxIdx=-1; _panStart=null;
+    }
+    fpHideTooltip(); fpDraw();
+  };
+
+  canvas.addEventListener('touchstart', onTouchStart, { ...sig, passive: false });
+  canvas.addEventListener('touchmove',  onTouchMove,  { ...sig, passive: false });
+  canvas.addEventListener('touchend',   onTouchEnd,   { signal: FP._ac.signal });
+}
+
+function fpSetZoom(val, roomId) {
+  FP.zoom = parseFloat(val);
+  const lbl = document.getElementById('fp-zoom-label');
+  if (lbl) lbl.textContent = FP.zoom.toFixed(1) + '×';
+  // Recompute scale and redraw without clearing box positions
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  const rw = toCm(+r.width, r.unit), rl = toCm(+r.length, r.unit);
+  if (!rw || !rl) return;
+  const oldScale = FP.scale;
+  FP.scale = FP.baseScale * FP.zoom;
+  const ratio = FP.scale / oldScale;
+  // Rescale existing box positions
+  FP.boxes.forEach(b => {
+    b.x = FP.PAD + (b.x - FP.PAD) * ratio;
+    b.y = FP.PAD + (b.y - FP.PAD) * ratio;
+    b.w *= ratio; b.h *= ratio;
+  });
+  // Canvas size follows room size at new zoom — may overflow wrap (scroll handles it)
+  const cssW = Math.round(rw * FP.scale) + FP.PAD * 2;
+  const cssH = Math.round(rl * FP.scale) + FP.PAD * 2 + 28;
+  FP.cssW = cssW; FP.cssH = cssH;
+  const {ctx} = fpSetup(FP.canvas, cssW, cssH);
+  FP.ctx = ctx;
+  fpDraw(); fpRenderLegend(); fpBind();
+}
+
+function resetLayout(roomId) {
+  // Clear persisted positions
+  const rr = rooms.find(x=>x.id===roomId);
+  if (rr) rr.equipment.forEach(e => { e._fp = {}; });
+  FP.boxes = []; FP.zoom = 1;
+  const slider = document.getElementById('fp-zoom');
+  if (slider) { slider.value = 1; }
+  const lbl = document.getElementById('fp-zoom-label');
+  if (lbl) lbl.textContent = '1×';
+  fpInit(roomId);
+  toast('Reset layout แล้ว');
+}
+// ────────────────────────────────────────────
+//  Import Excel
+// ────────────────────────────────────────────
+function handleFileInput(input) { if (input.files[0]) readExcel(input.files[0]); }
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop',      e => { e.preventDefault(); dz.classList.remove('drag-over'); if (e.dataTransfer.files[0]) readExcel(e.dataTransfer.files[0]); });
+
+function readExcel(file) {
+  const rd = new FileReader();
+  rd.onload = evt => {
+    try {
+      const wb  = XLSX.read(evt.target.result, { type:'array' });
+      const wsR = wb.Sheets['rooms'], wsE = wb.Sheets['equipment'];
+      if (!wsR || !wsE) { toast('ไม่พบ Sheet "rooms" หรือ "equipment"','danger'); return; }
+      const rRows = XLSX.utils.sheet_to_json(wsR, { defval:'' });
+      const eRows = XLSX.utils.sheet_to_json(wsE, { defval:'' });
+      const nr = rRows.filter(r=>r.room_name).map(r=>({
+        id:uid(), name:String(r.room_name).trim(),
+        width:parseFloat(r.width)||400, length:parseFloat(r.length)||600,
+        unit:String(r.unit||'cm').toLowerCase().trim(), equipment:[]
+      }));
+      eRows.filter(e=>e.room_name&&e.equipment_name).forEach(e=>{
+        const rm = nr.find(x => x.name === String(e.room_name).trim()); if (!rm) return;
+        rm.equipment.push({ id:uid(), name:String(e.equipment_name).trim(),
+          width:parseFloat(e.width)||0, length:parseFloat(e.length)||0,
+          quantity:parseInt(e.quantity)||1, unit:String(e.unit||rm.unit).toLowerCase().trim(),
+          note:String(e.note||'').trim() });
+      });
+      rooms = [...rooms, ...nr];
+      if (nr.length) activeId = nr[0].id;
+      renderAll();
+      toast(`Import สำเร็จ — ${nr.length} ห้อง`);
+    } catch(err) { toast('อ่านไฟล์ไม่ได้: ' + err.message, 'danger'); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+// ────────────────────────────────────────────
+//  Export PDF (print-optimised)
+// ────────────────────────────────────────────
+// ────────────────────────────────────────────
+//  Export Excel — per-room sheets
+// ────────────────────────────────────────────
+function exportExcel() {
+  if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
+  const wb = XLSX.utils.book_new();
+
+  // ══ Sheet 1: สรุปทุกห้อง ══
+  // header: ห้อง | กว้าง | ยาว | หน่วย | พื้นที่ห้อง | รายการ | พื้นที่อุปกรณ์ | %ใช้
+  const sumData = [
+    ['ห้อง','กว้าง','ยาว','หน่วย','พื้นที่ห้อง(m²)','รายการ','พื้นที่อุปกรณ์(m²)','%ใช้']
+  ];
+  rooms.forEach(r => {
+    // row ห้อง — ทุก column ตรงกับ header
+    sumData.push([
+      r.name,
+      +r.width,
+      +r.length,
+      r.unit,
+      +(roomArea(r)/10000).toFixed(2),
+      r.equipment.length,
+      +(totalEq(r)/10000).toFixed(2),
+      +(pct(r)).toFixed(1)
+    ]);
+  });
+  const wsSum = XLSX.utils.aoa_to_sheet(sumData);
+  wsSum['!cols'] = [26,8,8,7,18,10,20,8].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, wsSum, 'สรุปทุกห้อง');
+
+  // ══ Sheet per room ══
+  // 9 columns: # | ชื่ออุปกรณ์ | กว้าง | ยาว | หน่วย | จำนวน | พื้นที่(m²) | %ห้อง | หมายเหตุ
+  rooms.forEach(r => {
+    const ra = roomArea(r);
+    const HDR = ['#','ชื่ออุปกรณ์','กว้าง','ยาว','หน่วย','จำนวน','พื้นที่(m²)','%ห้อง','หมายเหตุ'];
+    const sheetData = [
+      // Row 1: info ห้อง (merge-friendly — ใช้ cell แรกสองช่อง)
+      [`ห้อง: ${r.name}`, `ขนาด: ${r.width}×${r.length} ${r.unit}`,
+       '', '',
+       `พื้นที่: ${+(ra/10000).toFixed(2)} m²`,
+       `อุปกรณ์: ${r.equipment.length} รายการ`,
+       `รวมพื้นที่: ${+(totalEq(r)/10000).toFixed(2)} m²`,
+       `ใช้ไป: ${+(pct(r)).toFixed(1)}%`,
+       ''],
+      // Row 2: ว่าง
+      Array(9).fill(''),
+      // Row 3: header
+      HDR,
+    ];
+
+    r.equipment.forEach((e, i) => {
+      const ea = eqArea(e, r.unit);
+      // แต่ละ cell ตรงกับ HDR ทุก column
+      sheetData.push([
+        i + 1,                                    // # 
+        e.name,                                   // ชื่ออุปกรณ์
+        +e.width,                                 // กว้าง
+        +e.length,                                // ยาว
+        e.unit || r.unit,                         // หน่วย
+        +e.quantity,                              // จำนวน
+        +(ea/10000).toFixed(2),                   // พื้นที่(m²)
+        ra ? +(ea/ra*100).toFixed(1) : 0,         // %ห้อง
+        e.note || ''                              // หมายเหตุ
+      ]);
+    });
+
+    // footer
+    sheetData.push([
+      '', 'รวม', '', '', '',
+      r.equipment.reduce((s,e) => s + (+e.quantity||1), 0),
+      +(totalEq(r)/10000).toFixed(2),
+      +(pct(r)).toFixed(1),
+      ''
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    ws['!cols'] = [4, 28, 8, 8, 7, 8, 14, 8, 20].map(w=>({wch:w}));
+    const sheetName = r.name.replace(/[^a-zA-Z0-9ก-๙ ._-]/g,'').trim().slice(0, 31) || 'Sheet';
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  XLSX.writeFile(wb, `room-space-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Export Excel เรียบร้อย');
+}
+
+// ────────────────────────────────────────────
+//  Export PDF per-room (print with reset zoom)
+// ────────────────────────────────────────────
+function exportRoomPDF() {
+  if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
+  // Print at current zoom — CSS scales canvas to fit page width automatically
+  toast('กำลังเตรียม PDF...');
+  setTimeout(() => window.print(), 300);
+}
+
+// ────────────────────────────────────────────
+//  Export CSV
+// ────────────────────────────────────────────
+function exportCSV() {
+  if (!rooms.length) { toast('ยังไม่มีข้อมูล','warn'); return; }
+  const lines = ['ห้อง,กว้าง,ยาว,หน่วย,พื้นที่ห้อง(m²),รายการ,พื้นที่อุปกรณ์(m²),%ใช้'];
+  rooms.forEach(r => {
+    lines.push(`"${r.name}",${r.width},${r.length},${r.unit},${(roomArea(r)/10000).toFixed(2)},${r.equipment.length},${(totalEq(r)/10000).toFixed(2)},${pct(r).toFixed(1)}%`);
+    r.equipment.forEach(e => {
+      lines.push(`,"${e.name}",${e.width},${e.length},${e.unit||r.unit},,,${(eqArea(e,r.unit)/10000).toFixed(2)},จำนวน:${e.quantity}`);
+    });
+  });
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type:'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a'); a.href = url;
+  a.download = `room-space-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('Export CSV เรียบร้อย');
+}
+
+// ────────────────────────────────────────────
+//  Download Template
+// ────────────────────────────────────────────
+function downloadTemplate() {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['room_name','width','length','unit','note'],
+    ['ห้องครัว',400,600,'cm',''], ['ห้องเก็บของ',300,500,'cm',''],
+  ]), 'rooms');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['room_name','equipment_name','width','length','quantity','unit','note'],
+    ['ห้องครัว','โต๊ะเตรียมอาหาร',60,120,2,'cm','ติดผนัง'],
+    ['ห้องครัว','ตู้เย็น',65,70,1,'cm','มุมห้อง'],
+    ['ห้องเก็บของ','ชั้นวางของ',40,120,3,'cm','ติดผนัง'],
+  ]), 'equipment');
+  XLSX.writeFile(wb, 'ttgplus_room_template.xlsx');
+  toast('Download template เรียบร้อย');
+}
+
+// ────────────────────────────────────────────
+//  Init
+// ────────────────────────────────────────────
+// ────────────────────────────────────────────
+//  Notes panel — per-room note
+// ────────────────────────────────────────────
+let _noteTimer = null;
+function fpSaveNote(roomId, val) {
+  const r = rooms.find(x => x.id === roomId); if (!r) return;
+  r.note = val;
+  const status = document.getElementById('fp-notes-status');
+  if (status) status.textContent = 'กำลังบันทึก…';
+  clearTimeout(_noteTimer);
+  _noteTimer = setTimeout(() => {
+    saveData();
+    if (status) status.textContent = '✓ บันทึกแล้ว';
+    setTimeout(() => { if (status) status.textContent = '—'; }, 2000);
+  }, 800);
+}
+
+// ────────────────────────────────────────────
+//  Share view-only link
+// ────────────────────────────────────────────
+function shareViewOnly() {
+  const url = new URL(window.location.href);
+  // Use ?share=1 (not ?view=1) to avoid blocking normal edit mode
+  url.searchParams.delete('view');
+  url.searchParams.set('share', '1');
+  const shareUrl = url.toString();
+
+  const existing = document.getElementById('share-modal-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'share-modal-overlay';
+  overlay.id = 'share-modal-overlay';
+  overlay.innerHTML = `
+    <div class="share-modal" onclick="event.stopPropagation()">
+      <h3>🔗 แชร์ Floor Plan</h3>
+      <span class="share-badge">👁 ดูอย่างเดียว · ไม่สามารถแก้ไขได้</span>
+      <p>ลิงก์นี้ใช้ดูแปลนและข้อมูลห้องได้เฉยๆ — zoom in ได้ · แก้ไขไม่ได้ · ไม่ต้อง login</p>
+      <div class="share-url-box">
+        <input class="share-url-input" id="share-url-val" value="${shareUrl}" readonly>
+        <button class="btn btn-gold btn-sm" onclick="copyShareUrl()">📋 คัดลอก</button>
+      </div>
+      <div class="share-modal-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('share-modal-overlay').remove()">ปิด</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('share-url-val')?.select(), 80);
+}
+
+function copyShareUrl() {
+  const inp = document.getElementById('share-url-val'); if (!inp) return;
+  inp.select();
+  try {
+    navigator.clipboard.writeText(inp.value).then(() => toast('คัดลอกลิงก์แล้ว ✓', 'ok'));
+  } catch(e) {
+    document.execCommand('copy');
+    toast('คัดลอกลิงก์แล้ว ✓', 'ok');
+  }
+}
+
+// ────────────────────────────────────────────
+//  Detect ?view=1 share mode — force view-only
+// ────────────────────────────────────────────
+function initShareMode() {
+  const params = new URLSearchParams(window.location.search);
+  // ?share=1 = view-only share link  |  ?view=1 = legacy support
+  if (params.get('share') === '1' || params.get('view') === '1') {
+    window._forceViewOnly = true;
+    document.body.classList.add('view-only');
+    const topRight = document.querySelector('.topbar-right');
+    if (topRight) {
+      topRight.innerHTML = '<span class="view-only-badge" style="display:inline-flex">👁 ลิงก์แชร์ — ดูอย่างเดียว</span>';
+    }
+  }
+}
+
+// ────────────────────────────────────────────
+//  Merge rooms
+// ────────────────────────────────────────────
+function openMergeModal() {
+  if (!guardEdit()) return;
+  if (rooms.length < 2) { toast('ต้องมีอย่างน้อย 2 ห้องก่อนรวม', 'warn'); return; }
+
+  const existing = document.getElementById('merge-modal-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'merge-modal-overlay';
+  overlay.id = 'merge-modal-overlay';
+
+  const roomItems = rooms.map((r, i) => {
+    const col = colorOf(i);
+    const eq = r.equipment.length;
+    const area = (roomArea(r)/10000).toFixed(2);
+    return `<label class="merge-room-item" id="mri-${r.id}">
+      <input type="checkbox" id="mchk-${r.id}" value="${r.id}"
+        onchange="this.closest('.merge-room-item').classList.toggle('selected',this.checked);_updateMergePreview()">
+      <div class="merge-room-dot" style="background:${col.bd}"></div>
+      <div class="merge-room-info">
+        <div class="merge-room-name">${r.name}</div>
+        <div class="merge-room-meta">${r.width}×${r.length} ${r.unit} · ${eq} รายการ · ${area} m²</div>
+      </div>
+    </label>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="merge-modal" onclick="event.stopPropagation()">
+      <h3>⊕ สร้างห้องรวม</h3>
+      <p>เลือกห้องที่ต้องการนำอุปกรณ์มารวม — ระบบจะสร้างห้องใหม่และจัดอุปกรณ์ทั้งหมดไว้ด้วยกัน</p>
+      <div class="merge-room-list">${roomItems}</div>
+      <div class="merge-layout-row">
+        <div class="field">
+          <label>ชื่อห้องรวม</label>
+          <input class="ifield" id="merge-name" value="ห้องรวม" style="width:160px">
+        </div>
+        <div class="field">
+          <label>กว้าง (cm)</label>
+          <input class="ifield" id="merge-w" type="number" value="800" style="width:80px">
+        </div>
+        <div class="field">
+          <label>ยาว (cm)</label>
+          <input class="ifield" id="merge-l" type="number" value="600" style="width:80px">
+        </div>
+        <div class="field">
+          <label>หน่วย</label>
+          <select class="ifield" id="merge-unit" style="width:65px">
+            <option value="cm">cm</option><option value="m">m</option>
+          </select>
+        </div>
+      </div>
+      <div id="merge-preview" style="font-size:11px;color:var(--muted);margin-bottom:12px;min-height:16px"></div>
+      <div class="merge-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('merge-modal-overlay').remove()">ยกเลิก</button>
+        <button class="btn btn-gold" onclick="createMergedRoom()">⊕ สร้างห้องรวม</button>
+      </div>
+    </div>`;
+
+  overlay.addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('merge-name')?.focus(), 60);
+}
+
+function _updateMergePreview() {
+  const selected = rooms.filter(r => {
+    const chk = document.getElementById('mchk-' + r.id);
+    return chk && chk.checked;
+  });
+  const preview = document.getElementById('merge-preview');
+  if (!preview) return;
+  if (!selected.length) { preview.textContent = 'เลือกอย่างน้อย 1 ห้อง'; return; }
+  const totalEqCount = selected.reduce((s,r) => s + r.equipment.length, 0);
+  const names = selected.map(r => r.name).join(', ');
+  preview.innerHTML = `รวมจาก: <b style="color:var(--cream)">${names}</b> · อุปกรณ์รวม <b style="color:var(--gold)">${totalEqCount} รายการ</b>`;
+}
+
+function createMergedRoom() {
+  const selected = rooms.filter(r => {
+    const chk = document.getElementById('mchk-' + r.id);
+    return chk && chk.checked;
+  });
+  if (!selected.length) { toast('เลือกอย่างน้อย 1 ห้อง', 'warn'); return; }
+
+  const name  = document.getElementById('merge-name').value.trim() || 'ห้องรวม';
+  const w     = parseFloat(document.getElementById('merge-w').value) || 800;
+  const l     = parseFloat(document.getElementById('merge-l').value) || 600;
+  const unit  = document.getElementById('merge-unit').value || 'cm';
+
+  // Build merged equipment list — copy from each source room
+  // Preserve _fp positions scaled to new room dimensions
+  const mergedEquip = [];
+  selected.forEach((srcRoom, roomIdx) => {
+    // Offset each room's equipment in X direction to avoid overlap
+    // Each source room gets a horizontal slice of the merged room
+    const sliceW = w / selected.length;
+    const offsetX_fraction = roomIdx / selected.length;
+
+    srcRoom.equipment.forEach(e => {
+      const clone = JSON.parse(JSON.stringify(e)); // deep clone
+      clone.id = uid(); // new id to avoid conflict
+      clone._sourceRoom = srcRoom.name; // track origin
+      clone.note = [e.note, `(จาก: ${srcRoom.name})`].filter(Boolean).join(' ');
+
+      // Remap _fp positions: shift x by slice offset, scale to new room
+      if (clone._fp) {
+        Object.keys(clone._fp).forEach(k => {
+          const fp = clone._fp[k];
+          if (typeof fp.nx === 'number') {
+            // Scale nx from [0,1] within source slice to [0,1] within merged room
+            // Source room width ratio vs merged room
+            const srcW = toCm(+srcRoom.width, srcRoom.unit);
+            const merW = toCm(+w, unit);
+            const srcL = toCm(+srcRoom.length, srcRoom.unit);
+            const merL = toCm(+l, unit);
+            // Place slice at offsetX_fraction, scale proportionally
+            fp.nx = offsetX_fraction + (fp.nx * srcW / merW) * (sliceW / (merW / selected.length > 0 ? 1 : 1));
+            fp.ny = fp.ny * (srcL / merL);
+            // Clamp
+            fp.nx = Math.max(0, Math.min(fp.nx, 0.99));
+            fp.ny = Math.max(0, Math.min(fp.ny, 0.99));
+          }
+        });
+      }
+      mergedEquip.push(clone);
+    });
+  });
+
+  const merged = {
+    id: uid(),
+    name,
+    width: w,
+    length: l,
+    unit,
+    equipment: mergedEquip,
+    _mergedFrom: selected.map(r => r.id), // track source rooms
+    note: `รวมจาก: ${selected.map(r=>r.name).join(', ')}`
+  };
+
+  rooms.push(merged);
+  activeId = merged.id;
+  document.getElementById('merge-modal-overlay')?.remove();
+  renderAll();
+  toast(`สร้างห้องรวม "${name}" (${mergedEquip.length} รายการ) สำเร็จ`);
+}
+initShareMode();
+</script>
+</body>
+</html>
