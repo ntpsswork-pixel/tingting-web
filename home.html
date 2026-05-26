@@ -479,6 +479,7 @@
                 <div id="subWH" class="submenu">
                     <div onclick="openCentralStock()" data-tool="stock" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=stock','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=stock','_blank');" style="color:#10b981;">● นับสต๊อก</div>
                     <div onclick="openInventoryCheck()" data-tool="inventory-check" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=inventory-check','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=inventory-check','_blank');" style="color:var(--accent-gold);">● ใบนับสต๊อกคงเหลือ</div>
+                    <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" style="color:#06b6d4;">● นับสต๊อกสิ้นเดือน</div>
                 </div>
             </div>
 
@@ -500,6 +501,7 @@
                 <div id="subAdmin" class="submenu">
                     <div onclick="openUserManagement()" data-tool="user-mgmt" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');">● จัดการพนักงาน & สิทธิ์</div>
                     <div onclick="openWarehouseManager()" data-tool="warehouse-mgr" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
+                    <div onclick="toggleMonthlyCount()" id="monthlyCountToggleBtn" style="color:#06b6d4;">● เปิด/ปิด นับสต๊อกสิ้นเดือน <span id="monthlyCountBadge" style="font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;"></span></div>
                 </div>
             </div>
         </div>
@@ -800,6 +802,7 @@
                 {icon:'🏷️', label:'ทรัพย์สิน',   sub:'Asset Mgmt',   fn:'openAssetManagement()',  tool:'asset-registry',color:'linear-gradient(135deg,#451a03,#b45309)', show:true},
                 {icon:'🔧', label:'แจ้งซ่อม',      sub:'Repair',       fn:"openAssetManagement('repair')", tool:'asset-repair', color:'linear-gradient(135deg,#7f1d1d,#b91c1c)', show:true},
                 {icon:'🔄', label:'โอนย้าย',        sub:'Transfer',     fn:"openAssetManagement('transfer')", tool:'asset-transfer', color:'linear-gradient(135deg,#3b0764,#6d28d9)', show:true},
+                {icon:'📅', label:'นับสิ้นเดือน', sub:'Monthly Count', fn:'tryOpenMonthlyCount()',  tool:'monthly-count', color:'linear-gradient(135deg,#1e3a8a,#2563eb)', show:true},
                 {icon:'⚙️', label:'ตั้งค่า',        sub:'Settings',     fn:'openWarehouseManager()', tool:'warehouse-mgr', color:'linear-gradient(135deg,#1c1917,#44403c)', show:isAdmin},
             ];
             const ar = document.getElementById('dashActionRow');
@@ -1401,6 +1404,7 @@
         const navFnMap = {
             'stock':             ()=>{ const f=window._origOpenCentralStock||window.openCentralStock; f(); },
             'inventory-check':   ()=>{ const f=window._origOpenInventoryCheck||window.openInventoryCheck; f(); },
+            'monthly-count':     ()=>{ if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount(); },
             'warehouse-mgr':     ()=>{ const f=window._origOpenWarehouseManager||window.openWarehouseManager; f(); },
             'asset-registry':    ()=>{ if(window.openAssetManagement) window.openAssetManagement('registry'); },
             'asset-audit':       ()=>{ if(window.openAssetManagement) window.openAssetManagement('audit'); },
@@ -1957,6 +1961,7 @@ window.saveCentralStock = async function(){
     <script src="stock-normal.js" defer></script>
     <script src="stock-inventory.js" defer></script>
     <script src="stock-settings.js" defer></script>
+    <script src="stock-monthly-count.js" defer></script>
     <script src="asset-mgmt.js" defer></script>
 
 </body>
