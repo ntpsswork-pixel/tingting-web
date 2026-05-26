@@ -472,69 +472,36 @@
         <div class="online-list" id="onlineListSidebar"></div>
         <div class="nav-links">
             <div class="nav-item active" onclick="goToDashboard()">🏠 หน้าแรก Dashboard</div>
+
+            <!-- ── คลังสินค้า ── -->
             <div id="warehouseMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subWH')">📦 คลังสินค้า ▾</div>
                 <div id="subWH" class="submenu">
-                    <div onclick="openStockSummary()" data-tool="stock-summary" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=stock-summary','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=stock-summary','_blank');" style="color:var(--accent-gold);">📊 ประวัติ & Export รายงาน</div>
-                    <div onclick="openInventoryCheck()" data-tool="inventory-check" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=inventory-check','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=inventory-check','_blank');" style="color:#10b981;">📋 ใบนับสต๊อกคงเหลือ</div>
-                    <div onclick="openPurchaseOrder()" data-tool="purchase-order" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=purchase-order','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=purchase-order','_blank');" style="color:#ef4444;">🛒 สรุปยอดสั่งซื้อ</div>
-                    <div onclick="openImportProducts()" data-tool="import-products" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=import-products','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=import-products','_blank');" style="color:#8b5cf6;">📥 Import สินค้าจาก Excel</div>
+                    <div onclick="openCentralStock()" data-tool="stock" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=stock','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=stock','_blank');" style="color:#10b981;">● นับสต๊อก</div>
+                    <div onclick="openInventoryCheck()" data-tool="inventory-check" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=inventory-check','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=inventory-check','_blank');" style="color:var(--accent-gold);">● ใบนับสต๊อกคงเหลือ</div>
                 </div>
             </div>
-            <div id="requisitionMenu" class="hidden">
-                <div class="nav-item" onclick="toggleSub('subReq')" style="color:#f59e0b;">📋 ระบบเบิกสินค้า ▾</div>
-                <div id="subReq" class="submenu">
-                    <div onclick="openCreateRequisition()" data-tool="requisition" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=requisition','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=requisition','_blank');" style="color:#f59e0b;">✏️ สร้างใบเบิกใหม่</div>
-                    <div onclick="openMyRequisitions()" data-tool="my-req" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=my-req','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=my-req','_blank');">📄 ใบเบิกของฉัน</div>
-                    <div id="reqApproveMenu" class="hidden" onclick="openPendingRequisitions()" data-tool="pending-req" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=pending-req','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=pending-req','_blank');" style="color:#ef4444;">🔔 รออนุมัติ <span id="reqBadge" style="background:#ef4444;color:white;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;"></span></div>
-                    <div id="reqAllMenu" class="hidden" onclick="openAllRequisitions()" data-tool="all-req" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=all-req','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=all-req','_blank');">📊 ใบเบิกทั้งหมด</div>
-                </div>
-            </div>
-            <div id="toolsMenu" class="hidden">
-                <div class="nav-item" onclick="toggleSub('subTools')" style="color:var(--success);">🛠️ เครื่องมือใช้งาน ▾</div>
-                <div id="subTools" class="submenu">
-                    <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" id="monthlyCountMenuBtn">● นับสต๊อกสิ้นเดือน <span id="monthlyCountBadge" style="font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;"></span></div>
-                    <div onclick="openDailyStockCard()" data-tool="daily-stock" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=daily-stock','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=daily-stock','_blank');" style="color:#06b6d4;">● Daily Stock Card</div>
-                    <div onclick="tryOpenBranchMonthlyCount()" id="branchMonthlyMenuBtn" class="hidden" style="color:#f59e0b;">● 🏪 นับสิ้นเดือนสาขา (BT)</div>
-                </div>
-            </div>
-            <div id="grMenu" class="hidden">
-                <div class="nav-item" onclick="toggleSub('subGR')" style="color:#06b6d4;">🚚 รับสินค้าเข้าคลัง ▾</div>
-                <div id="subGR" class="submenu">
-                    <div onclick="openCreateGR()" data-tool="gr" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=gr','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=gr','_blank');" style="color:#06b6d4;">✏️ สร้างใบรับสินค้า (GR)</div>
-                    <div onclick="openGRHistory()" data-tool="gr-history" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=gr-history','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=gr-history','_blank');">📄 ประวัติการรับสินค้า</div>
-                    <div onclick="openLotRegister()" data-tool="lot-register" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=lot-register','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=lot-register','_blank');" style="color:#f59e0b;">🏷️ ทะเบียน Lot สินค้า</div>
-                </div>
-            </div>
-            <div id="qcMenu" class="hidden">
-                <div class="nav-item" onclick="toggleSub('subQC')" style="color:#a855f7;">🔍 QC ตรวจ FIFO ▾</div>
-                <div id="subQC" class="submenu">
-                    <div onclick="openQCCheck()" data-tool="qc" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=qc','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=qc','_blank');" style="color:#a855f7;">📋 เริ่ม Spot Check</div>
-                    <div onclick="openQCHistory()" data-tool="qc-history" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=qc-history','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=qc-history','_blank');">📊 ประวัติ QC Report</div>
-                </div>
-            </div>
-            <div id="adminMenu" class="hidden">
-                <div class="nav-item" onclick="toggleSub('subAdmin')" style="color:var(--accent-gold);">👤 จัดการระบบ ▾</div>
-                <div id="subAdmin" class="submenu">
-                    <div onclick="openUserManagement()" data-tool="user-mgmt" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');">● จัดการพนักงาน & สิทธิ์</div>
-                    <div onclick="openWarehouseManager()" data-tool="warehouse-mgr" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
-                    <div onclick="openRequisitionSettings()" data-tool="req-settings" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=req-settings','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=req-settings','_blank');" style="color:#f59e0b;">● ตั้งค่าใบเบิก & ใบนับ</div>
-                    <div onclick="toggleMonthlyCount()" id="monthlyCountToggleBtn" style="color:#06b6d4;">● เปิด/ปิด นับสต๊อกสิ้นเดือน</div>
-                </div>
-            </div>
+
+            <!-- ── ทรัพย์สิน ── -->
             <div id="assetMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subAsset')" style="color:#f59e0b;">🏷️ ทรัพย์สิน ▾</div>
                 <div id="subAsset" class="submenu">
                     <div onclick="openAssetManagement('registry')" data-tool="asset-registry" style="color:#f59e0b;">● ทะเบียนทรัพย์สิน</div>
                     <div onclick="openAssetManagement('audit')" data-tool="asset-audit" style="color:#f59e0b;">● ตรวจนับรายรอบ</div>
                     <div onclick="openAssetManagement('repair')" data-tool="asset-repair" style="color:#f59e0b;">● แจ้งซ่อม</div>
-                    <div onclick="openAssetManagement('dashboard')" data-tool="asset-dashboard" style="color:#f59e0b;">● Dashboard</div>
+                    <div onclick="openAssetManagement('transfer')" data-tool="asset-transfer" style="color:#a78bfa;">● โอนย้ายทรัพย์สิน</div>
+                    <div onclick="openAssetManagement('dashboard')" data-tool="asset-dashboard" style="color:#94a3b8;">● Dashboard</div>
                 </div>
             </div>
-            <div class="nav-item" onclick="openSalesAnalytics()" data-tool="sales-analytics" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=sales-analytics','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=sales-analytics','_blank');" style="color:#f0b429;border-top:1px solid rgba(255,255,255,0.05);">📊 Sales Analytics</div>
-            <div class="nav-item" onclick="window.open('delivery.html','_blank')" style="color:#00c9ff;">🚛 ระบบขนส่ง (Delivery)</div>
-            <div class="nav-item" onclick="window.open('room-space.html','_blank')" style="color:#34d399;">📐 คำนวณพื้นที่ห้อง</div>
-            <div class="nav-item" onclick="openHelpGuide()" data-tool="help" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=help','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=help','_blank');" style="color:#7c3aed;">📖 คู่มือการใช้งาน</div>
+
+            <!-- ── จัดการระบบ ── -->
+            <div id="adminMenu" class="hidden">
+                <div class="nav-item" onclick="toggleSub('subAdmin')" style="color:var(--accent-gold);">⚙️ จัดการระบบ ▾</div>
+                <div id="subAdmin" class="submenu">
+                    <div onclick="openUserManagement()" data-tool="user-mgmt" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');">● จัดการพนักงาน & สิทธิ์</div>
+                    <div onclick="openWarehouseManager()" data-tool="warehouse-mgr" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
+                </div>
+            </div>
         </div>
         <div onclick="logout()" style="margin:8px 10px 12px;padding:11px 14px;border-radius:9px;cursor:pointer;color:#ef4444;font-size:13px;font-weight:500;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);text-align:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.12)'" onmouseout="this.style.background='rgba(239,68,68,0.06)'">🚪 ออกจากระบบ</div>
     </div>  <!-- end sidebar -->
@@ -734,22 +701,17 @@
                     // --- migrate: เพิ่ม requisition + asset ให้ทุก role ที่ยังไม่มี ---
                     let needSave = false;
                     const reqDefaults = {
-                        admin:     ['warehouse','tools','admin','requisition','gr','qc','asset'],
-                        warehouse: ['warehouse','tools','requisition','gr','asset'],
-                        staff:     ['tools','requisition','asset'],
-                        qc:        ['gr','qc','asset']
+                        admin:     ['warehouse','admin','asset'],
+                        warehouse: ['warehouse','asset'],
+                        staff:     ['warehouse','asset'],
                     };
                     Object.keys(roleSettings).forEach(r => {
                         if (!roleSettings[r].menus) roleSettings[r].menus = [];
-                        const needMenus = ['requisition','gr','qc','asset'];
-                        needMenus.forEach(m => {
-                            if (!roleSettings[r].menus.includes(m)) {
-                                if (reqDefaults[r]) roleSettings[r].menus = reqDefaults[r];
-                                else if (['gr','qc'].includes(m)) {} // custom role ไม่บังคับ
-                                else roleSettings[r].menus.push(m);
-                                needSave = true;
-                            }
-                        });
+                        if (!roleSettings[r].menus.includes('asset')) {
+                            if (reqDefaults[r]) roleSettings[r].menus = reqDefaults[r];
+                            else roleSettings[r].menus.push('asset');
+                            needSave = true;
+                        }
                     });
                     if (needSave) saveConfig();
                 }
@@ -833,19 +795,12 @@
 
             // ── Quick Action buttons — Modern horizontal card ──
             const actions = [
-                {icon:'📅', label:'นับสิ้นเดือน',  sub:'Monthly Count',  fn:'tryOpenMonthlyCount()',     tool:'monthly-count', color:'linear-gradient(135deg,#1e3a8a,#2563eb)', show:true},
-                {icon:'📋', label:'Stock Card',      sub:'Daily Report',   fn:'openDailyStockCard()',      tool:'daily-stock',   color:'linear-gradient(135deg,#0c4a6e,#0891b2)', show:true},
-                {icon:'🎲', label:'ทดลองนับ',        sub:'Pilot Count',    fn:'openRandomSKUCount()',      tool:'',              color:'linear-gradient(135deg,#4c1d95,#7c3aed)', show:true},
-                {icon:'📊', label:'ผลทดลองนับ',      sub:'Pilot History',  fn:'openPilotHistory()',        tool:'',              color:'linear-gradient(135deg,#3b0764,#6d28d9)', show:true},
-                {icon:'🚚', label:'รับสินค้า GR',    sub:'Goods Receipt',  fn:'openCreateGR()',            tool:'gr',            color:'linear-gradient(135deg,#064e3b,#059669)', show:!isBT},
-                {icon:'📝', label:'ใบเบิกสินค้า',    sub:'Requisition',    fn:'openPendingRequisitions()', tool:'pending-req',   color:'linear-gradient(135deg,#78350f,#d97706)', show:!isBT},
-                {icon:'🔍', label:'QC Check',         sub:'Spot Check',     fn:'openQCCheck()',             tool:'qc',            color:'linear-gradient(135deg,#4c1d95,#8b5cf6)', show:!isBT},
-                {icon:'🏷️', label:'ทะเบียน Lot',     sub:'Lot Register',   fn:'openLotRegister()',         tool:'lot-register',  color:'linear-gradient(135deg,#7f1d1d,#dc2626)', show:!isBT},
-                {icon:'📦', label:'นับสต๊อก',         sub:'Stock Count',    fn:'openCentralStock()',        tool:'stock',         color:'linear-gradient(135deg,#0f172a,#334155)', show:isAdmin},
-                {icon:'📈', label:'รายงาน',            sub:'Analytics',      fn:'openStockSummary()',        tool:'stock-summary', color:'linear-gradient(135deg,#0c2a4a,#0369a1)', show:isAdmin},
-                {icon:'⚙️', label:'ตั้งค่า',            sub:'Settings',       fn:'openWarehouseManager()',    tool:'warehouse-mgr', color:'linear-gradient(135deg,#1c1917,#44403c)', show:isAdmin},
-                {icon:'🏷️', label:'ทรัพย์สิน',         sub:'Asset Mgmt',     fn:'openAssetManagement()',     tool:'asset-registry',color:'linear-gradient(135deg,#451a03,#b45309)', show:true},
-                {icon:'📐', label:'พื้นที่ห้อง',         sub:'Room Space',     fn:"window.open('room-space.html','_blank')", tool:'', color:'linear-gradient(135deg,#064e3b,#059669)', show:true},
+                {icon:'📦', label:'นับสต๊อก',     sub:'Stock Count',  fn:'openCentralStock()',     tool:'stock',         color:'linear-gradient(135deg,#0f172a,#334155)', show:true},
+                {icon:'📋', label:'ใบนับสต๊อก',   sub:'Inventory',    fn:'openInventoryCheck()',   tool:'inventory-check', color:'linear-gradient(135deg,#064e3b,#059669)', show:true},
+                {icon:'🏷️', label:'ทรัพย์สิน',   sub:'Asset Mgmt',   fn:'openAssetManagement()',  tool:'asset-registry',color:'linear-gradient(135deg,#451a03,#b45309)', show:true},
+                {icon:'🔧', label:'แจ้งซ่อม',      sub:'Repair',       fn:"openAssetManagement('repair')", tool:'asset-repair', color:'linear-gradient(135deg,#7f1d1d,#b91c1c)', show:true},
+                {icon:'🔄', label:'โอนย้าย',        sub:'Transfer',     fn:"openAssetManagement('transfer')", tool:'asset-transfer', color:'linear-gradient(135deg,#3b0764,#6d28d9)', show:true},
+                {icon:'⚙️', label:'ตั้งค่า',        sub:'Settings',     fn:'openWarehouseManager()', tool:'warehouse-mgr', color:'linear-gradient(135deg,#1c1917,#44403c)', show:isAdmin},
             ];
             const ar = document.getElementById('dashActionRow');
             if(ar) {
@@ -865,138 +820,83 @@
             }
 
             await loadCountData();
-            if(isBT) {
-                renderBTKpi();
-                renderStockAlerts();
-                loadBTDashActivity();
-            } else {
-                renderDashKpiCards();
-                await Promise.all([ loadDashHistory(), renderStockAlerts() ]);
-            }
+            renderDashKpiCards();
+            await Promise.all([ loadDashHistory(), renderStockAlerts() ]);
         }
 
-        // ── KPI Cards: admin/warehouse ──
+        // ── KPI Cards ──
         async function renderDashKpiCards() {
             const row = document.getElementById('dashKpiRow');
             if(!row) return;
-            const today = new Date().toISOString().slice(0,10);
 
             const defs = [
-                {id:'kpi_gr',  label:'GR วันนี้',       icon:'🚚', color:'#06b6d4', fn:'openGRHistory()'},
-                {id:'kpi_mr',  label:'ใบเบิกรออนุมัติ', icon:'📝', color:'#f59e0b', fn:'openPendingRequisitions()'},
-                {id:'kpi_qc',  label:'QC Pass Rate',    icon:'🔍', color:'#7c3aed', fn:'openQCHistory()'},
-                {id:'kpi_exp', label:'EXP ใกล้หมด',     icon:'⚠️', color:'#ef4444', fn:'openLotRegister()'},
+                {id:'kpi_stock',  label:'สินค้าทั้งหมด',   icon:'📦', color:'#3b82f6', fn:'openCentralStock()'},
+                {id:'kpi_low',    label:'Stock ต่ำกว่า Min', icon:'⚠️', color:'#ef4444', fn:'openInventoryCheck()'},
+                {id:'kpi_asset',  label:'ทรัพย์สินทั้งหมด', icon:'🏷️', color:'#f59e0b', fn:"openAssetManagement('registry')"},
+                {id:'kpi_repair', label:'แจ้งซ่อมค้างอยู่',  icon:'🔧', color:'#a855f7', fn:"openAssetManagement('repair')"},
             ];
             row.innerHTML = defs.map(k=>`
-                <div id="${k.id}_card" onclick="${k.fn}" class="dash-kpi-card" data-icon="${k.icon}" style="border-top-color:${k.color};">
+                <div id="${k.id}_card" onclick="${k.fn}" class="dash-kpi-card" data-icon="${k.icon}" style="border-top-color:${k.color};cursor:pointer;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                        <div style="width:30px;height:30px;border-radius:8px;background:${k.color}18;display:flex;align-items:center;justify-content:center;font-size:14px;">${k.icon.split(' ')[0]}</div>
+                        <div style="width:30px;height:30px;border-radius:8px;background:${k.color}18;display:flex;align-items:center;justify-content:center;font-size:14px;">${k.icon}</div>
                         <div class="dash-kpi-label" style="margin:0;">${k.label}</div>
                     </div>
                     <div class="dash-kpi-val" style="color:${k.color};" id="${k.id}_val">—</div>
                     <div class="dash-kpi-sub" id="${k.id}_sub">กำลังโหลด...</div>
                 </div>`).join('');
 
-            // Load values
+            // จำนวนสินค้า
             try {
-                const grSnap = await getDocs(collection(db,'goodsReceipts'));
-                let n=0, sup=new Set();
-                grSnap.forEach(d=>{const x=d.data();if(x.date===today){n++;if(x.supplier)sup.add(x.supplier);}});
-                const gv=document.getElementById('kpi_gr_val'), gs=document.getElementById('kpi_gr_sub');
-                if(gv) gv.innerText=n;
-                if(gs) gs.innerText=n?[...sup].slice(0,2).join(', ')||'ใบรับสินค้า':'ยังไม่มีวันนี้';
-                if(n>0){const card=document.getElementById('kpi_gr_card');if(card)card.style.background='#ecfeff';}
+                const n = (allProducts||[]).length;
+                const v=document.getElementById('kpi_stock_val'), s=document.getElementById('kpi_stock_sub');
+                if(v) v.innerText = n;
+                if(s) s.innerText = n + ' รายการ';
             } catch(e){}
 
+            // Stock ต่ำกว่า Min
             try {
-                const mrSnap = await getDocs(collection(db,'requisitions'));
-                let p=0; mrSnap.forEach(d=>{if(d.data().status==='pending')p++;});
-                const mv=document.getElementById('kpi_mr_val'), ms=document.getElementById('kpi_mr_sub');
-                if(mv) mv.innerText=p;
-                if(ms) ms.innerText=p>0?p+' รายการรอ':'ไม่มีรอดำเนินการ';
-                if(p>0){const card=document.getElementById('kpi_mr_card');if(card)card.style.background='#fffbeb';}
+                let low = 0;
+                Object.keys(productMinMax||{}).forEach(id=>{
+                    const min = productMinMax[id]?.min;
+                    const qty = countData[id]?.total ?? countData[id]?.qty ?? 0;
+                    if(min != null && qty <= min) low++;
+                });
+                const v=document.getElementById('kpi_low_val'), s=document.getElementById('kpi_low_sub');
+                if(v) v.innerText = low;
+                if(s) s.innerText = low > 0 ? low + ' รายการ ควรสั่งซื้อ' : 'ทุกรายการปกติ';
+                if(low > 0){ const card=document.getElementById('kpi_low_card'); if(card) card.style.background='#fef2f2'; }
             } catch(e){}
 
+            // จำนวนทรัพย์สิน + แจ้งซ่อม
             try {
-                const qcSnap = await getDocs(collection(db,'qcChecks'));
-                let arr=[]; qcSnap.forEach(d=>arr.push(d.data()));
-                arr.sort((a,b)=>b.timestamp-a.timestamp);
-                const l=arr[0];
-                const qv=document.getElementById('kpi_qc_val'), qs=document.getElementById('kpi_qc_sub');
-                if(l && l.totalChecked > 0){
-                    const r=Math.round(l.passCount/l.totalChecked*100);
-                    if(qv) qv.innerText=r+'%';
-                    // แสดงวันที่อย่างปลอดภัย
-                    const dateLabel = l.date ? l.date.split('/').slice(0,2).join('/') : (l.timestamp ? new Date(l.timestamp).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit'}) : '—');
-                    if(qs) qs.innerText='ครั้งล่าสุด '+dateLabel;
-                    if(r<80){const card=document.getElementById('kpi_qc_card');if(card)card.style.background='#fef2f2';}
-                } else {
-                    if(qv) qv.innerText='—';
-                    if(qs) qs.innerText='ยังไม่มีข้อมูล';
-                }
-            } catch(e){ const qs=document.getElementById('kpi_qc_sub');if(qs)qs.innerText='ยังไม่มีข้อมูล'; }
-
-            try {
-                const lotSnap = await getDoc(doc(db,'config','lotRegister'));
-                const lots = lotSnap.exists()?(lotSnap.data().lots||{}):{};
-                let w=0; const now=new Date(); now.setHours(0,0,0,0);
-                Object.values(lots).forEach(list=>list.forEach(l=>{
-                    if(l.qtyRemaining&&l.exp&&Math.floor((new Date(l.exp)-now)/86400000)<=30)w++;
-                }));
-                const ev=document.getElementById('kpi_exp_val'), es=document.getElementById('kpi_exp_sub');
-                if(ev) ev.innerText=w;
-                if(es) es.innerText= w>0 ? w+' Lot ≤30 วัน' : 'ทุก Lot ปลอดภัย';
-                const card=document.getElementById('kpi_exp_card');
-                if(card){
-                    if(w>0) card.style.background='#fef2f2';
-                    else { card.style.borderTopColor='#10b981'; if(ev) ev.style.color='#10b981'; }
-                }
-            } catch(e){ const es=document.getElementById('kpi_exp_sub');if(es)es.innerText='ยังไม่มีข้อมูล'; }
+                const assetSnap = await getDocs(collection(db,'assets'));
+                let total=0, repairing=0;
+                assetSnap.forEach(d=>{ total++; if(d.data().status==='repairing') repairing++; });
+                const av=document.getElementById('kpi_asset_val'), as_=document.getElementById('kpi_asset_sub');
+                if(av) av.innerText = total;
+                if(as_) as_.innerText = total + ' รายการ';
+                const repSnap = await getDocs(collection(db,'assetRepairs'));
+                let pending=0;
+                repSnap.forEach(d=>{ if(['pending','in_progress'].includes(d.data().status)) pending++; });
+                const rv=document.getElementById('kpi_repair_val'), rs=document.getElementById('kpi_repair_sub');
+                if(rv) rv.innerText = pending;
+                if(rs) rs.innerText = pending > 0 ? pending + ' รายการรอดำเนินการ' : 'ไม่มีค้างอยู่';
+                if(pending > 0){ const card=document.getElementById('kpi_repair_card'); if(card) card.style.background='#faf5ff'; }
+            } catch(e){}
         }
 
-        // ── KPI ของ BT: สถานะการนับเดือนนี้ ──
-        async function renderBTKpi() {
-            const row = document.getElementById('dashKpiRow');
-            if(!row) return;
-            const zone = (currentUser.assignedZones||[])[0]||'';
-            const now = new Date();
-            const monthKey = now.toISOString().slice(0,7);
-            const monthTH = now.toLocaleDateString('th-TH',{year:'numeric',month:'long'});
+        // BT ใช้ KPI เดิมได้เลย
+        async function renderBTKpi() { await renderDashKpiCards(); }
 
-            // check monthly count status
-            let monthlyDone = false, pilotCount = 0;
-            try {
-                const [histSnap, pilotSnap] = await Promise.all([
-                    getDocs(collection(db,'inventoryHistory')),
-                    getDocs(collection(db,'pilotCounts')),
-                ]);
-                histSnap.forEach(d=>{const x=d.data();if(x.zone===zone&&x.month===monthKey&&x.type==='branch')monthlyDone=true;});
-                pilotSnap.forEach(d=>{const x=d.data();if(x.zone===zone&&x.month===monthKey)pilotCount++;});
-            } catch(e){}
-
-            row.innerHTML = `
-                <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" class="dash-kpi-card" data-icon="${monthlyDone?'✅':'📅'}" style="border-top-color:${monthlyDone?'#10b981':'#f59e0b'};background:${monthlyDone?'#f0fdf4':'#fffbeb'};">
-                    <div class="dash-kpi-label">${monthlyDone?'✅':'📅'} นับสต๊อกสิ้นเดือน</div>
-                    <div class="dash-kpi-val" style="color:${monthlyDone?'#059669':'#d97706'};font-size:18px;">${monthlyDone?'นับแล้ว ✓':'ยังไม่ได้นับ'}</div>
-                    <div class="dash-kpi-sub">${monthTH} • ${zone}</div>
-                </div>
-                <div onclick="openPilotHistory()" class="dash-kpi-card" data-icon="🎲" style="border-top-color:${pilotCount>0?'#7c3aed':'#e2e8f0'};background:${pilotCount>0?'#f5f3ff':'white'};">
-                    <div class="dash-kpi-label">🎲 ทดลองนับเดือนนี้</div>
-                    <div class="dash-kpi-val" style="color:${pilotCount>0?'#7c3aed':'#94a3b8'};">${pilotCount}</div>
-                    <div class="dash-kpi-sub">ครั้ง • ${monthTH}</div>
-                </div>`;
-        }
-
-        // ── Alert Panel: Low Stock + Expiring Lot + Pending MR ──
+        // ── Alert Panel: Low Stock + Repair pending ──
         async function renderStockAlerts() {
             const container = document.getElementById('dashAlertList');
             if(!container) return;
             const alerts = [];
 
             try {
-                // 1. Low Stock
                 const lowItems = [];
-                Object.keys(productMinMax).forEach(id=>{
+                Object.keys(productMinMax||{}).forEach(id=>{
                     const min = productMinMax[id]?.min;
                     const qty = countData[id]?.total ?? countData[id]?.qty ?? 0;
                     if(min != null && qty <= min) {
@@ -1010,45 +910,22 @@
                         title: `Low Stock: ${lowItems.length} รายการ`,
                         sub: lowItems.slice(0,2).map(x=>`${x.name} (${x.qty})`).join(', ') + (lowItems.length>2?` +${lowItems.length-2}`:''),
                         badge: lowItems.length, badgeColor:'#ef4444', badgeBg:'#fee2e2',
-                        fn: 'openStockSummary()'
+                        fn: 'openInventoryCheck()'
                     });
                 }
             } catch(e){}
 
             try {
-                // 2. Expiring Lots
-                const lotSnap = await getDoc(doc(db,'config','lotRegister'));
-                const lots = lotSnap.exists()?(lotSnap.data().lots||{}):[];
-                let expItems = [], expSoon = 0;
-                const now = new Date(); now.setHours(0,0,0,0);
-                Object.entries(lots).forEach(([id, list])=>(list||[]).forEach(l=>{
-                    if(!l.qtyRemaining || !l.exp) return;
-                    const days = Math.floor((new Date(l.exp)-now)/86400000);
-                    if(days<=30) { expSoon++; if(expItems.length<2) expItems.push({id, days}); }
-                }));
-                if(expSoon > 0) {
-                    alerts.push({
-                        icon:'⏰', bg:'#fef2f2', iconBg:'#fecaca', color:'#991b1b',
-                        title: `EXP ใกล้หมด: ${expSoon} Lot`,
-                        sub: expItems.map(x=>{const p=allProducts.find(p=>p.id===x.id);return `${p?.name||x.id} (${x.days}วัน)`;}).join(', '),
-                        badge: expSoon, badgeColor:'#dc2626', badgeBg:'#fee2e2',
-                        fn: 'openLotRegister()'
-                    });
-                }
-            } catch(e){}
-
-            try {
-                // 3. Pending MR
-                const mrSnap = await getDocs(collection(db,'requisitions'));
-                let pending = 0;
-                mrSnap.forEach(d=>{ if(d.data().status==='pending') pending++; });
+                const repSnap = await getDocs(collection(db,'assetRepairs'));
+                let pending=0;
+                repSnap.forEach(d=>{ if(['pending','in_progress'].includes(d.data().status)) pending++; });
                 if(pending > 0) {
                     alerts.push({
-                        icon:'📋', bg:'#fffbeb', iconBg:'#fde68a', color:'#92400e',
-                        title: `ใบเบิกรออนุมัติ: ${pending} ใบ`,
+                        icon:'🔧', bg:'#faf5ff', iconBg:'#e9d5ff', color:'#6d28d9',
+                        title: `แจ้งซ่อมค้างอยู่: ${pending} รายการ`,
                         sub: 'กรุณาตรวจสอบและดำเนินการ',
-                        badge: pending, badgeColor:'#d97706', badgeBg:'#fef3c7',
-                        fn: 'openPendingRequisitions()'
+                        badge: pending, badgeColor:'#7c3aed', badgeBg:'#ede9fe',
+                        fn: "openAssetManagement('repair')"
                     });
                 }
             } catch(e){}
@@ -1058,13 +935,13 @@
                     <div style="text-align:center;padding:24px 12px;">
                         <div style="font-size:32px;margin-bottom:8px;">✅</div>
                         <div style="font-size:12px;font-weight:700;color:#059669;">ระบบปกติ ไม่มีแจ้งเตือน</div>
-                        <div style="font-size:10px;color:#94a3b8;margin-top:4px;">Stock, EXP, MR ทุกอย่างเรียบร้อย</div>
+                        <div style="font-size:10px;color:#94a3b8;margin-top:4px;">Stock และทรัพย์สินทุกอย่างเรียบร้อย</div>
                     </div>`;
                 return;
             }
 
             container.innerHTML = alerts.map(a=>`
-                <div class="dash-alert-item" onclick="${a.fn}" style="background:${a.bg};">
+                <div class="dash-alert-item" onclick="${a.fn}" style="background:${a.bg};cursor:pointer;">
                     <div class="dash-alert-icon" style="background:${a.iconBg};">${a.icon}</div>
                     <div class="dash-alert-text">
                         <div class="dash-alert-title" style="color:${a.color};">${a.title}</div>
@@ -1074,60 +951,25 @@
                 </div>`).join('');
         }
 
-        // ── BT Activity feed ──
-        async function loadBTDashActivity() {
-            const zone = (currentUser.assignedZones||[])[0]||'';
-            const recent = document.getElementById('dashRecentList');
-            if(!recent||!zone) return;
-            try {
-                const [histSnap, pilotSnap] = await Promise.all([
-                    getDocs(collection(db,'inventoryHistory')),
-                    getDocs(collection(db,'pilotCounts')),
-                ]);
-                let items = [];
-                histSnap.forEach(d=>{const x=d.data();if(x.zone===zone)items.push({...x,_type:'monthly'});});
-                pilotSnap.forEach(d=>{const x=d.data();if(x.zone===zone)items.push({...x,_type:'pilot'});});
-                items.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
-                if(!items.length){recent.innerHTML='<p style="color:#94a3b8;font-size:12px;">ยังไม่มีประวัติการนับ</p>';return;}
-                recent.innerHTML = items.slice(0,10).map(a=>`
-                    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f8fafc;">
-                        <div style="width:26px;height:26px;border-radius:50%;background:${a._type==='pilot'?'#f5f3ff':'#eff6ff'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">${a._type==='pilot'?'🎲':'📅'}</div>
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;font-size:11px;color:#1e293b;">${a._type==='pilot'?'ทดลองนับ '+(a.skuCount||0)+' SKU':'นับสต๊อกสิ้นเดือน'+(a.month?' '+a.month:'')}</div>
-                            <div style="font-size:10px;color:#94a3b8;">${a.date||''} • ${(a.items||[]).length} รายการ</div>
-                        </div>
-                    </div>`).join('');
-            } catch(e){ recent.innerHTML='<p style="color:#94a3b8;font-size:12px;">โหลดไม่สำเร็จ</p>'; }
-        }
+        async function loadBTDashActivity() { await loadDashHistory(); }
 
         async function loadDashHistory() {
             try {
-                const [stockSnap, grSnap, mrSnap, qcSnap] = await Promise.all([
-                    getDocs(collection(db,'stockHistory')),
-                    getDocs(collection(db,'goodsReceipts')),
-                    getDocs(collection(db,'requisitions')),
-                    getDocs(collection(db,'qcChecks')),
-                ]);
+                const stockSnap = await getDocs(collection(db,'stockHistory'));
                 let activities = [];
                 stockSnap.forEach(d=>{ const x=d.data();
-                    activities.push({icon:'📦',color:'#3b82f6',title:x.zone+' — นับสต็อก',sub:(x.countedBy||'-')+' • '+(x.items||[]).length+' รายการ',ts:x.timestamp||0,date:x.date||''});
+                    activities.push({icon:'📦',color:'#3b82f6',title:(x.zone||'')+' — นับสต๊อก',sub:(x.countedBy||'-')+' • '+(x.items||[]).length+' รายการ',ts:x.timestamp||0,date:x.date||''});
                 });
-                grSnap.forEach(d=>{ const x=d.data();
-                    activities.push({icon:'🚚',color:'#06b6d4',title:(x.grNumber||'GR')+' — รับสินค้า',sub:(x.supplier||'-')+' • '+(x.items||[]).length+' รายการ',ts:x.timestamp||0,date:x.date||''});
-                });
-                mrSnap.forEach(d=>{ const x=d.data();
-                    const si={pending:'⏳',approved:'✅',rejected:'❌'}[x.status]||'📋';
-                    activities.push({icon:'📋',color:'#10b981',title:(x.mrNumber||'MR')+' '+si,sub:(x.requester||'-')+' • '+(x.items||[]).length+' รายการ',ts:x.timestamp||0,date:x.date||''});
-                });
-                qcSnap.forEach(d=>{ const x=d.data();
-                    activities.push({icon:'🔍',color:'#7c3aed',title:(x.checkNo||'QC')+' — Spot Check',sub:(x.inspector||'-')+' • Pass '+(x.passCount||0)+'/'+(x.totalChecked||0),ts:x.timestamp||0,date:x.date||''});
+                const repSnap = await getDocs(collection(db,'assetRepairs'));
+                repSnap.forEach(d=>{ const x=d.data();
+                    activities.push({icon:'🔧',color:'#a855f7',title:(x.repairNo||'แจ้งซ่อม')+' — '+(x.assetName||''),sub:(x.reportedBy||'-')+' • '+(x.branchName||''),ts:x.createdAt||0,date:x.createdDate||''});
                 });
                 activities.sort((a,b)=>b.ts-a.ts);
                 const rc = document.getElementById('dashRecentList');
                 if(rc){
                     if(!activities.length){rc.innerHTML='<p style="color:#94a3b8;font-size:12px;">ยังไม่มีกิจกรรม</p>';return;}
                     rc.innerHTML = activities.slice(0,10).map(a=>{
-                        const ds = a.date?(()=>{const p=a.date.split('/');return p.length===3?p[0]+'/'+p[1]:a.date;})():(a.ts?new Date(a.ts).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit'}):'-');
+                        const ds = a.date?(()=>{const p=a.date.split('/');return p.length>=2?p[0]+'/'+p[1]:a.date;})():(a.ts?new Date(a.ts).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit'}):'-');
                         return '<div class="dash-activity-item">'
                             + '<div class="dash-activity-dot" style="background:'+a.color+'18;">'+a.icon+'</div>'
                             + '<div style="flex:1;min-width:0;">'
@@ -1136,52 +978,7 @@
                             + '</div></div>';
                     }).join('');
                 }
-                let stockSessions = [], grSessions = [], mrSessions = [];
-                stockSnap.forEach(d=>stockSessions.push({id:d.id,...d.data()}));
-                grSnap.forEach(d=>grSessions.push(d.data()));
-                mrSnap.forEach(d=>mrSessions.push(d.data()));
-                stockSessions.sort((a,b)=>b.timestamp-a.timestamp);
-                renderTrendChart(stockSessions, grSessions, mrSessions);
             } catch(e){ console.error(e); }
-        }
-
-        function renderTrendChart(stockSessions, grSessions=[], mrSessions=[]) {
-            const canvas = document.getElementById('trendChart');
-            if(!canvas) return;
-            const days=[], stockCounts=[], grCounts=[], mrCounts=[];
-            for(let i=6;i>=0;i--) {
-                const d=new Date(); d.setDate(d.getDate()-i);
-                const dy=String(d.getDate()).padStart(2,'0'), mo=String(d.getMonth()+1).padStart(2,'0'), yr=d.getFullYear()+543;
-                const thDate=`${dy}/${mo}/${yr}`;
-                days.push(d.toLocaleDateString('th-TH',{day:'numeric',month:'short'}));
-                stockCounts.push(stockSessions.filter(s=>s.date===thDate).length);
-                grCounts.push(grSessions.filter(s=>s.date===thDate).length);
-                mrCounts.push(mrSessions.filter(s=>{
-                    if(!s.timestamp) return false;
-                    const sd = new Date(s.timestamp).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'/');
-                    return sd===thDate;
-                }).length);
-            }
-            if(trendChartInstance) trendChartInstance.destroy();
-            trendChartInstance = new Chart(canvas, {
-                type:'bar',
-                data:{
-                    labels:days,
-                    datasets:[
-                        {label:'นับสต๊อก',data:stockCounts,backgroundColor:'rgba(59,130,246,0.15)',borderColor:'#3b82f6',borderWidth:2,borderRadius:6,borderSkipped:false},
-                        {label:'GR รับสินค้า',data:grCounts,backgroundColor:'rgba(16,185,129,0.15)',borderColor:'#10b981',borderWidth:2,borderRadius:6,borderSkipped:false},
-                        {label:'MR ใบเบิก',data:mrCounts,backgroundColor:'rgba(245,158,11,0.15)',borderColor:'#f59e0b',borderWidth:2,borderRadius:6,borderSkipped:false},
-                    ]
-                },
-                options:{
-                    responsive:true, maintainAspectRatio:false,
-                    plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:10},padding:12}}},
-                    scales:{
-                        y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'#f1f5f9'}},
-                        x:{grid:{display:false},ticks:{font:{size:10}}}
-                    }
-                }
-            });
         }
 
         function renderSummaryCards() {} // kept for backward compat
@@ -1602,45 +1399,15 @@
         // popstate  = กดปุ่มย้อนกลับ browser → กลับ Dashboard
         // ──────────────────────────────────────────────────────
         const navFnMap = {
-            'gr':                ()=>{ const f=window._origOpenCreateGR||window.openCreateGR; f(); },
-            'gr-history':        ()=>{ const f=window._origOpenGRHistory||window.openGRHistory; f(); },
-            'lot-register':      ()=>{ const f=window._origOpenLotRegister||window.openLotRegister; f(); },
-            'qc':                ()=>{ const f=window._origOpenQCCheck||window.openQCCheck; f(); },
-            'qc-history':        ()=>{ const f=window._origOpenQCHistory||window.openQCHistory; f(); },
             'stock':             ()=>{ const f=window._origOpenCentralStock||window.openCentralStock; f(); },
-            'stock-summary':     ()=>{ const f=window._origOpenStockSummary||window.openStockSummary; f(); },
             'inventory-check':   ()=>{ const f=window._origOpenInventoryCheck||window.openInventoryCheck; f(); },
-            'inventory-analysis':()=>{ const f=window._origOpenInventoryAnalysis||window.openInventoryAnalysis; f(); },
-            'purchase-order':    ()=>{ const f=window._origOpenPurchaseOrder||window.openPurchaseOrder; f(); },
-            'import-products':   ()=>window.openImportProducts(),
-            'requisition':       ()=>{ const f=window._origOpenCreateRequisition||window.openCreateRequisition; f(); },
-            'my-req':            ()=>{ const f=window._origOpenMyRequisitions||window.openMyRequisitions; f(); },
-            'pending-req':       ()=>{ const f=window._origOpenPendingRequisitions||window.openPendingRequisitions; f(); },
-            'all-req':           ()=>{ const f=window._origOpenAllRequisitions||window.openAllRequisitions; f(); },
-            'req-settings':      ()=>{ const f=window._origOpenRequisitionSettings||window.openRequisitionSettings; f(); },
-            'daily-stock':       ()=>{ const f=window._origOpenDailyStockCard||window.openDailyStockCard; f(); },
             'warehouse-mgr':     ()=>{ const f=window._origOpenWarehouseManager||window.openWarehouseManager; f(); },
             'asset-registry':    ()=>{ if(window.openAssetManagement) window.openAssetManagement('registry'); },
             'asset-audit':       ()=>{ if(window.openAssetManagement) window.openAssetManagement('audit'); },
             'asset-repair':      ()=>{ if(window.openAssetManagement) window.openAssetManagement('repair'); },
+            'asset-transfer':    ()=>{ if(window.openAssetManagement) window.openAssetManagement('transfer'); },
             'asset-dashboard':   ()=>{ if(window.openAssetManagement) window.openAssetManagement('dashboard'); },
             'user-mgmt':         ()=>{ const f=window._origOpenUserManagement||window.openUserManagement; f(); },
-            'help':              ()=>{ const f=window._origOpenHelpGuide||window.openHelpGuide; f(); },
-            'sales-analytics':   ()=>{ if(window.openSalesAnalytics) window.openSalesAnalytics(); },
-            'monthly-count':     ()=>{
-                try {
-                    const raw = sessionStorage.getItem('_mcNav');
-                    if (!raw) { if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount(); return; }
-                    const { tmplId, zone } = JSON.parse(raw);
-                    const tmpl = (window.stockSheetTemplates || {})[tmplId];
-                    if (tmplId && tmpl && zone && window.openBranchMonthlyCount) {
-                        window.openBranchMonthlyCount(tmplId, tmpl, zone);
-                    } else {
-                        if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount();
-                    }
-                } catch(e) { if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount(); }
-            },
-            'stock-history':     ()=>{ if(window.openBranchExportModal) window.openBranchExportModal(); },
         };
 
         // pushState — บันทึกใน history stack ให้ browser back ทำงาน
@@ -1690,182 +1457,17 @@
         }
 
         // patch open functions
-        const _origOpenCreateGR = window.openCreateGR;
-        window.openCreateGR = async function() { _pushNav('gr'); await _origOpenCreateGR(); };
-
-        const _origOpenGRHistory = window.openGRHistory;
-        window.openGRHistory = async function() { _pushNav('gr-history'); await _origOpenGRHistory(); };
-
-        const _origOpenLotRegister = window.openLotRegister;
-        window.openLotRegister = async function() { _pushNav('lot-register'); await _origOpenLotRegister(); };
-
-        const _origOpenQCCheck = window.openQCCheck;
-        window.openQCCheck = async function() { _pushNav('qc'); await _origOpenQCCheck(); };
-
-        const _origOpenQCHistory = window.openQCHistory;
-        // ── GR EDIT & DELETE (Admin) ──────────────────────
-        window.deleteGR = async function(grId, grNumber) {
-            const confirmText = prompt(`พิมพ์เลข GR "${grNumber}" เพื่อยืนยันการลบ:`);
-            if(confirmText?.trim() !== grNumber) { toast('❌ ยกเลิก — GR Number ไม่ตรง','#c2410c'); return; }
-            try {
-                await deleteDoc(doc(db,'goodsReceipts',grId));
-                toast(`🗑️ ลบ ${grNumber} เรียบร้อย`,'#059669');
-                openGRHistory();
-            } catch(e) { toast('❌ ลบไม่สำเร็จ: '+e.message,'#c2410c'); }
-        };
-
-        window.editGR = async function(grId) {
-            const snap = await getDoc(doc(db,'goodsReceipts',grId));
-            if(!snap.exists()) { toast('❌ ไม่พบ GR','#c2410c'); return; }
-            const gr = { id:grId, ...snap.data() };
-            const modal = document.createElement('div');
-            modal.id = 'grEditModal';
-            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
-            const itemRows = (gr.items||[]).map(it=>`
-                <tr style="border-bottom:1px solid #f1f5f9;">
-                    <td style="padding:8px;font-size:12px;"><b>${it.id}</b><br>${it.name}</td>
-                    <td style="padding:8px;text-align:center;">
-                        <input type="number" id="gredit_qty_${it.id}" value="${it.qtyReceived||0}" min="0"
-                            style="width:70px;padding:5px;border:1.5px solid #10b981;border-radius:6px;text-align:center;font-weight:700;font-size:13px;outline:none;">
-                    </td>
-                    <td style="padding:8px;text-align:center;">
-                        <input type="text" id="gredit_mfd_${it.id}" value="${it.mfd?isoToDMY(it.mfd):''}" placeholder="dd/mm/yyyy" maxlength="10"
-                            oninput="formatDateInput(this,'gredit_mfd_iso_${it.id}')"
-                            style="width:100px;padding:5px;border:1px solid #e2e8f0;border-radius:6px;text-align:center;font-size:12px;outline:none;">
-                        <input type="hidden" id="gredit_mfd_iso_${it.id}" value="${it.mfd||''}">
-                    </td>
-                    <td style="padding:8px;text-align:center;">
-                        <input type="text" id="gredit_exp_${it.id}" value="${it.exp?isoToDMY(it.exp):''}" placeholder="dd/mm/yyyy" maxlength="10"
-                            oninput="formatDateInput(this,'gredit_exp_iso_${it.id}')"
-                            style="width:100px;padding:5px;border:2px solid #f59e0b;border-radius:6px;text-align:center;font-size:12px;outline:none;font-weight:bold;">
-                        <input type="hidden" id="gredit_exp_iso_${it.id}" value="${it.exp||''}">
-                    </td>
-                    <td style="padding:8px;text-align:center;">
-                        <select id="gredit_status_${it.id}" style="padding:5px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;outline:none;">
-                            <option value="complete" ${it.status==='complete'?'selected':''}>✅ ครบ</option>
-                            <option value="partial" ${it.status==='partial'?'selected':''}>⚠️ ไม่ครบ</option>
-                            <option value="extra" ${it.status==='extra'?'selected':''}>➕ ของแทรก</option>
-                            <option value="damaged" ${it.status==='damaged'?'selected':''}>❌ เสียหาย</option>
-                        </select>
-                    </td>
-                </tr>`).join('');
-            modal.innerHTML = `
-                <div style="background:white;border-radius:16px;width:100%;max-width:780px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-                    <div style="background:#06b6d4;padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
-                        <div style="color:white;font-weight:800;font-size:15px;">✏️ แก้ไข GR: ${gr.grNumber}</div>
-                        <button onclick="document.getElementById('grEditModal').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:14px;">✕</button>
-                    </div>
-                    <div style="padding:20px;">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-                            <div>
-                                <label style="font-size:11px;color:#64748b;font-weight:700;">🏢 SUPPLIER</label>
-                                <input type="text" id="gredit_supplier" value="${gr.supplier||''}"
-                                    style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;box-sizing:border-box;outline:none;">
-                            </div>
-                            <div>
-                                <label style="font-size:11px;color:#64748b;font-weight:700;">📝 หมายเหตุ</label>
-                                <input type="text" id="gredit_note" value="${gr.note||''}" placeholder="หมายเหตุ"
-                                    style="width:100%;padding:8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;">
-                            </div>
-                        </div>
-                        <div style="background:#fef9f0;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#92400e;">
-                            ⚠️ <b>เฉพาะ Admin</b> — การแก้ไขจะถูกบันทึกใน Audit Log อัตโนมัติ
-                        </div>
-                        <div style="overflow-x:auto;">
-                            <table style="width:100%;border-collapse:collapse;font-size:12px;">
-                                <thead><tr style="background:#f8fafc;">
-                                    <th style="padding:8px;text-align:left;">สินค้า</th>
-                                    <th style="padding:8px;text-align:center;">จำนวนรับ</th>
-                                    <th style="padding:8px;text-align:center;">MFD</th>
-                                    <th style="padding:8px;text-align:center;">EXP</th>
-                                    <th style="padding:8px;text-align:center;">สถานะ</th>
-                                </tr></thead>
-                                <tbody>${itemRows}</tbody>
-                            </table>
-                        </div>
-                        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
-                            <button onclick="document.getElementById('grEditModal').remove()" style="background:#f1f5f9;color:#64748b;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:600;">ยกเลิก</button>
-                            <button onclick="saveEditGR('${gr.id}')" style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:700;">💾 บันทึกการแก้ไข</button>
-                        </div>
-                    </div>
-                </div>`;
-            document.body.appendChild(modal);
-        };
-
-        window.saveEditGR = async function(grId) {
-            const snap = await getDoc(doc(db,'goodsReceipts',grId));
-            if(!snap.exists()) return;
-            const original = snap.data();
-            const updatedItems = (original.items||[]).map(it=>({
-                ...it,
-                qtyReceived: parseFloat(document.getElementById(`gredit_qty_${it.id}`)?.value)||it.qtyReceived,
-                mfd: document.getElementById(`gredit_mfd_iso_${it.id}`)?.value||it.mfd||'',
-                exp: document.getElementById(`gredit_exp_iso_${it.id}`)?.value||it.exp||'',
-                status: document.getElementById(`gredit_status_${it.id}`)?.value||it.status,
-            }));
-            const supplier = document.getElementById('gredit_supplier')?.value.trim()||original.supplier||'';
-            const note = document.getElementById('gredit_note')?.value.trim()||original.note||'';
-            const auditEntry = {
-                editedBy: currentUser?.name||'admin',
-                editedAt: Date.now(),
-                original: { supplier:original.supplier, note:original.note, items:original.items }
-            };
-            try {
-                await updateDoc(doc(db,'goodsReceipts',grId), {
-                    supplier, note, items: updatedItems,
-                    lastEditedBy: currentUser?.name,
-                    lastEditedAt: Date.now(),
-                    auditLog: [...(original.auditLog||[]), auditEntry]
-                });
-                document.getElementById('grEditModal')?.remove();
-                toast('✅ แก้ไข GR เรียบร้อย','#059669');
-                openGRHistory();
-            } catch(e) { toast('❌ แก้ไขไม่สำเร็จ: '+e.message,'#c2410c'); }
-        };
-
-        window.openQCHistory = async function() { _pushNav('qc-history'); await _origOpenQCHistory(); };
-
         const _origOpenCentralStock = window.openCentralStock;
         window.openCentralStock = function() { _pushNav('stock'); _origOpenCentralStock(); };
 
-        const _origOpenStockSummary = window.openStockSummary;
-        window.openStockSummary = async function() { _pushNav('stock-summary'); await _origOpenStockSummary(); };
-
         const _origOpenInventoryCheck = window.openInventoryCheck;
         window.openInventoryCheck = async function() { _pushNav('inventory-check'); await _origOpenInventoryCheck(); };
-
-        const _origOpenInventoryAnalysis = window.openInventoryAnalysis;
-        window.openInventoryAnalysis = async function() { _pushNav('inventory-analysis'); await _origOpenInventoryAnalysis(); };
-
-        const _origOpenPurchaseOrder = window.openPurchaseOrder;
-        window.openPurchaseOrder = async function() { _pushNav('purchase-order'); await _origOpenPurchaseOrder(); };
-
-        const _origOpenCreateRequisition = window.openCreateRequisition;
-        window.openCreateRequisition = async function() { _pushNav('requisition'); await _origOpenCreateRequisition(); };
-
-        const _origOpenMyRequisitions = window.openMyRequisitions;
-        window.openMyRequisitions = async function() { _pushNav('my-req'); await _origOpenMyRequisitions(); };
-
-        const _origOpenPendingRequisitions = window.openPendingRequisitions;
-        window.openPendingRequisitions = async function() { _pushNav('pending-req'); await _origOpenPendingRequisitions(); };
-
-        const _origOpenAllRequisitions = window.openAllRequisitions;
-        window.openAllRequisitions = async function() { _pushNav('all-req'); await _origOpenAllRequisitions(); };
-
-        const _origOpenRequisitionSettings = window.openRequisitionSettings;
-        window.openRequisitionSettings = function() { _pushNav('req-settings'); _origOpenRequisitionSettings(); };
-
-        const _origOpenDailyStockCard = window.openDailyStockCard;
-        window.openDailyStockCard = async function() { _pushNav('daily-stock'); await _origOpenDailyStockCard(); };
 
         const _origOpenWarehouseManager = window.openWarehouseManager;
         window.openWarehouseManager = function() { _pushNav('warehouse-mgr'); _origOpenWarehouseManager(); };
 
         const _origOpenUserManagement = window.openUserManagement;
         window.openUserManagement = function() { _pushNav('user-mgmt'); _origOpenUserManagement(); };
-
-        const _origOpenHelpGuide = window.openHelpGuide;
-        window.openHelpGuide = function() { _pushNav('help'); _origOpenHelpGuide(); };
 
         // closeTool = กดปุ่ม ✕ ปิด ในทุกหน้า
         window.closeTool = function() {
@@ -2305,84 +1907,7 @@ setTimeout(() => {
 
 
 // ===== BRANCH MONTHLY COUNT SHORTCUT =====
-window.tryOpenBranchMonthlyCount = function() {
-    const isBTUser = currentUser?.username?.toUpperCase().startsWith('BT') &&
-                     !currentUser?.username?.toUpperCase().startsWith('BT000');
-    const isAdmin  = currentUser?.role === 'admin';
-    if(!isBTUser && !isAdmin){ toast('⛔ เฉพาะสาขา BT และ Admin เท่านั้น','#c2410c'); return; }
-    if(!monthlyCountOpen){
-        const m=document.createElement('div'); m.className='modal-overlay'; m.id='lockedModal2';
-        m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:center;">
-            <div style="font-size:48px;margin-bottom:12px;">🔒</div>
-            <h3 style="margin:0 0 8px;">ระบบนับสต๊อกสิ้นเดือนปิดอยู่</h3>
-            <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Admin ยังไม่ได้เปิดระบบ<br>กรุณาติดต่อผู้ดูแลระบบ</p>
-            <button onclick="document.getElementById('lockedModal2').remove()" style="background:#1e293b;color:white;border:none;padding:10px 30px;border-radius:10px;cursor:pointer;font-weight:bold;">ตกลง</button>
-        </div>`;
-        document.body.appendChild(m); return;
-    }
-    // admin ที่กดเอง — เลือก template จาก modal
-    if(isAdmin && !isBTUser) {
-        _openBranchMonthlyPickModal(); return;
-    }
-    // BT user — ใช้ tryOpenMonthlyCount ที่มีอยู่แล้ว (จะ detect BT และโหลด template อัตโนมัติ)
-    if(typeof tryOpenMonthlyCount === 'function') tryOpenMonthlyCount();
-};
 
-// Admin เลือก template + zone แล้วเปิด
-window._openBranchMonthlyPickModal = function() {
-    const tmpls = Object.entries(stockSheetTemplates||{});
-    if(!tmpls.length){ toast('⚠️ ยังไม่มี Template สาขา — ไปสร้างที่ ตั้งค่าใบเบิก & ใบนับ ก่อนนะครับ','#c2410c'); return; }
-    const existing = document.getElementById('bmPickModal'); if(existing) existing.remove();
-    const m = document.createElement('div'); m.className='modal-overlay'; m.id='bmPickModal';
-    m.innerHTML=`<div class="modal-box" style="max-width:480px;">
-        <h3 style="margin:0 0 16px;">🏪 นับสต๊อกสิ้นเดือนสาขา (Admin)</h3>
-        <div style="margin-bottom:12px;">
-            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Template</label>
-            <select id="bmPickTmpl" onchange="_bmPickUpdateZones()" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;font-family:inherit;">
-                ${tmpls.map(([id,t])=>`<option value="${id}">${t.name} (${t.branchType||t.zone||'—'})</option>`).join('')}
-            </select>
-        </div>
-        <div style="margin-bottom:20px;">
-            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">สาขา/คลัง</label>
-            <select id="bmPickZone" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;font-family:inherit;">
-                ${warehouseList.map(z=>`<option value="${z}">${z}</option>`).join('')}
-            </select>
-        </div>
-        <div style="display:flex;gap:10px;justify-content:flex-end;">
-            <button onclick="document.getElementById('bmPickModal').remove()" style="background:#f1f5f9;color:#475569;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:600;font-family:inherit;">ยกเลิก</button>
-            <button onclick="_bmPickConfirm()" style="background:#f59e0b;color:white;border:none;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:700;font-family:inherit;">📋 เปิดใบนับ</button>
-        </div>
-    </div>`;
-    document.body.appendChild(m);
-};
-window._bmPickUpdateZones = function() {
-    const tmplId = document.getElementById('bmPickTmpl')?.value;
-    const tmpl   = stockSheetTemplates[tmplId];
-    const bt     = (tmpl?.branchType||tmpl?.zone||'').toUpperCase();
-    const sel    = document.getElementById('bmPickZone'); if(!sel)return;
-    const zones  = bt ? warehouseList.filter(z=>z.toUpperCase().startsWith(bt)) : warehouseList;
-    sel.innerHTML = (zones.length?zones:warehouseList).map(z=>`<option value="${z}">${z}</option>`).join('');
-};
-window._bmPickConfirm = function() {
-    const tmplId = document.getElementById('bmPickTmpl')?.value;
-    const zone   = document.getElementById('bmPickZone')?.value;
-    if(!tmplId||!zone){ toast('⚠️ กรุณาเลือก Template และสาขา','#c2410c'); return; }
-    document.getElementById('bmPickModal')?.remove();
-    const tmpl = stockSheetTemplates[tmplId];
-    if(window.openBranchMonthlyCount) window.openBranchMonthlyCount(tmplId, tmpl, zone);
-    else toast('⚠️ ยังโหลด stock-count.js ไม่เสร็จ ลองใหม่อีกครั้ง','#c2410c');
-};
-
-// แสดง/ซ่อน branchMonthlyMenuBtn ตามสิทธิ์
-setTimeout(()=>{
-    const btn = document.getElementById('branchMonthlyMenuBtn');
-    if(!btn||!currentUser) return;
-    const isBT    = currentUser.username?.toUpperCase().startsWith('BT') &&
-                    !currentUser.username?.toUpperCase().startsWith('BT000');
-    const isAdmin = currentUser.role==='admin';
-    if(isBT||isAdmin) btn.classList.remove('hidden');
-}, 1800);
-// ===== END BRANCH MONTHLY COUNT SHORTCUT =====
 
 // ===== CENTRAL KITCHEN STOCK SYSTEM =====
 
@@ -2430,26 +1955,9 @@ window.saveCentralStock = async function(){
     <script src="user-mgmt.js" defer></script>
     <script src="warehouse-settings.js" defer></script>
     <script src="stock-normal.js" defer></script>
-    <script src="stock-summary.js" defer></script>
     <script src="stock-inventory.js" defer></script>
-    <script src="stock-daily-card.js" defer></script>
-    <script src="stock-monthly-count.js" defer></script>
-    <script src="stock-parent-export.js" defer></script>
-    <script src="stock-pdf-export.js" defer></script>
-    <script src="stock-branch-export.js" defer></script>
-    <script src="stock-random-sku.js" defer></script>
     <script src="stock-settings.js" defer></script>
-    <script src="analytics.js" defer></script>
-    <script src="requisition.js" defer></script>
-    <script src="help.js" defer></script>
-    <script src="goods-receipt.js" defer></script>
-    <script src="lot-register.js" defer></script>
-    <script src="qc.js" defer></script>
     <script src="asset-mgmt.js" defer></script>
-    <script src="sales-analytics.js" defer></script>
-    <script src="sales-analytics-charts.js" defer></script>
-    <script src="sales-analytics-export.js" defer></script>
-    <script src="sales-analytics-loader.js" defer></script>
 
 </body>
 </html>

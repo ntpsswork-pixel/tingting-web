@@ -5,41 +5,14 @@
             const role       = currentUser.role || 'guest';
             const perms      = roleSettings[role]?.menus || [];
             const isViewOnly = roleSettings[role]?.viewOnly || false;
-            const effectivePerms = isViewOnly ? ["warehouse","tools","admin","requisition"] : perms;
+            const effectivePerms = isViewOnly ? ['warehouse','admin','asset'] : perms;
 
-            document.getElementById('warehouseMenu').classList.toggle('hidden', !effectivePerms.includes('warehouse'));
-            document.getElementById('toolsMenu').classList.toggle('hidden', !effectivePerms.includes('tools'));
-            document.getElementById('adminMenu').classList.toggle('hidden', !effectivePerms.includes('admin'));
+            const warehouseMenu = document.getElementById('warehouseMenu');
+            if(warehouseMenu) warehouseMenu.classList.toggle('hidden', !effectivePerms.includes('warehouse'));
+            const adminMenu = document.getElementById('adminMenu');
+            if(adminMenu) adminMenu.classList.toggle('hidden', !effectivePerms.includes('admin'));
             const assetMenu = document.getElementById('assetMenu');
             if(assetMenu) assetMenu.classList.toggle('hidden', !effectivePerms.includes('asset'));
-            // requisition menu
-            const reqMenu = document.getElementById('requisitionMenu');
-            if(reqMenu) reqMenu.classList.toggle('hidden', !effectivePerms.includes('requisition'));
-            const grMenu = document.getElementById('grMenu');
-            if(grMenu) grMenu.classList.toggle('hidden', !effectivePerms.includes('gr'));
-            const qcMenu = document.getElementById('qcMenu');
-            if(qcMenu) qcMenu.classList.toggle('hidden', !effectivePerms.includes('qc'));
-            // monthly count badge
-            const badge = document.getElementById('monthlyCountBadge');
-            if(badge){
-                badge.innerText = monthlyCountOpen ? '🟢 เปิด' : '🔴 ปิด';
-                badge.style.background = monthlyCountOpen ? '#dcfce7' : '#fee2e2';
-                badge.style.color = monthlyCountOpen ? '#059669' : '#ef4444';
-            }
-            // นับสต๊อกสิ้นเดือนสาขา — เฉพาะ BT user (ไม่ใช่ BT000) + admin
-            const branchBtn = document.getElementById('branchMonthlyMenuBtn');
-            if(branchBtn) {
-                const uname  = (currentUser.username||'').toUpperCase();
-                const isBTBranch = uname.startsWith('BT') && !uname.startsWith('BT000');
-                const isAdm  = role === 'admin';
-                branchBtn.style.display = (isBTBranch || isAdm) ? '' : 'none';
-            }
-            // approve/all sub-items only for warehouse/admin
-            const canApprove = ['admin','warehouse'].includes(role);
-            const reqApprove = document.getElementById('reqApproveMenu');
-            const reqAll = document.getElementById('reqAllMenu');
-            if(reqApprove) reqApprove.classList.toggle('hidden', !canApprove);
-            if(reqAll) reqAll.classList.toggle('hidden', !canApprove);
 
             document.getElementById('viewOnlyAlert').classList.toggle('hidden', !isViewOnly);
 
