@@ -480,6 +480,7 @@
                     <div onclick="openCentralStock()" data-tool="stock" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=stock','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=stock','_blank');" style="color:#10b981;">● นับสต๊อก</div>
                     <div onclick="openInventoryCheck()" data-tool="inventory-check" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=inventory-check','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=inventory-check','_blank');" style="color:var(--accent-gold);">● ใบนับสต๊อกคงเหลือ</div>
                     <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" style="color:#06b6d4;">● นับสต๊อกสิ้นเดือน</div>
+                    <div onclick="openMonthlyHistoryView()" data-tool="monthly-history" style="color:#a78bfa;">● ประวัติ & Export สิ้นเดือน</div>
                 </div>
             </div>
 
@@ -1405,6 +1406,7 @@
             'stock':             ()=>{ const f=window._origOpenCentralStock||window.openCentralStock; f(); },
             'inventory-check':   ()=>{ const f=window._origOpenInventoryCheck||window.openInventoryCheck; f(); },
             'monthly-count':     ()=>{ if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount(); },
+            'monthly-history':   ()=>{ if(window.openMonthlyHistoryView) window.openMonthlyHistoryView(); },
             'warehouse-mgr':     ()=>{ const f=window._origOpenWarehouseManager||window.openWarehouseManager; f(); },
             'asset-registry':    ()=>{ if(window.openAssetManagement) window.openAssetManagement('registry'); },
             'asset-audit':       ()=>{ if(window.openAssetManagement) window.openAssetManagement('audit'); },
