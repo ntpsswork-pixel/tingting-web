@@ -1450,9 +1450,18 @@
         // restore จาก hash เมื่อ page โหลด (หลัง refresh)
         window._restoreHashNav = function() {
             const hash = location.hash.replace('#','');
-            if(hash && navFnMap[hash]) {
-                setTimeout(()=>{ try{ navFnMap[hash](); } catch(e){} }, 400);
-            }
+            if(!hash) return;
+            // รอ defer scripts โหลดเสร็จก่อน (retry ถึง 3 วิ)
+            let attempts = 0;
+            const tryRestore = () => {
+                attempts++;
+                if(navFnMap[hash]) {
+                    try{ navFnMap[hash](); } catch(e){}
+                } else if(attempts < 15) {
+                    setTimeout(tryRestore, 200);
+                }
+            };
+            setTimeout(tryRestore, 300);
         };
 
         // internal: ซ่อน tool กลับ Dashboard โดยไม่ pushState

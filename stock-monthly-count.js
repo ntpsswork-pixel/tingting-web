@@ -701,9 +701,13 @@
                     <b style="font-size:13px;color:#065f46;">${currentUser?.name||''}</b>
                 </div>
             </div>
-            <div style="margin-bottom:12px;" class="no-print">
+            <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;" class="no-print">
                 <input type="text" placeholder="🔍 ค้นหาสินค้า..." oninput="filterBMCRows(this.value)"
-                    style="width:100%;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
+                    style="flex:1;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
+                <button onclick="openAddProductToMonthly('${tmplId}','${defaultZone}')"
+                    style="background:#3b82f6;color:white;border:none;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:bold;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                    ➕ เพิ่มสินค้า
+                </button>
             </div>
             <div id="bmcTableWrap" style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;min-width:600px;" id="bmcTable">
@@ -761,6 +765,93 @@
             document.querySelectorAll('.bmc-row').forEach(r=>{
                 r.style.display = (!q||r.dataset.search.includes(q.toLowerCase())) ? '' : 'none';
             });
+        };
+
+        // ── เพิ่มสินค้าเข้าฟอร์มนับสิ้นเดือน ──
+        window.openAddProductToMonthly = function(tmplId, zone) {
+            if(!window.monthlyCountOpen){ toast('⚠️ ระบบนับสต๊อกสิ้นเดือนปิดอยู่','#c2410c'); return; }
+            const tmpl = stockSheetTemplates[tmplId];
+            if(!tmpl){ toast('⚠️ ไม่พบ Template','#c2410c'); return; }
+            const existingIds = new Set(tmpl.items.map(i=>i.id));
+            const candidates = (allProducts||[]).filter(p=>!existingIds.has(p.id));
+
+            const overlay = document.createElement('div');
+            overlay.id = 'addProdMonthlyOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+            overlay.innerHTML = `
+                <div style="background:white;border-radius:16px;width:100%;max-width:500px;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;">
+                        <div>
+                            <div style="font-weight:700;font-size:15px;">➕ เพิ่มสินค้าเข้าฟอร์มนับ</div>
+                            <div style="font-size:11px;color:#64748b;margin-top:2px;">จะผูกกับโซน <b>${zone}</b> ทันที — admin แก้ได้ภายหลัง</div>
+                        </div>
+                        <button onclick="document.getElementById('addProdMonthlyOverlay').remove()"
+                            style="background:#f1f5f9;border:none;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:16px;line-height:1;">✕</button>
+                    </div>
+                    <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">
+                        <input type="text" id="addProdSearch" placeholder="🔍 รหัส หรือ ชื่อสินค้า..."
+                            oninput="window._filterAddProd(this.value)"
+                            style="width:100%;padding:10px 14px;border:1.5px solid #3b82f6;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
+                    </div>
+                    <div id="addProdList" style="overflow-y:auto;flex:1;padding:6px 8px;">
+                        ${candidates.length === 0
+                            ? `<div style="text-align:center;padding:32px;color:#94a3b8;font-size:13px;">✅ สินค้าทุกรายการผูกกับโซนนี้แล้ว</div>`
+                            : candidates.map(p=>`
+                            <div class="add-prod-item" data-search="${p.id.toLowerCase()} ${(p.name||'').toLowerCase()}"
+                                style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;margin-bottom:2px;cursor:pointer;transition:background 0.1s;"
+                                onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''"
+                                onclick="window._confirmAddProdMonthly('${tmplId}','${zone}','${p.id}')">
+                                <div>
+                                    <div style="font-weight:700;font-size:13px;color:#1e293b;">${p.id}</div>
+                                    <div style="font-size:12px;color:#475569;">${p.name||''}</div>
+                                    <div style="font-size:11px;color:#94a3b8;">${p.category||''} · ${(p.units&&p.units[0]?.name)||p.unit||''}</div>
+                                </div>
+                                <div style="background:#3b82f6;color:white;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:bold;flex-shrink:0;">+ เพิ่ม</div>
+                            </div>`).join('')
+                        }
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+            setTimeout(()=>document.getElementById('addProdSearch')?.focus(), 150);
+        };
+
+        window._filterAddProd = function(q) {
+            document.querySelectorAll('.add-prod-item').forEach(el=>{
+                el.style.display = (!q || el.dataset.search.includes(q.toLowerCase())) ? '' : 'none';
+            });
+        };
+
+        window._confirmAddProdMonthly = async function(tmplId, zone, productId) {
+            const tmpl = stockSheetTemplates[tmplId];
+            const product = (allProducts||[]).find(p=>p.id===productId);
+            if(!tmpl||!product){ toast('⚠️ ไม่พบสินค้า','#c2410c'); return; }
+
+            // เพิ่มเข้า template
+            const newItem = {
+                id: product.id, name: product.name,
+                unit: (product.units&&product.units[0]?.name)||product.unit||'',
+                group: product.category||'เพิ่มเติม',
+                addedAt: new Date().toISOString(),
+                addedBy: currentUser?.name||''
+            };
+            tmpl.items.push(newItem);
+
+            // ผูกโซน
+            if(!zoneProductMap[zone]) zoneProductMap[zone]=[];
+            if(!zoneProductMap[zone].includes(productId)) zoneProductMap[zone].push(productId);
+
+            // save Firestore
+            try {
+                await setDoc(doc(db,'config','main'),{ stockSheetTemplates, zoneProductMap },{merge:true});
+                toast(`✅ เพิ่ม ${product.name} แล้ว`,'#059669');
+            } catch(e) {
+                toast('❌ บันทึกไม่สำเร็จ','#c2410c');
+                tmpl.items.pop(); return;
+            }
+
+            // ปิด modal แล้ว re-render
+            document.getElementById('addProdMonthlyOverlay')?.remove();
+            openBranchMonthlyCount(tmplId, tmpl, zone);
         };
 
         window.saveBranchMonthlyCount = async function(tmplId, _zoneFromBtn) {
