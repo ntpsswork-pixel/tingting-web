@@ -13,6 +13,8 @@
             if(adminMenu) adminMenu.classList.toggle('hidden', !effectivePerms.includes('admin'));
             const assetMenu = document.getElementById('assetMenu');
             if(assetMenu) assetMenu.classList.toggle('hidden', !effectivePerms.includes('asset'));
+            const importMenu = document.getElementById('importMenu');
+            if(importMenu) importMenu.classList.toggle('hidden', role !== 'admin');
 
             document.getElementById('viewOnlyAlert').classList.toggle('hidden', !isViewOnly);
 

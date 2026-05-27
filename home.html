@@ -496,6 +496,14 @@
                 </div>
             </div>
 
+            <!-- ── นำเข้าข้อมูล ── -->
+            <div id="importMenu" class="hidden">
+                <div class="nav-item" onclick="toggleSub('subImport')" style="color:#10b981;">📥 นำเข้าข้อมูล ▾</div>
+                <div id="subImport" class="submenu">
+                    <div onclick="openImportProducts()" data-tool="import-products" style="color:#10b981;">● Import สินค้า</div>
+                </div>
+            </div>
+
             <!-- ── จัดการระบบ ── -->
             <div id="adminMenu" class="hidden">
                 <div class="nav-item" onclick="toggleSub('subAdmin')" style="color:var(--accent-gold);">⚙️ จัดการระบบ ▾</div>
@@ -1414,6 +1422,7 @@
             'asset-transfer':    ()=>{ if(window.openAssetManagement) window.openAssetManagement('transfer'); },
             'asset-dashboard':   ()=>{ if(window.openAssetManagement) window.openAssetManagement('dashboard'); },
             'user-mgmt':         ()=>{ const f=window._origOpenUserManagement||window.openUserManagement; f(); },
+            'import-products':   ()=>{ if(window.openImportProducts) window.openImportProducts(); },
         };
 
         // pushState — บันทึกใน history stack ให้ browser back ทำงาน
