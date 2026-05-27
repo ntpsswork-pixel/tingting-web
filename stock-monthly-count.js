@@ -704,7 +704,8 @@
             <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;" class="no-print">
                 <input type="text" placeholder="🔍 ค้นหาสินค้า..." oninput="filterBMCRows(this.value)"
                     style="flex:1;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
-                <button onclick="openAddProductToMonthly('${tmplId}','${defaultZone}')"
+                <button id="addProdBtn" data-tmpl="${tmplId}" data-zone="${defaultZone}"
+                    onclick="openAddProductToMonthly(this.dataset.tmpl, this.dataset.zone)"
                     style="background:#3b82f6;color:white;border:none;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:bold;cursor:pointer;white-space:nowrap;flex-shrink:0;">
                     ➕ เพิ่มสินค้า
                 </button>
@@ -769,7 +770,8 @@
 
         // ── เพิ่มสินค้าเข้าฟอร์มนับสิ้นเดือน ──
         window.openAddProductToMonthly = function(tmplId, zone) {
-            if(!window.monthlyCountOpen){ toast('⚠️ ระบบนับสต๊อกสิ้นเดือนปิดอยู่','#c2410c'); return; }
+            const _mcOpen = window.monthlyCountOpen || (typeof monthlyCountOpen!=='undefined' && monthlyCountOpen);
+            if(!_mcOpen){ toast('⚠️ ระบบนับสต๊อกสิ้นเดือนปิดอยู่','#c2410c'); return; }
             const tmpl = stockSheetTemplates[tmplId];
             if(!tmpl){ toast('⚠️ ไม่พบ Template','#c2410c'); return; }
             const existingIds = new Set(tmpl.items.map(i=>i.id));
@@ -800,7 +802,8 @@
                             <div class="add-prod-item" data-search="${p.id.toLowerCase()} ${(p.name||'').toLowerCase()}"
                                 style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;margin-bottom:2px;cursor:pointer;transition:background 0.1s;"
                                 onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''"
-                                onclick="window._confirmAddProdMonthly('${tmplId}','${zone}','${p.id}')">
+                                data-tmpl="${tmplId}" data-zone="${zone}" data-pid="${p.id}"
+                                onclick="window._confirmAddProdMonthly(this.dataset.tmpl,this.dataset.zone,this.dataset.pid)">
                                 <div>
                                     <div style="font-weight:700;font-size:13px;color:#1e293b;">${p.id}</div>
                                     <div style="font-size:12px;color:#475569;">${p.name||''}</div>

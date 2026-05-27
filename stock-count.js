@@ -24,18 +24,34 @@
             renderStockTool(defaultZone);
             // แสดง draft banner หลัง render
             if(window._pendingDraftZone){
+                const _bZone = defaultZone;
                 setTimeout(()=>{
                     const itemCount=Object.keys(tempCountData).length;
                     const banner=document.createElement('div');
                     banner.id='draftBanner';
+                    banner.dataset.zone=_bZone;
                     banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#1d4ed8;color:white;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:bold;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-                    banner.innerHTML=`<span>🗒️ พบ draft ค้างอยู่ ${itemCount} รายการ — กำลังโหลดต่อ...</span>
-                        <div style="display:flex;gap:8px;">
-                            <button onclick="document.getElementById('draftBanner').remove();window._pendingDraftZone=null;"
-                                style="background:rgba(255,255,255,0.2);color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">✅ โหลดต่อ</button>
-                            <button onclick="tempCountData={};localStorage.removeItem('stockDraft_${defaultZone}');window._pendingDraftZone=null;renderStockTool('${defaultZone}');document.getElementById('draftBanner').remove();"
-                                style="background:#ef4444;color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">🗑️ เริ่มใหม่</button>
-                        </div>`;
+                    const span=document.createElement('span');
+                    span.textContent='🗒️ พบ draft ค้างอยู่ '+itemCount+' รายการ — กำลังโหลดต่อ...';
+                    const btnKeep=document.createElement('button');
+                    btnKeep.textContent='✅ โหลดต่อ';
+                    btnKeep.style.cssText='background:rgba(255,255,255,0.2);color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;';
+                    btnKeep.onclick=()=>{ banner.remove(); window._pendingDraftZone=null; };
+                    const btnClear=document.createElement('button');
+                    btnClear.textContent='🗑️ เริ่มใหม่';
+                    btnClear.style.cssText='background:#ef4444;color:white;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;';
+                    btnClear.onclick=()=>{
+                        const z=banner.dataset.zone;
+                        tempCountData={}; 
+                        try{ localStorage.removeItem('stockDraft_'+z); }catch(e){}
+                        window._pendingDraftZone=null;
+                        banner.remove();
+                        renderStockTool(z);
+                    };
+                    const btnWrap=document.createElement('div');
+                    btnWrap.style.cssText='display:flex;gap:8px;';
+                    btnWrap.appendChild(btnKeep); btnWrap.appendChild(btnClear);
+                    banner.appendChild(span); banner.appendChild(btnWrap);
                     document.body.appendChild(banner);
                     window._pendingDraftZone=null;
                 }, 600);
