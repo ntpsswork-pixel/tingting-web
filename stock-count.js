@@ -6,9 +6,22 @@
             document.getElementById('toolAppContainer').classList.remove('hidden');
             const visibleZones=getVisibleWarehouses();
             const defaultZone = visibleZones[0]||warehouseList[0];
-            if(!tempCountData||!Object.keys(tempCountData).length) tempCountData={};
+            // ── โหลด draft จาก localStorage ถ้ามี ──
+            if(!tempCountData||!Object.keys(tempCountData).length){
+                const draftKey=`stockDraft_${defaultZone}`;
+                const saved=localStorage.getItem(draftKey);
+                if(saved){
+                    try{
+                        const parsed=JSON.parse(saved);
+                        if(parsed._zone===defaultZone && Object.keys(parsed).length>1){
+                            if(confirm(`🗒️ พบข้อมูลที่คีย์ค้างไว้ในโซน "${defaultZone}"\nต้องการโหลดต่อไหม?\n(กด Cancel เพื่อเริ่มใหม่)`)){
+                                tempCountData=parsed; delete tempCountData._zone;
+                            } else { localStorage.removeItem(draftKey); tempCountData={}; }
+                        }
+                    } catch(e){ tempCountData={}; }
+                } else { tempCountData={}; }
+            }
             renderStockTool(defaultZone);
-            // ลงทะเบียน draft protection
             if(window._DM_startStockNormal) setTimeout(()=>_DM_startStockNormal(defaultZone), 400);
         };
 
@@ -87,6 +100,8 @@
             if(!tempCountData[id])tempCountData[id]={name};
             tempCountData[id]['u'+unitIndex]=(tempCountData[id]['u'+unitIndex]||0)+val;
             if(el){el.value='';el.style.borderColor='var(--success)';setTimeout(()=>el.style.borderColor='',600);}
+            // ── auto-save draft ──
+            try{ const d={...tempCountData,_zone:zone}; localStorage.setItem(`stockDraft_${zone}`,JSON.stringify(d)); } catch(e){}
             setTimeout(()=>renderStockTool(zone),400);
         };
 
@@ -108,6 +123,8 @@
                 }
             });
             if(!anyVal){toast('⚠️ กรุณากรอกจำนวนก่อน','#c2410c');return;}
+            // ── auto-save draft ──
+            try{ const d={...tempCountData,_zone:zone}; localStorage.setItem(`stockDraft_${zone}`,JSON.stringify(d)); } catch(e){}
             setTimeout(()=>renderStockTool(zone),400);
         };
 
@@ -165,6 +182,8 @@
                 countedBy:selectedStaff,recordedBy:currentUser.name,items:sessionItems
             });
 
+            // ── ลบ draft หลัง save สำเร็จ ──
+            try{ localStorage.removeItem(`stockDraft_${zone}`); } catch(e){}
             tempCountData={};
             toast('✅ บันทึกสำเร็จ! ตัวเลขรีเซ็ตแล้ว','#059669');
             // clear draft หลัง save สำเร็จ
