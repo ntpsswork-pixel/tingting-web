@@ -937,13 +937,51 @@ window.downloadImportTemplate=function(){
 window.handleImportDrop=function(e){const f=e.dataTransfer.files[0];if(f)processImportFile(f);};
 window.handleImportFile=function(inp){if(inp.files[0])processImportFile(inp.files[0]);};
 window._importData=[];
+
+// ── auto-detect column format ──
+// รองรับ 2 รูปแบบ:
+//   format A (TTGPlus template): ProductCode, ProductName, Category, Unit1 ...
+//   format B (inventory-balance export): product_id, product_name, category, unit
+window._normalizeImportRow=function(row){
+    // detect format จาก key ของ row แรก
+    const keys=Object.keys(row);
+    const isFormatB=keys.includes('product_id')||keys.includes('product_name');
+    if(isFormatB){
+        const id=String(row.product_id||'').trim();
+        const name=String(row.product_name||'').trim();
+        const category=String(row.category||'').trim();
+        const unit=String(row.unit||'').trim();
+        if(!id||!name) return null;
+        return {id,name,category,supplier:'',barcode:'',exportUnit:unit,
+            units:unit?[{name:unit,rate:0}]:[]};
+    }
+    // format A (template เดิม)
+    const id=String(row.ProductCode||'').trim();
+    const name=String(row.ProductName||'').trim();
+    if(!id||!name) return null;
+    return {id,name,
+        category:String(row.Category||'').trim(),
+        supplier:String(row.Supplier||'').trim(),
+        barcode:String(row.Barcode||'').trim(),
+        exportUnit:String(row.ExportUnit||row.Unit1||'').trim(),
+        units:[
+            row.Unit1?{name:String(row.Unit1).trim(),rate:parseFloat(row.Rate1)||0}:null,
+            row.Unit2?{name:String(row.Unit2).trim(),rate:parseFloat(row.Rate2)||0}:null,
+            row.Unit3?{name:String(row.Unit3).trim(),rate:0}:null
+        ].filter(u=>u&&u.name)};
+};
+
 window.processImportFile=function(file){
     document.getElementById('importFileLabel').innerText=`📄 ${file.name}`;
     const reader=new FileReader(); reader.onload=e=>{
         const wb=XLSX.read(e.target.result,{type:'array'}); const ws=wb.Sheets[wb.SheetNames[0]]; const data=XLSX.utils.sheet_to_json(ws,{defval:''});
         if(!data.length){toast('❌ ไม่พบข้อมูล','#c2410c');return;}
-        window._importData=data.map(row=>({id:String(row.ProductCode||'').trim(),name:String(row.ProductName||'').trim(),category:String(row.Category||'').trim(),supplier:String(row.Supplier||'').trim(),barcode:String(row.Barcode||'').trim(),exportUnit:String(row.ExportUnit||row.Unit1||'').trim(),
-            units:[row.Unit1?{name:String(row.Unit1).trim(),rate:parseFloat(row.Rate1)||0}:null,row.Unit2?{name:String(row.Unit2).trim(),rate:parseFloat(row.Rate2)||0}:null,row.Unit3?{name:String(row.Unit3).trim(),rate:0}:null].filter(u=>u&&u.name)})).filter(p=>p.id&&p.name);
+        window._importData=data.map(row=>window._normalizeImportRow(row)).filter(Boolean);
+        if(!window._importData.length){toast('❌ ไม่พบคอลัมน์ที่รู้จัก — ลองใช้ Template หรือไฟล์ inventory-balance','#c2410c');return;}
+        // แสดง format ที่ detect ได้
+        const keys=Object.keys(data[0]);
+        const fmt=keys.includes('product_id')?'inventory-balance format':'TTGPlus template format';
+        document.getElementById('importFileLabel').innerText=`📄 ${file.name}  •  ${window._importData.length} รายการ  •  ${fmt}`;
         renderImportPreview();
     }; reader.readAsArrayBuffer(file);
 };
