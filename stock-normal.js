@@ -217,20 +217,17 @@
             const extraRows=(window.tempExtraSKU||[]).map((ex,idx)=>`
                 <tr class="stock-row extra-sku-row" style="background:#fefce8;">
                 <td style="padding:10px 12px;">
-                    <span style="background:#fde68a;color:#92400e;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:bold;">SKU ชั่วคราว</span><br>
-                    <input type="text" value="${ex.name}" placeholder="ชื่อ/รหัสชั่วคราว (admin แก้ทีหลัง)"
-                        oninput="tempExtraSKU[${idx}].name=this.value"
-                        style="width:100%;border:none;border-bottom:1px solid #fcd34d;font-weight:bold;font-size:13px;background:transparent;outline:none;margin-top:3px;">
+                    <span style="background:#fde68a;color:#92400e;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:bold;">SKU ชั่วคราว</span>
+                    <div style="font-weight:700;font-size:13px;margin-top:4px;color:#1e293b;">${ex.id||''} ${ex.name}</div>
+                    <div style="font-size:11px;color:#94a3b8;">นับล่าสุด: -</div>
                 </td>
                 ${hasPreCount?`<td style="padding:8px;text-align:center;"><span style="color:#cbd5e1;">—</span></td>`:''}
                 <td style="padding:8px;text-align:right;">
                     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+                        <span style="font-size:12px;color:#b45309;">${ex.unit||''}</span>
                         <input type="number" min="0" inputmode="numeric" value="${ex.qty||''}" placeholder="0"
-                            oninput="tempExtraSKU[${idx}].qty=parseFloat(this.value)||0"
+                            oninput="tempExtraSKU[${idx}].qty=parseFloat(this.value)||0;_snSaveDraft('${zone}')"
                             style="width:72px;padding:7px;border-radius:8px;border:2px solid #fcd34d;text-align:center;font-weight:bold;font-size:14px;outline:none;">
-                        <input type="text" value="${ex.unit||''}" placeholder="หน่วย"
-                            oninput="tempExtraSKU[${idx}].unit=this.value"
-                            style="width:48px;padding:7px;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;outline:none;">
                         <button onclick="removeExtraSKU(${idx},'${zone}')" class="no-print"
                             style="background:#fca5a5;color:#7f1d1d;border:none;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;">✕</button>
                     </div>
@@ -432,15 +429,128 @@
         };
 
         window.addExtraSKU=function(zone){
-            if(!window.tempExtraSKU) window.tempExtraSKU=[];
-            window.tempExtraSKU.push({name:'',qty:0,unit:''});
-            renderStockTool(zone);
+            _snOpenExtraSearch(zone);
         };
 
         window.removeExtraSKU=function(idx,zone){
+            if(!window.tempExtraSKU) return;
             window.tempExtraSKU.splice(idx,1);
+            _snSaveDraft(zone);
             renderStockTool(zone);
         };
+
+        // ── Extra SKU Search Popup ──
+        function _snOpenExtraSearch(zone){
+            document.getElementById('snExtraModal')?.remove();
+            const existingIds = new Set(
+                (allProducts||[])
+                    .filter(p => (window.zoneProductMap||{})[zone]?.includes(p.id))
+                    .map(p=>p.id)
+            );
+            const addedIds = new Set((window.tempExtraSKU||[]).map(e=>e.id));
+            const candidates = (allProducts||[]).filter(p=>!existingIds.has(p.id)&&!addedIds.has(p.id));
+
+            const m = document.createElement('div');
+            m.id = 'snExtraModal';
+            m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(3px);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+            m.innerHTML = `
+            <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 -8px 40px rgba(0,0,0,0.2);">
+                <div style="padding:18px 20px 12px;border-bottom:1px solid #f1f5f9;flex-shrink:0;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <div style="font-weight:800;font-size:16px;color:#0f172a;">➕ เพิ่มสินค้านอก Template</div>
+                        <button onclick="document.getElementById('snExtraModal').remove()" style="background:#f1f5f9;border:none;border-radius:9px;width:34px;height:34px;cursor:pointer;font-size:16px;color:#64748b;">✕</button>
+                    </div>
+                    <div style="position:relative;">
+                        <input type="text" id="snExtraSearchInput" placeholder="🔍 พิมพ์รหัส หรือ ชื่อสินค้า..." autocomplete="off"
+                            style="width:100%;padding:11px 14px;border:2px solid #3b82f6;border-radius:11px;font-size:14px;outline:none;box-sizing:border-box;"
+                            oninput="window._snFilterExtra(this.value)">
+                    </div>
+                </div>
+                <div id="snExtraList" style="flex:1;overflow-y:auto;padding:8px;">
+                    ${candidates.length===0
+                        ? '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;">สินค้าทุกรายการผูกกับโซนนี้แล้ว</div>'
+                        : candidates.map(p=>{
+                            const unit=(p.units&&p.units[0]?.name)||p.unit||'';
+                            const safeId=p.id.replace(/'/g,"\\'");
+                            const safeName=(p.name||'').replace(/'/g,"\\'");
+                            const safeUnit=unit.replace(/'/g,"\\'");
+                            return `<div class="sn-extra-opt" data-search="${p.id.toLowerCase()} ${(p.name||'').toLowerCase()}"
+                                style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:2px;cursor:pointer;transition:background .1s;"
+                                onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''"
+                                onclick="window._snPickExtra('${safeId}','${safeName}','${safeUnit}','${zone}')">
+                                <div style="flex:1;">
+                                    <div style="font-weight:700;font-size:13px;color:#1e293b;">${p.id}</div>
+                                    <div style="font-size:12px;color:#64748b;">${p.name||''}</div>
+                                </div>
+                                <div style="font-size:11px;color:#b45309;background:#fef3c7;padding:3px 8px;border-radius:6px;flex-shrink:0;">${unit}</div>
+                            </div>`;
+                        }).join('')
+                    }
+                </div>
+                <div id="snExtraPendingRow" style="display:none;padding:12px 16px;border-top:1px solid #f1f5f9;background:#fffbeb;flex-shrink:0;">
+                    <div style="font-size:12px;color:#92400e;font-weight:600;margin-bottom:8px;" id="snExtraPendingLabel"></div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="number" id="snExtraPendingQty" min="0" placeholder="จำนวน" inputmode="numeric"
+                            style="flex:1;padding:11px 14px;border:2px solid #f59e0b;border-radius:10px;font-size:18px;font-weight:700;text-align:center;outline:none;"
+                            onkeydown="if(event.key==='Enter') window._snConfirmExtra('${zone}')">
+                        <div id="snExtraPendingUnit" style="font-size:13px;color:#64748b;min-width:40px;"></div>
+                        <button onclick="window._snConfirmExtra('${zone}')"
+                            style="background:#f59e0b;color:white;border:none;padding:11px 22px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">✅ เพิ่ม</button>
+                        <button onclick="window._snCancelExtraPick()"
+                            style="background:#f1f5f9;color:#64748b;border:none;padding:11px 14px;border-radius:10px;font-size:13px;cursor:pointer;">ยกเลิก</button>
+                    </div>
+                </div>
+            </div>`;
+            document.body.appendChild(m);
+            setTimeout(()=>document.getElementById('snExtraSearchInput')?.focus(), 150);
+
+            window._snExtraPickedProduct = null;
+
+            window._snFilterExtra = function(q){
+                const query = q.toLowerCase();
+                document.querySelectorAll('.sn-extra-opt').forEach(el=>{
+                    el.style.display = (!query || el.dataset.search.includes(query)) ? '' : 'none';
+                });
+            };
+
+            window._snPickExtra = function(id, name, unit, z){
+                window._snExtraPickedProduct = {id, name, unit};
+                const row = document.getElementById('snExtraPendingRow');
+                const label = document.getElementById('snExtraPendingLabel');
+                const unitEl = document.getElementById('snExtraPendingUnit');
+                const qtyEl = document.getElementById('snExtraPendingQty');
+                if(label) label.innerHTML = 'กรอกจำนวน: <b>'+id+'</b> '+name;
+                if(unitEl) unitEl.textContent = unit;
+                if(qtyEl) { qtyEl.value=''; }
+                if(row) row.style.display='block';
+                // scroll list ขึ้น
+                const list=document.getElementById('snExtraList');
+                if(list) list.style.maxHeight='160px';
+                setTimeout(()=>document.getElementById('snExtraPendingQty')?.focus(), 80);
+            };
+
+            window._snCancelExtraPick = function(){
+                const row=document.getElementById('snExtraPendingRow');
+                if(row) row.style.display='none';
+                const list=document.getElementById('snExtraList');
+                if(list) list.style.maxHeight='';
+                window._snExtraPickedProduct=null;
+            };
+
+            window._snConfirmExtra = function(z){
+                const p=window._snExtraPickedProduct;
+                if(!p){ toast('⚠️ กรุณาเลือกสินค้าก่อน','#c2410c'); return; }
+                const qtyEl=document.getElementById('snExtraPendingQty');
+                const qty=parseFloat(qtyEl?.value||'0');
+                if(!qty && qty!==0){ toast('⚠️ กรุณากรอกจำนวน','#c2410c'); qtyEl?.focus(); return; }
+                if(!window.tempExtraSKU) window.tempExtraSKU=[];
+                window.tempExtraSKU.push({id:p.id, name:p.name, qty, unit:p.unit});
+                _snSaveDraft(z);
+                document.getElementById('snExtraModal')?.remove();
+                renderStockTool(z);
+                toast('✅ เพิ่ม '+p.name+' แล้ว','#059669');
+            };
+        }
 
         window.addStock=function(id,name,zone,unitIndex){
             const staffEl=document.getElementById('staffSelect');
