@@ -141,6 +141,28 @@
             .qc-chart-grid { grid-template-columns:1fr !important; }
             .chart-wrap { height:200px !important; }
         }
+        /* ── Mobile stock count improvements ── */
+        @media (max-width: 768px) {
+            /* stock-normal rows */
+            .stock-row td { padding:10px 8px; vertical-align:middle; }
+            .stock-row td:first-child { padding-left:12px; }
+            /* input สำหรับนับ — ใหญ่ขึ้น กดง่าย */
+            .stock-row input[type=number] { width:64px !important; font-size:16px !important; padding:9px 6px !important; border-radius:10px !important; }
+            /* label หน่วย */
+            .stock-row .unit-label { font-size:11px; }
+            /* BMC rows */
+            .bmc-row td { padding:10px 8px !important; }
+            .bmc-row input[type=number] { width:76px !important; font-size:17px !important; padding:10px 6px !important; }
+            .bmc-row input[type=text]   { font-size:13px !important; }
+            /* ปุ่ม + ใน stock-normal */
+            table button[onclick*="addStock"] { min-width:40px; min-height:40px; font-size:16px !important; }
+            /* tool container padding ลดเล็กน้อย */
+            #toolAppContainer { padding:12px 10px !important; }
+            /* table scroll horizontal */
+            #stockTable, #bmcTable { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+            /* info bar เล็กลง */
+            #toolAppContainer .tool-header h2 { font-size:16px; }
+        }
     </style>
     <style>
         /* Date picker styling */
@@ -511,6 +533,7 @@
                     <div onclick="openUserManagement()" data-tool="user-mgmt" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=user-mgmt','_blank');">● จัดการพนักงาน & สิทธิ์</div>
                     <div onclick="openWarehouseManager()" data-tool="warehouse-mgr" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=warehouse-mgr','_blank');" style="color:var(--accent-gold);">● ตั้งค่าคลังและสินค้า</div>
                     <div onclick="toggleMonthlyCount()" id="monthlyCountToggleBtn" style="color:#06b6d4;">● เปิด/ปิด นับสต๊อกสิ้นเดือน <span id="monthlyCountBadge" style="font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;"></span></div>
+                    <div onclick="toggleMonthlyMainOnly()" id="monthlyMainOnlyBtn" style="color:#a78bfa;font-size:12px;padding-left:8px;">● โหมด: <span id="monthlyMainOnlyBadge">ทุกสาขา</span></div>
                 </div>
             </div>
         </div>
@@ -658,6 +681,7 @@
         window.productMinMax      = {};
         window.reqTemplates       = {};
         window.monthlyCountOpen   = false;
+        window.monthlyMainOnly     = false; // เฉพาะครัวกลาง (ปิดสาขา BT)
         window.stockSheetTemplates= {};
         window.productCategories  = [];
         window.warehouseGroups    = {};
@@ -675,6 +699,7 @@
         let productMinMax      = window.productMinMax;
         let reqTemplates       = window.reqTemplates;
         let monthlyCountOpen   = window.monthlyCountOpen;
+        let monthlyMainOnly     = window.monthlyMainOnly;
         let stockSheetTemplates= window.stockSheetTemplates;
         let productCategories  = window.productCategories;
         let warehouseGroups    = window.warehouseGroups;
@@ -706,6 +731,7 @@
                     if (d.productMinMax)  productMinMax  = d.productMinMax;
                     if (d.reqTemplates)        reqTemplates        = d.reqTemplates;
                     if (d.monthlyCountOpen!=null) monthlyCountOpen = d.monthlyCountOpen;
+                    if (d.monthlyMainOnly!=null) monthlyMainOnly = d.monthlyMainOnly;
                     if (d.stockSheetTemplates)  stockSheetTemplates = d.stockSheetTemplates;
                     if (d.productCategories)    productCategories   = d.productCategories;
                     if (d.warehouseGroups)      warehouseGroups     = d.warehouseGroups;
@@ -735,6 +761,7 @@
                 window.productMinMax       = productMinMax;
                 window.reqTemplates        = reqTemplates;
                 window.monthlyCountOpen    = monthlyCountOpen;
+                window.monthlyMainOnly     = monthlyMainOnly;
                 window.stockSheetTemplates = stockSheetTemplates;
                 window.productCategories   = productCategories;
                 window.warehouseGroups     = warehouseGroups;
@@ -742,7 +769,7 @@
         }
 
         async function saveConfig() {
-            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, stockSheetTemplates, productCategories, warehouseGroups }, {merge:true}); }
+            try { await setDoc(doc(db,'config','main'), { warehouseList, allProducts, zoneProductMap, roleSettings, productMinMax, reqTemplates, monthlyCountOpen, monthlyMainOnly, stockSheetTemplates, productCategories, warehouseGroups }, {merge:true}); }
             catch(e) { toast('❌ บันทึก config ไม่สำเร็จ','#c2410c'); }
         }
 
@@ -1413,7 +1440,17 @@
         const navFnMap = {
             'stock':             ()=>{ const f=window._origOpenCentralStock||window.openCentralStock; f(); },
             'inventory-check':   ()=>{ const f=window._origOpenInventoryCheck||window.openInventoryCheck; f(); },
-            'monthly-count':     ()=>{ if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount(); },
+            'monthly-count':     ()=>{
+                // ถ้ามี _mcNav ใน sessionStorage = refresh ระหว่างนับ → restore โดยตรง ข้าม picker
+                try {
+                    const nav = JSON.parse(sessionStorage.getItem('_mcNav')||'null');
+                    if(nav && nav.tmplId && window.stockSheetTemplates && window.stockSheetTemplates[nav.tmplId]) {
+                        window.openBranchMonthlyCount(nav.tmplId, window.stockSheetTemplates[nav.tmplId], nav.zone);
+                        return;
+                    }
+                } catch(_) {}
+                if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount();
+            },
             'monthly-history':   ()=>{ if(window.openMonthlyHistoryView) window.openMonthlyHistoryView(); },
             'warehouse-mgr':     ()=>{ const f=window._origOpenWarehouseManager||window.openWarehouseManager; f(); },
             'asset-registry':    ()=>{ if(window.openAssetManagement) window.openAssetManagement('registry'); },

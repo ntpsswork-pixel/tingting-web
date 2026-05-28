@@ -1,3 +1,77 @@
+// ── BMC Draft Helpers (auto-save ทุก 5 วิ, restore หลัง refresh) ──
+        function _bmcDraftKey(tmplId,zone){ return 'ttg_draft_bmc_'+tmplId+'_'+(zone||'').replace(/\s+/g,'_'); }
+        function _bmcSaveDraft(tmplId,zone){
+            try{
+                var items={};
+                document.querySelectorAll('.bmc-row').forEach(function(tr){
+                    var id=tr.dataset.search.split(' ')[0];
+                    var valEl=document.getElementById('bmc_'+id);
+                    var noteEl=document.getElementById('bmcNote_'+id);
+                    if(valEl&&valEl.value!=='') items[id]={val:valEl.value,note:noteEl?noteEl.value:''};
+                });
+                if(!Object.keys(items).length) return;
+                var d={tmplId:tmplId,zone:zone,_ts:Date.now(),items:items,
+                    date:document.getElementById('bmc_date')?document.getElementById('bmc_date').value:'',
+                    time:document.getElementById('bmc_time')?document.getElementById('bmc_time').value:''};
+                localStorage.setItem(_bmcDraftKey(tmplId,zone),JSON.stringify(d));
+            }catch(e){}
+        }
+        function _bmcClearDraft(tmplId,zone){
+            try{ localStorage.removeItem(_bmcDraftKey(tmplId,zone)); }catch(e){}
+        }
+        function _bmcLoadDraft(tmplId,zone){
+            try{
+                var raw=localStorage.getItem(_bmcDraftKey(tmplId,zone));
+                if(!raw) return null;
+                var d=JSON.parse(raw);
+                if(d.tmplId!==tmplId||d.zone!==zone) return null;
+                if(Date.now()-d._ts>48*3600*1000){ localStorage.removeItem(_bmcDraftKey(tmplId,zone)); return null; }
+                return d;
+            }catch(e){ return null; }
+        }
+        function _bmcApplyDraftAndNotify(tmplId,zone){
+            var draft=_bmcLoadDraft(tmplId,zone);
+            if(!draft||!Object.keys(draft.items).length) return;
+            Object.keys(draft.items).forEach(function(id){
+                var v=draft.items[id];
+                var el=document.getElementById('bmc_'+id);
+                if(el){ el.value=v.val; el.style.borderColor='#f59e0b'; }
+                var nEl=document.getElementById('bmcNote_'+id);
+                if(nEl) nEl.value=v.note;
+            });
+            if(draft.date){var el=document.getElementById('bmc_date');if(el)el.value=draft.date;}
+            if(draft.time){var el=document.getElementById('bmc_time');if(el)el.value=draft.time;}
+            // แสดง banner
+            var existing=document.getElementById('bmcDraftBanner');
+            if(existing) existing.remove();
+            var b=document.createElement('div');
+            b.id='bmcDraftBanner';
+            b.style.cssText='background:#1d4ed8;color:white;padding:10px 16px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;';
+            var cnt=Object.keys(draft.items).length;
+            b.innerHTML='<span>📝 โหลด draft ต่อ '+cnt+' รายการ</span>'
+                +'<button onclick="window._bmcClearDraftAndReset(\''+tmplId+'\',\''+zone+'\')" '
+                +'style="background:rgba(255,255,255,0.2);color:white;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;">🗑 เริ่มใหม่</button>';
+            var container=document.getElementById('toolAppContainer');
+            var header=container?container.querySelector('.tool-header'):null;
+            if(header) header.insertAdjacentElement('afterend',b);
+            else if(container) container.prepend(b);
+        }
+        var _bmcAutoSaveTimer=null;
+        function _bmcStartAutoSave(tmplId,zone){
+            if(_bmcAutoSaveTimer) clearInterval(_bmcAutoSaveTimer);
+            _bmcAutoSaveTimer=setInterval(function(){
+                if(document.getElementById('bmcTable')) _bmcSaveDraft(tmplId,zone);
+                else clearInterval(_bmcAutoSaveTimer);
+            },5000);
+        }
+        window._bmcClearDraftAndReset=function(tmplId,zone){
+            _bmcClearDraft(tmplId,zone);
+            var b=document.getElementById('bmcDraftBanner'); if(b) b.remove();
+            document.querySelectorAll('.bmc-row input[type=number]').forEach(function(el){el.value='';el.style.borderColor='#3b82f6';});
+            document.querySelectorAll('.bmc-row input[type=text]').forEach(function(el){el.value='';});
+            if(typeof toast==='function') toast('เริ่มนับใหม่แล้ว','#64748b');
+        };
+
 // stock-monthly-count.js — TTGPlus | tryOpenMonthlyCount, BT/Admin monthly flow, exporters
         window.tryOpenMonthlyCount = async function() {
             if(!monthlyCountOpen) {
@@ -14,6 +88,20 @@
             }
 
             const isBT = currentUser?.username?.toUpperCase().startsWith('BT');
+
+            // ── ถ้า Admin เปิดโหมดเฉพาะครัวกลาง → บล็อก BT flow ──
+            if(isBT && (window.monthlyMainOnly || false)) {
+                const existing2 = document.getElementById('lockedModal'); if(existing2) existing2.remove();
+                const m2 = document.createElement('div'); m2.className='modal-overlay'; m2.id='lockedModal';
+                m2.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:center;">
+                    <div style="font-size:48px;margin-bottom:12px;">🏭</div>
+                    <h3 style="margin:0 0 8px;">ช่วงนี้นับเฉพาะครัวกลาง</h3>
+                    <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Admin เปิดโหมดนับเฉพาะครัวกลาง<br>ยังไม่ถึงรอบนับสต๊อกสาขา กรุณารอประกาศ</p>
+                    <button onclick="document.getElementById('lockedModal').remove()" style="background:#1e293b;color:white;border:none;padding:10px 30px;border-radius:10px;cursor:pointer;font-weight:bold;">ตกลง</button>
+                </div>`;
+                document.body.appendChild(m2);
+                return;
+            }
 
             if(isBT) {
                 // === BT Flow: ระบบรู้จักสาขาอัตโนมัติ ===
@@ -752,13 +840,33 @@
                 </tbody>
             </table>
             </div>
-            <div style="margin-top:24px;text-align:center;" class="no-print">
-                <button onclick="saveBranchMonthlyCount('${tmplId}','${defaultZone}')"
-                    style="background:var(--success);color:white;padding:16px 60px;border:none;border-radius:14px;font-size:18px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,.3);">
-                    💾 บันทึกผลการนับสต๊อกสิ้นเดือน
-                </button>
+            <div style="margin-top:20px;" class="no-print">
+                <div id="bmcTempSkuSection" style="background:#fefce8;border:1.5px dashed #fbbf24;border-radius:14px;padding:16px;margin-bottom:14px;">
+                    <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:10px;">➕ สินค้านอก Template (เฉพาะช่วงนับสิ้นเดือนนี้)</div>
+                    <div id="bmcTempSkuRows"></div>
+                    <div style="display:flex;gap:8px;margin-top:10px;">
+                        <input type="text" id="bmcTempSkuInput" placeholder="รหัส/ชื่อสินค้าชั่วคราว" inputmode="text"
+                            style="flex:1;padding:10px 12px;border:1.5px solid #fbbf24;border-radius:9px;font-size:14px;outline:none;"
+                            onkeydown="if(event.key==='Enter') window._bmcAddTempSku('${tmplId}','${defaultZone}')">
+                        <input type="number" id="bmcTempSkuQty" placeholder="จำนวน" min="0" inputmode="numeric"
+                            style="width:90px;padding:10px 8px;border:1.5px solid #fbbf24;border-radius:9px;font-size:14px;text-align:center;outline:none;"
+                            onkeydown="if(event.key==='Enter') window._bmcAddTempSku('${tmplId}','${defaultZone}')">
+                        <select id="bmcTempSkuUnit" style="padding:10px 8px;border:1.5px solid #fbbf24;border-radius:9px;font-size:13px;outline:none;background:white;">
+                            <option>ถุง</option><option>กล่อง</option><option>ลัง</option><option>กระป๋อง</option><option>ขวด</option><option>กก.</option><option>ชิ้น</option>
+                        </select>
+                        <button onclick="window._bmcAddTempSku('${tmplId}','${defaultZone}')"
+                            style="background:#f59e0b;color:white;border:none;padding:10px 16px;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;">+</button>
+                    </div>
+                </div>
+                <div style="text-align:center;">
+                    <button onclick="saveBranchMonthlyCount('${tmplId}','${defaultZone}')"
+                        style="background:var(--success);color:white;padding:16px 60px;border:none;border-radius:14px;font-size:18px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,.3);width:100%;max-width:420px;">
+                        💾 บันทึกผลการนับสต๊อกสิ้นเดือน
+                    </button>
+                </div>
             </div>`;
-            // ลงทะเบียน draft protection หลัง DOM render
+            // restore draft + start auto-save
+            setTimeout(function(){_bmcApplyDraftAndNotify(tmplId,defaultZone);_bmcStartAutoSave(tmplId,defaultZone);_bmcRenderTempSku(tmplId,defaultZone);},450);
             if(window._DM_startMonthlyCount) setTimeout(()=>_DM_startMonthlyCount(tmplId, tmpl, defaultZone), 400);
         };
 
@@ -857,6 +965,51 @@
             openBranchMonthlyCount(tmplId, tmpl, zone);
         };
 
+        // ── สินค้าชั่วคราว (session เท่านั้น ไม่บันทึก Template) ──
+        window._bmcTempSkus = {}; // { tmplId_zone: [{name, qty, unit}] }
+
+        function _bmcTempKey(tmplId, zone) { return tmplId + '_' + (zone||'').replace(/\s+/g,'_'); }
+
+        window._bmcAddTempSku = function(tmplId, zone) {
+            const nameEl = document.getElementById('bmcTempSkuInput');
+            const qtyEl  = document.getElementById('bmcTempSkuQty');
+            const unitEl = document.getElementById('bmcTempSkuUnit');
+            const name = (nameEl?.value||'').trim();
+            const qty  = parseFloat(qtyEl?.value||'0') || 0;
+            const unit = unitEl?.value || '';
+            if(!name){ toast('⚠️ กรุณาระบุชื่อ/รหัสสินค้า','#c2410c'); nameEl?.focus(); return; }
+            const key = _bmcTempKey(tmplId, zone);
+            if(!window._bmcTempSkus[key]) window._bmcTempSkus[key] = [];
+            window._bmcTempSkus[key].push({ name, qty, unit, addedAt: new Date().toISOString() });
+            if(nameEl) nameEl.value = '';
+            if(qtyEl)  qtyEl.value  = '';
+            _bmcRenderTempSku(tmplId, zone);
+            // save draft รวม temp sku
+            _bmcSaveDraft(tmplId, zone);
+            toast('✅ เพิ่มแล้ว (ชั่วคราว)','#059669');
+        };
+
+        window._bmcRemoveTempSku = function(tmplId, zone, idx) {
+            const key = _bmcTempKey(tmplId, zone);
+            if(window._bmcTempSkus[key]) window._bmcTempSkus[key].splice(idx,1);
+            _bmcRenderTempSku(tmplId, zone);
+        };
+
+        function _bmcRenderTempSku(tmplId, zone) {
+            const key = _bmcTempKey(tmplId, zone);
+            const rows = window._bmcTempSkus[key] || [];
+            const container = document.getElementById('bmcTempSkuRows');
+            if(!container) return;
+            if(!rows.length) { container.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:4px 0;">ยังไม่มีสินค้าเพิ่มเติม</div>'; return; }
+            container.innerHTML = rows.map((r,i)=>`
+                <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:white;border-radius:8px;margin-bottom:6px;border:1px solid #fde68a;">
+                    <div style="flex:1;font-size:13px;font-weight:600;color:#1e293b;">${r.name}</div>
+                    <div style="font-size:14px;font-weight:700;color:#b45309;">${r.qty} <span style="font-size:11px;font-weight:400;">${r.unit}</span></div>
+                    <button onclick="window._bmcRemoveTempSku('${tmplId}','${zone}',${i})"
+                        style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px;line-height:1;">✕</button>
+                </div>`).join('');
+        }
+
         window.saveBranchMonthlyCount = async function(tmplId, _zoneFromBtn) {
             const tmpl = stockSheetTemplates[tmplId];
             if(!tmpl) {
@@ -879,6 +1032,19 @@
                 balance:parseFloat(document.getElementById(`bmc_${it.id}`)?.value)||0,
                 note:document.getElementById(`bmcNote_${it.id}`)?.value.trim()||''
             }));
+
+            // ── รวม temp SKU ชั่วคราว ──
+            const tempKey = tmplId + '_' + (zone||'').replace(/\s+/g,'_');
+            const tempSkus = (window._bmcTempSkus?.[tempKey]||[]).filter(s=>s.name);
+            tempSkus.forEach((s,i)=>{
+                items.push({
+                    id: 'TEMP_'+i, name: s.name, unit: s.unit||'',
+                    group: 'สินค้าชั่วคราว',
+                    balance: s.qty||0, note: '(เพิ่มระหว่างนับ)',
+                    isTemp: true
+                });
+            });
+
             if(!items.some(it=>it.balance>0)){
                 if(!confirm('ยังไม่ได้กรอกยอดใดเลย ยืนยันบันทึกไหม?')) return;
             }
@@ -907,6 +1073,8 @@
                 });
                 toast('✅ บันทึกผลการนับเรียบร้อย','#059669');
                 // clear draft หลัง save สำเร็จ
+                _bmcClearDraft(tmplId,zone);
+                const _tkey=tmplId+'_'+(zone||'').replace(/[[:space:]]+/g,'_'); if(window._bmcTempSkus) delete window._bmcTempSkus[_tkey];
                 if(window._DM){
                     const key=`monthly_${tmplId}_${(zone||'').replace(/\s/g,'_')}`;
                     _DM.clear(key);
@@ -1086,11 +1254,47 @@
             const action = monthlyCountOpen ? 'ปิด' : 'เปิด';
             if(!confirm(`ยืนยัน${action}ระบบนับสต๊อกสิ้นเดือน?\n${monthlyCountOpen?'พนักงานจะไม่สามารถนับสต๊อกได้จนกว่า Admin จะเปิดอีกครั้ง':'พนักงานทุกคนจะสามารถเข้าระบบนับสต๊อกได้'}`)) return;
             monthlyCountOpen = !monthlyCountOpen;
-            window.monthlyCountOpen = monthlyCountOpen; // sync กลับ window scope ก่อน saveConfig
+            window.monthlyCountOpen = monthlyCountOpen;
             saveConfig();
             applyPermissions();
+            _updateMonthlyBadges();
             toast(`${monthlyCountOpen?'🟢 เปิด':'🔴 ปิด'}ระบบนับสต๊อกสิ้นเดือนแล้ว`, monthlyCountOpen?'#059669':'#c2410c');
         };
+
+        // ── Toggle เฉพาะครัวกลาง (ปิดสาขา BT) ──
+        window.toggleMonthlyMainOnly = function() {
+            const cur = window.monthlyMainOnly || false;
+            const newVal = !cur;
+            window.monthlyMainOnly = newVal;
+            // sync local scope ด้วย
+            if(typeof monthlyMainOnly !== 'undefined') {
+                try { eval('monthlyMainOnly = '+newVal); } catch(_) {}
+            }
+            saveConfig();
+            _updateMonthlyBadges();
+            toast(newVal ? '🏭 โหมด: เฉพาะครัวกลางเท่านั้น' : '🏪 โหมด: เปิดทุกสาขา', newVal ? '#7c3aed' : '#059669');
+        };
+
+        function _updateMonthlyBadges() {
+            const badge = document.getElementById('monthlyCountBadge');
+            const mainBadge = document.getElementById('monthlyMainOnlyBadge');
+            const mainBtn = document.getElementById('monthlyMainOnlyBtn');
+            const open = window.monthlyCountOpen;
+            const mainOnly = window.monthlyMainOnly;
+            if(badge) {
+                badge.textContent = open ? 'เปิดอยู่' : 'ปิดอยู่';
+                badge.style.background = open ? '#dcfce7' : '#fee2e2';
+                badge.style.color = open ? '#065f46' : '#b91c1c';
+            }
+            if(mainBadge) {
+                mainBadge.textContent = mainOnly ? '🏭 ครัวกลาง' : 'ทุกสาขา';
+            }
+            if(mainBtn) {
+                mainBtn.style.color = mainOnly ? '#f59e0b' : '#a78bfa';
+            }
+        }
+        // เรียกอัปเดต badge ตอน load
+        setTimeout(_updateMonthlyBadges, 500);
 
         // ======== STOCK SHEET TEMPLATES (ใบนับสต๊อกคงเหลือ) ========
         window.openBranchMonthlyMenu = async function() {

@@ -3,16 +3,142 @@
         if(typeof window.tempExtraSKU==='undefined') window.tempExtraSKU=[];
         if(typeof window.tempAdjustments==='undefined') window.tempAdjustments={};
 
-        window.openCentralStock=function(){
+        // ── Draft helpers (stock-normal) ──
+        function _snDraftKey(zone){ return 'ttg_draft_stock_'+zone; }
+        function _snSaveDraft(zone){
+            try{
+                const d={_zone:zone,_ts:Date.now(),_staff:selectedStaff,_date:selectedDate,data:tempCountData,extra:window.tempExtraSKU||[]};
+                localStorage.setItem(_snDraftKey(zone),JSON.stringify(d));
+            }catch(e){}
+        }
+        function _snClearDraft(zone){
+            try{ localStorage.removeItem(_snDraftKey(zone)); }catch(e){}
+        }
+        function _snLoadDraft(zone){
+            try{
+                const raw=localStorage.getItem(_snDraftKey(zone));
+                if(!raw) return null;
+                const d=JSON.parse(raw);
+                if(d._zone!==zone) return null;
+                // draft หมดอายุ 48 ชม.
+                if(Date.now()-d._ts > 48*3600*1000){ localStorage.removeItem(_snDraftKey(zone)); return null; }
+                return d;
+            }catch(e){ return null; }
+        }
+
+        // ── เปิด Popup เลือกคลัง + คนนับ + วันที่ ──
+        window.openCentralStock=async function(){
+            const visibleZones=getVisibleWarehouses();
+            let staffList=[];
+            try{
+                const usSnap=await getDocs(query(collection(db,'users'),limit(200)));
+                usSnap.forEach(d=>{const u=d.data();if(u.status!=='suspended') staffList.push(u.name);});
+            }catch(e){}
+            const today=new Date().toISOString().split('T')[0];
+            const existing=document.getElementById('stockPickerModal'); if(existing) existing.remove();
+            const m=document.createElement('div');
+            m.id='stockPickerModal';
+            m.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+            const zoneButtons=visibleZones.map((z,i)=>`
+                <button onclick="window._snPickZone(this,'${z.replace(/'/g,"\\'")}')"
+                    data-zone="${z}"
+                    style="padding:12px 10px;border-radius:12px;border:2px solid ${i===0?'#3b82f6':'#e2e8f0'};background:${i===0?'#eff6ff':'white'};color:${i===0?'#1d4ed8':'#374151'};font-weight:${i===0?'700':'500'};font-size:13px;cursor:pointer;text-align:left;transition:all .15s;">
+                    ${z}
+                </button>`).join('');
+            m.innerHTML=`<div style="background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.3);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                    <div><div style="font-size:20px;font-weight:800;color:#0f172a;">📦 นับสต๊อก</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:2px;">เลือกรายละเอียดก่อนเริ่มนับ</div></div>
+                    <button onclick="document.getElementById('stockPickerModal').remove()" style="background:#f1f5f9;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:16px;color:#64748b;">✕</button>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:8px;">📦 คลัง / โซน</label>
+                    <div id="zonePickerGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">${zoneButtons}</div>
+                    <input type="hidden" id="snPickedZone" value="${visibleZones[0]||''}">
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:8px;">📅 วันที่นับ</label>
+                    <input type="date" id="snPickedDate" value="${selectedDate||today}"
+                        style="width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;font-weight:600;box-sizing:border-box;outline:none;color:#0f172a;"
+                        onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div style="margin-bottom:24px;">
+                    <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:8px;">👤 ผู้นับ</label>
+                    <select id="snPickedStaff" style="width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;box-sizing:border-box;outline:none;color:#0f172a;background:white;"
+                        onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                        <option value="">-- เลือกผู้นับ --</option>
+                        ${staffList.map(s=>`<option value="${s}" ${s===selectedStaff?'selected':''}>${s}</option>`).join('')}
+                    </select>
+                </div>
+                <button onclick="window._snConfirmPicker()"
+                    style="width:100%;padding:15px;background:#1e293b;color:white;border:none;border-radius:13px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.5px;">
+                    เริ่มนับสต๊อก →
+                </button>
+            </div>`;
+            document.body.appendChild(m);
+        };
+
+        window._snPickZone=function(btn,zone){
+            document.querySelectorAll('#zonePickerGrid button').forEach(b=>{
+                b.style.borderColor='#e2e8f0';b.style.background='white';b.style.color='#374151';b.style.fontWeight='500';
+            });
+            btn.style.borderColor='#3b82f6';btn.style.background='#eff6ff';btn.style.color='#1d4ed8';btn.style.fontWeight='700';
+            document.getElementById('snPickedZone').value=zone;
+        };
+
+        window._snConfirmPicker=function(){
+            const zone=document.getElementById('snPickedZone')?.value||'';
+            const date=document.getElementById('snPickedDate')?.value||'';
+            const staff=document.getElementById('snPickedStaff')?.value||'';
+            if(!zone){toast('⚠️ กรุณาเลือกคลัง','#c2410c');return;}
+            if(!date){toast('⚠️ กรุณาเลือกวันที่','#c2410c');return;}
+            if(!staff){toast('⚠️ กรุณาเลือกผู้นับ','#c2410c');return;}
+            selectedStaff=staff; window.selectedStaff=staff;
+            selectedDate=date;   window.selectedDate=date;
+            document.getElementById('stockPickerModal').remove();
+            _snLaunchCount(zone);
+        };
+
+        function _snLaunchCount(zone){
             document.getElementById('dashboardView').classList.add('hidden');
             document.getElementById('toolAppContainer').classList.remove('hidden');
-            const visibleZones=getVisibleWarehouses();
-            const defaultZone=visibleZones[0]||warehouseList[0];
-            if(!tempCountData||!Object.keys(tempCountData).length) tempCountData={};
-            window.tempExtraSKU=[];
+            const draft=_snLoadDraft(zone);
+            if(draft && Object.keys(draft.data||{}).length>0){
+                tempCountData=draft.data;
+                window.tempExtraSKU=draft.extra||[];
+                window._snPendingDraft={zone,count:Object.keys(draft.data).length};
+            } else {
+                tempCountData={};
+                window.tempExtraSKU=[];
+            }
             window.tempAdjustments={};
-            renderStockTool(defaultZone);
-            if(window._DM_startStockNormal) setTimeout(()=>_DM_startStockNormal(defaultZone),400);
+            renderStockTool(zone);
+            if(window._snPendingDraft){
+                const pd=window._snPendingDraft;
+                window._snPendingDraft=null;
+                setTimeout(()=>{
+                    document.getElementById('snDraftBanner')&&document.getElementById('snDraftBanner').remove();
+                    const b=document.createElement('div');
+                    b.id='snDraftBanner';
+                    b.style.cssText='background:#1d4ed8;color:white;padding:10px 16px;margin-bottom:12px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;';
+                    b.innerHTML='<span>📝 พบ draft ค้าง '+pd.count+' รายการ — โหลดต่อแล้ว</span>'
+                        +'<div style="display:flex;gap:8px;">'
+                        +'<button onclick="document.getElementById(\'snDraftBanner\').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;">✅ รับทราบ</button>'
+                        +'<button onclick="_snClearAndReset(\''+pd.zone+'\')""  style="background:#ef4444;color:white;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;">🗑️ เริ่มใหม่</button>'
+                        +'</div>';
+                    const cont=document.getElementById('toolAppContainer');
+                    const h=cont.querySelector('.tool-header');
+                    if(h) h.insertAdjacentElement('afterend',b); else cont.prepend(b);
+                },500);
+            }
+            if(window._DM_startStockNormal) setTimeout(()=>_DM_startStockNormal(zone),400);
+        }
+
+        window._snClearAndReset=function(zone){
+            tempCountData={}; window.tempExtraSKU=[]; window.tempAdjustments={};
+            _snClearDraft(zone);
+            document.getElementById('snDraftBanner')&&document.getElementById('snDraftBanner').remove();
+            renderStockTool(zone);
         };
 
         window.renderStockTool=async function(zone){
@@ -102,31 +228,26 @@
             c.innerHTML=`
             <div class="tool-header no-print">
                 <h2>📦 นับสต๊อก: ${zone}</h2>
-                <div style="display:flex;gap:8px;">
+                <div style="display:flex;gap:8px;align-items:center;">
                     <button onclick="openPreCountModal('${zone}')"
                         style="background:${hasPreCount?'#7c3aed':'#ede9fe'};color:${hasPreCount?'white':'#6d28d9'};border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;">
-                        ${hasPreCount?`📋 Pre Count (${window._currentPreCountDate})`:'📋 บันทึก Pre Count'}
+                        ${hasPreCount?`📋 Pre Count (${window._currentPreCountDate})`:'📋 Pre Count'}
                     </button>
                     <button onclick="closeTool()">✕ ปิด</button>
                 </div>
             </div>
-            ${hasPreCount?`<div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:13px;color:#5b21b6;" class="no-print">
-                📋 <b>มี Pre Count</b> วันที่ ${window._currentPreCountDate} — คอลัมน์สีม่วงคือยอดคร่าวที่นับไว้ก่อน
+            ${hasPreCount?`<div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:13px;color:#5b21b6;" class="no-print">
+                📋 <b>มี Pre Count</b> วันที่ ${window._currentPreCountDate}
                 <button onclick="clearPreCount('${zone}')" style="float:right;background:none;border:none;color:#7c3aed;cursor:pointer;font-size:12px;text-decoration:underline;">ล้างออก</button>
             </div>`:''}
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;" class="no-print">
-                <div class="input-group"><label>📦 เลือกโซน</label>
-                    <select onchange="window.tempExtraSKU=[];window.tempAdjustments={};renderStockTool(this.value)" style="width:100%;border:none;font-weight:bold;outline:none;">
-                        ${visibleZones.map(w=>`<option ${w===zone?'selected':''}>${w}</option>`).join('')}
-                    </select></div>
-                <div class="input-group" style="border:2px solid var(--danger);"><label>📅 วันที่นับ (บังคับ)</label>
-                    <input type="date" id="countDate" value="${selectedDate}" onchange="selectedDate=this.value"
-                        style="width:100%;border:none;font-weight:bold;outline:none;font-size:14px;color:#1e293b;"></div>
-                <div class="input-group" style="border:2px solid var(--info);"><label>👤 เลือกชื่อคนนับ</label>
-                    <select id="staffSelect" onchange="selectedStaff=this.value" style="width:100%;border:none;font-weight:bold;outline:none;">
-                        <option value="">-- กรุณาเลือก --</option>${staffOpts}
-                    </select></div>
-                <div class="input-group" style="background:#f1f5f9;"><label>📝 ผู้ทำรายการหลัก</label><b>${currentUser.name}</b></div>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;" class="no-print">
+                <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+                    <div style="font-size:13px;"><span style="color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;display:block;">📦 คลัง</span><b style="color:#0f172a;">${zone}</b></div>
+                    <div style="font-size:13px;"><span style="color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;display:block;">📅 วันที่</span><b style="color:#0f172a;">${selectedDate||'-'}</b></div>
+                    <div style="font-size:13px;"><span style="color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;display:block;">👤 ผู้นับ</span><b style="color:#0f172a;">${selectedStaff||'-'}</b></div>
+                    <div style="font-size:13px;"><span style="color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;display:block;">✏️ บันทึกโดย</span><b style="color:#0f172a;">${currentUser.name}</b></div>
+                </div>
+                <button onclick="openCentralStock()" style="background:white;border:1.5px solid #e2e8f0;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:600;color:#475569;cursor:pointer;">⚙️ เปลี่ยน</button>
             </div>
             <div class="no-print" style="margin-bottom:12px;">
                 <input type="text" id="stockSearch" placeholder="🔍 ค้นหาสินค้า (รหัส / ชื่อ)..." oninput="filterStockRows(this.value)"
@@ -319,6 +440,7 @@
             if(!tempCountData[id])tempCountData[id]={name};
             tempCountData[id]['u'+unitIndex]=(tempCountData[id]['u'+unitIndex]||0)+val;
             if(el){el.value='';el.style.borderColor='var(--success)';setTimeout(()=>el.style.borderColor='',600);}
+            _snSaveDraft(zone);
             setTimeout(()=>renderStockTool(zone),400);
         };
 
@@ -339,6 +461,7 @@
                 }
             });
             if(!anyVal){toast('⚠️ กรุณากรอกจำนวนก่อน','#c2410c');return;}
+            _snSaveDraft(zone);
             setTimeout(()=>renderStockTool(zone),400);
         };
 
@@ -395,6 +518,7 @@
             tempCountData={};
             window.tempExtraSKU=[];
             window.tempAdjustments={};
+            _snClearDraft(zone);
             toast('✅ บันทึกสำเร็จ! ตัวเลขรีเซ็ตแล้ว','#059669');
             if(window._DM) _DM.clear('stock_normal');
             renderStockTool(zone);
