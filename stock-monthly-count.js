@@ -842,20 +842,18 @@
             </div>
             <div style="margin-top:20px;" class="no-print">
                 <div id="bmcTempSkuSection" style="background:#fefce8;border:1.5px dashed #fbbf24;border-radius:14px;padding:16px;margin-bottom:14px;">
-                    <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:10px;">➕ สินค้านอก Template (เฉพาะช่วงนับสิ้นเดือนนี้)</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <div style="font-size:13px;font-weight:700;color:#92400e;">➕ สินค้านอก Template</div>
+                        <div style="font-size:11px;color:#b45309;">ค้นหาจากระบบ • ชั่วคราวช่วงนับสิ้นเดือนนี้</div>
+                    </div>
                     <div id="bmcTempSkuRows"></div>
-                    <div style="display:flex;gap:8px;margin-top:10px;">
-                        <input type="text" id="bmcTempSkuInput" placeholder="รหัส/ชื่อสินค้าชั่วคราว" inputmode="text"
-                            style="flex:1;padding:10px 12px;border:1.5px solid #fbbf24;border-radius:9px;font-size:14px;outline:none;"
-                            onkeydown="if(event.key==='Enter') window._bmcAddTempSku('${tmplId}','${defaultZone}')">
-                        <input type="number" id="bmcTempSkuQty" placeholder="จำนวน" min="0" inputmode="numeric"
-                            style="width:90px;padding:10px 8px;border:1.5px solid #fbbf24;border-radius:9px;font-size:14px;text-align:center;outline:none;"
-                            onkeydown="if(event.key==='Enter') window._bmcAddTempSku('${tmplId}','${defaultZone}')">
-                        <select id="bmcTempSkuUnit" style="padding:10px 8px;border:1.5px solid #fbbf24;border-radius:9px;font-size:13px;outline:none;background:white;">
-                            <option>ถุง</option><option>กล่อง</option><option>ลัง</option><option>กระป๋อง</option><option>ขวด</option><option>กก.</option><option>ชิ้น</option>
-                        </select>
-                        <button onclick="window._bmcAddTempSku('${tmplId}','${defaultZone}')"
-                            style="background:#f59e0b;color:white;border:none;padding:10px 16px;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;">+</button>
+                    <!-- search box -->
+                    <div style="position:relative;margin-top:10px;">
+                        <input type="text" id="bmcTempSkuSearch" placeholder="🔍 พิมพ์รหัส หรือ ชื่อสินค้า..." autocomplete="off"
+                            style="width:100%;padding:11px 14px;border:1.5px solid #fbbf24;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;background:white;"
+                            oninput="window._bmcSearchSku(this.value,'${tmplId}','${defaultZone}')"
+                            onfocus="window._bmcSearchSku(this.value,'${tmplId}','${defaultZone}')">
+                        <div id="bmcSkuDropdown" style="display:none;position:absolute;left:0;right:0;top:100%;margin-top:4px;background:white;border:1.5px solid #fde68a;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:999;max-height:220px;overflow-y:auto;"></div>
                     </div>
                 </div>
                 <div style="text-align:center;">
@@ -970,29 +968,106 @@
 
         function _bmcTempKey(tmplId, zone) { return tmplId + '_' + (zone||'').replace(/\s+/g,'_'); }
 
-        window._bmcAddTempSku = function(tmplId, zone) {
-            const nameEl = document.getElementById('bmcTempSkuInput');
-            const qtyEl  = document.getElementById('bmcTempSkuQty');
-            const unitEl = document.getElementById('bmcTempSkuUnit');
-            const name = (nameEl?.value||'').trim();
-            const qty  = parseFloat(qtyEl?.value||'0') || 0;
-            const unit = unitEl?.value || '';
-            if(!name){ toast('⚠️ กรุณาระบุชื่อ/รหัสสินค้า','#c2410c'); nameEl?.focus(); return; }
+        // ── SKU search dropdown ──
+        window._bmcSearchSku = function(q, tmplId, zone) {
+            const dd = document.getElementById('bmcSkuDropdown');
+            if(!dd) return;
+            const tmpl = stockSheetTemplates[tmplId];
+            const existingIds = new Set((tmpl?.items||[]).map(i=>i.id));
+            const tempKey = _bmcTempKey(tmplId, zone);
+            const addedIds = new Set((window._bmcTempSkus[tempKey]||[]).map(s=>s.id));
+            const all = (allProducts||[]);
+            const query = q.trim().toLowerCase();
+            // กรองเฉพาะที่ยังไม่อยู่ใน template และยังไม่ถูกเพิ่ม
+            let matched = all.filter(p => !existingIds.has(p.id) && !addedIds.has(p.id));
+            if(query) matched = matched.filter(p =>
+                p.id.toLowerCase().includes(query) || (p.name||'').toLowerCase().includes(query)
+            );
+            matched = matched.slice(0, 30);
+            if(!matched.length) {
+                dd.style.display = 'none'; return;
+            }
+            dd.style.display = 'block';
+            dd.innerHTML = matched.map(p => {
+                const unit = (p.units&&p.units[0]?.name) || p.unit || '';
+                const safeId = p.id.replace(/'/g,"\\'");
+                const safeName = (p.name||'').replace(/'/g,"\\'");
+                const safeUnit = unit.replace(/'/g,"\\'");
+                return `<div class="bmc-sku-opt" data-id="${p.id}"
+                    style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #fef9c3;display:flex;align-items:center;gap:10px;"
+                    onmouseover="this.style.background='#fffbeb'" onmouseout="this.style.background=''"
+                    onclick="window._bmcSelectSku('${safeId}','${safeName}','${safeUnit}','${tmplId}','${zone}')">
+                    <div style="flex:1;">
+                        <div style="font-weight:700;font-size:13px;color:#1e293b;">${p.id}</div>
+                        <div style="font-size:12px;color:#64748b;">${p.name||''}</div>
+                    </div>
+                    <div style="font-size:11px;color:#b45309;background:#fef3c7;padding:3px 8px;border-radius:6px;white-space:nowrap;">${unit}</div>
+                </div>`;
+            }).join('');
+            // ปิด dropdown เมื่อ click ข้างนอก
+            setTimeout(()=>{
+                const handler = (e)=>{
+                    if(!document.getElementById('bmcSkuDropdown')?.contains(e.target)
+                        && e.target.id !== 'bmcTempSkuSearch') {
+                        const d=document.getElementById('bmcSkuDropdown');
+                        if(d) d.style.display='none';
+                        document.removeEventListener('click', handler);
+                    }
+                };
+                document.addEventListener('click', handler);
+            }, 10);
+        };
+
+        // เมื่อเลือก SKU จาก dropdown → แสดง qty input row
+        window._bmcSelectSku = function(id, name, unit, tmplId, zone) {
+            const dd = document.getElementById('bmcSkuDropdown');
+            if(dd) dd.style.display = 'none';
+            const searchEl = document.getElementById('bmcTempSkuSearch');
+            if(searchEl) searchEl.value = '';
+
+            // ถ้ามี pending row เก่าอยู่แล้ว ให้ลบก่อน
+            document.getElementById('bmcTempSkuPending')?.remove();
+
+            const section = document.getElementById('bmcTempSkuSection');
+            if(!section) return;
+
+            const pendingRow = document.createElement('div');
+            pendingRow.id = 'bmcTempSkuPending';
+            pendingRow.style.cssText = 'background:#fffbeb;border:1.5px solid #f59e0b;border-radius:10px;padding:12px;margin-top:10px;';
+            pendingRow.innerHTML = `
+                <div style="font-size:12px;color:#92400e;margin-bottom:8px;font-weight:600;">เพิ่ม: <b>${id}</b> ${name}</div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <input type="number" id="bmcTempPendingQty" min="0" placeholder="จำนวน" inputmode="numeric"
+                        style="flex:1;min-width:80px;padding:10px 12px;border:2px solid #f59e0b;border-radius:9px;font-size:16px;font-weight:700;text-align:center;outline:none;"
+                        onkeydown="if(event.key==='Enter') window._bmcConfirmTempSku('${id.replace(/'/g,"\'")}','${name.replace(/'/g,"\'")}','${unit.replace(/'/g,"\'")}','${tmplId}','${zone}')">
+                    <div style="font-size:13px;color:#475569;min-width:32px;">${unit}</div>
+                    <button onclick="window._bmcConfirmTempSku('${id.replace(/'/g,"\'")}','${name.replace(/'/g,"\'")}','${unit.replace(/'/g,"\'")}','${tmplId}','${zone}')"
+                        style="background:#f59e0b;color:white;border:none;padding:10px 20px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;">✅ เพิ่ม</button>
+                    <button onclick="document.getElementById('bmcTempSkuPending')?.remove()"
+                        style="background:#f1f5f9;color:#64748b;border:none;padding:10px 14px;border-radius:9px;font-size:13px;cursor:pointer;">ยกเลิก</button>
+                </div>`;
+            section.appendChild(pendingRow);
+            setTimeout(()=>document.getElementById('bmcTempPendingQty')?.focus(), 100);
+        };
+
+        window._bmcConfirmTempSku = function(id, name, unit, tmplId, zone) {
+            const qtyEl = document.getElementById('bmcTempPendingQty');
+            const qty = parseFloat(qtyEl?.value||'0');
+            if(!qty && qty !== 0) { toast('⚠️ กรุณากรอกจำนวน','#c2410c'); qtyEl?.focus(); return; }
             const key = _bmcTempKey(tmplId, zone);
             if(!window._bmcTempSkus[key]) window._bmcTempSkus[key] = [];
-            window._bmcTempSkus[key].push({ name, qty, unit, addedAt: new Date().toISOString() });
-            if(nameEl) nameEl.value = '';
-            if(qtyEl)  qtyEl.value  = '';
+            window._bmcTempSkus[key].push({ id, name, qty, unit, addedAt: new Date().toISOString() });
+            document.getElementById('bmcTempSkuPending')?.remove();
             _bmcRenderTempSku(tmplId, zone);
-            // save draft รวม temp sku
             _bmcSaveDraft(tmplId, zone);
-            toast('✅ เพิ่มแล้ว (ชั่วคราว)','#059669');
+            toast('✅ เพิ่ม '+name+' แล้ว','#059669');
         };
 
         window._bmcRemoveTempSku = function(tmplId, zone, idx) {
             const key = _bmcTempKey(tmplId, zone);
             if(window._bmcTempSkus[key]) window._bmcTempSkus[key].splice(idx,1);
             _bmcRenderTempSku(tmplId, zone);
+            _bmcSaveDraft(tmplId, zone);
         };
 
         function _bmcRenderTempSku(tmplId, zone) {
@@ -1000,13 +1075,19 @@
             const rows = window._bmcTempSkus[key] || [];
             const container = document.getElementById('bmcTempSkuRows');
             if(!container) return;
-            if(!rows.length) { container.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:4px 0;">ยังไม่มีสินค้าเพิ่มเติม</div>'; return; }
+            if(!rows.length) {
+                container.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:4px 0 6px;">ยังไม่มีสินค้าเพิ่มเติม</div>';
+                return;
+            }
             container.innerHTML = rows.map((r,i)=>`
-                <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:white;border-radius:8px;margin-bottom:6px;border:1px solid #fde68a;">
-                    <div style="flex:1;font-size:13px;font-weight:600;color:#1e293b;">${r.name}</div>
-                    <div style="font-size:14px;font-weight:700;color:#b45309;">${r.qty} <span style="font-size:11px;font-weight:400;">${r.unit}</span></div>
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:white;border-radius:9px;margin-bottom:6px;border:1px solid #fde68a;">
+                    <div style="flex:1;">
+                        <div style="font-size:12px;font-weight:700;color:#92400e;">${r.id||''}</div>
+                        <div style="font-size:13px;color:#1e293b;">${r.name}</div>
+                    </div>
+                    <div style="font-size:15px;font-weight:700;color:#b45309;">${r.qty} <span style="font-size:11px;font-weight:400;">${r.unit}</span></div>
                     <button onclick="window._bmcRemoveTempSku('${tmplId}','${zone}',${i})"
-                        style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px;line-height:1;">✕</button>
+                        style="background:#fee2e2;color:#dc2626;border:none;border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;flex-shrink:0;">✕</button>
                 </div>`).join('');
         }
 
