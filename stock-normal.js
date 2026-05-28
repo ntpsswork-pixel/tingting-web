@@ -45,35 +45,46 @@
                     style="padding:12px 10px;border-radius:12px;border:2px solid ${i===0?'#3b82f6':'#e2e8f0'};background:${i===0?'#eff6ff':'white'};color:${i===0?'#1d4ed8':'#374151'};font-weight:${i===0?'700':'500'};font-size:13px;cursor:pointer;text-align:left;transition:all .15s;">
                     ${z}
                 </button>`).join('');
-            m.innerHTML=`<div style="background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.3);">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-                    <div><div style="font-size:20px;font-weight:800;color:#0f172a;">📦 นับสต๊อก</div>
-                    <div style="font-size:12px;color:#64748b;margin-top:2px;">เลือกรายละเอียดก่อนเริ่มนับ</div></div>
-                    <button onclick="document.getElementById('stockPickerModal').remove()" style="background:#f1f5f9;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:16px;color:#64748b;">✕</button>
+            m.innerHTML=`<div style="background:white;border-radius:20px;width:100%;max-width:420px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.3);overflow:hidden;">
+                <!-- header — fixed ไม่ scroll -->
+                <div style="padding:20px 20px 0;flex-shrink:0;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                        <div>
+                            <div style="font-size:19px;font-weight:800;color:#0f172a;">📦 นับสต๊อก</div>
+                            <div style="font-size:12px;color:#64748b;margin-top:2px;">เลือกรายละเอียดก่อนเริ่มนับ</div>
+                        </div>
+                        <button onclick="document.getElementById('stockPickerModal').remove()" style="background:#f1f5f9;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:16px;color:#64748b;flex-shrink:0;">✕</button>
+                    </div>
                 </div>
-                <div style="margin-bottom:16px;">
-                    <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:8px;">📦 คลัง / โซน</label>
-                    <div id="zonePickerGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">${zoneButtons}</div>
-                    <input type="hidden" id="snPickedZone" value="${visibleZones[0]||''}">
+                <!-- scrollable body -->
+                <div style="flex:1;overflow-y:auto;padding:0 20px;-webkit-overflow-scrolling:touch;">
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:8px;">📦 คลัง / โซน</label>
+                        <div id="zonePickerGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">${zoneButtons}</div>
+                        <input type="hidden" id="snPickedZone" value="${visibleZones[0]||''}">
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:8px;">📅 วันที่นับ</label>
+                        <input type="date" id="snPickedDate" value="${selectedDate||today}"
+                            style="width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;font-weight:600;box-sizing:border-box;outline:none;color:#0f172a;"
+                            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:8px;">👤 ผู้นับ</label>
+                        <select id="snPickedStaff" style="width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;box-sizing:border-box;outline:none;color:#0f172a;background:white;"
+                            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                            <option value="">-- เลือกผู้นับ --</option>
+                            ${staffList.map(s=>`<option value="${s}" ${s===selectedStaff?'selected':''}>${s}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
-                <div style="margin-bottom:16px;">
-                    <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:8px;">📅 วันที่นับ</label>
-                    <input type="date" id="snPickedDate" value="${selectedDate||today}"
-                        style="width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;font-weight:600;box-sizing:border-box;outline:none;color:#0f172a;"
-                        onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                <!-- footer — fixed ไม่ scroll -->
+                <div style="padding:12px 20px 20px;flex-shrink:0;border-top:1px solid #f1f5f9;">
+                    <button onclick="window._snConfirmPicker()"
+                        style="width:100%;padding:15px;background:#1e293b;color:white;border:none;border-radius:13px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.5px;">
+                        เริ่มนับสต๊อก →
+                    </button>
                 </div>
-                <div style="margin-bottom:24px;">
-                    <label style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:8px;">👤 ผู้นับ</label>
-                    <select id="snPickedStaff" style="width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;box-sizing:border-box;outline:none;color:#0f172a;background:white;"
-                        onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
-                        <option value="">-- เลือกผู้นับ --</option>
-                        ${staffList.map(s=>`<option value="${s}" ${s===selectedStaff?'selected':''}>${s}</option>`).join('')}
-                    </select>
-                </div>
-                <button onclick="window._snConfirmPicker()"
-                    style="width:100%;padding:15px;background:#1e293b;color:white;border:none;border-radius:13px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.5px;">
-                    เริ่มนับสต๊อก →
-                </button>
             </div>`;
             document.body.appendChild(m);
         };
