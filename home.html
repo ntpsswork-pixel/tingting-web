@@ -1438,7 +1438,29 @@
         // popstate  = กดปุ่มย้อนกลับ browser → กลับ Dashboard
         // ──────────────────────────────────────────────────────
         const navFnMap = {
-            'stock':             ()=>{ const f=window._origOpenCentralStock||window.openCentralStock; f(); },
+            'stock': ()=>{
+                // restore จาก hash (refresh) → ข้าม popup ถ้ามี draft อยู่
+                // หา zone จาก draft key ใน localStorage
+                try {
+                    const draftKeys = Object.keys(localStorage).filter(k=>k.startsWith('ttg_draft_stock_'));
+                    if(draftKeys.length) {
+                        // เอา draft ล่าสุด
+                        let latest = null, latestTs = 0;
+                        draftKeys.forEach(k=>{
+                            try {
+                                const d = JSON.parse(localStorage.getItem(k));
+                                if(d && d._ts > latestTs) { latestTs = d._ts; latest = d; }
+                            } catch(_){}
+                        });
+                        if(latest && latest._zone && window._snLaunchCount) {
+                            window._snLaunchCount(latest._zone);
+                            return;
+                        }
+                    }
+                } catch(_) {}
+                // ไม่มี draft → clear hash แล้วอยู่ dashboard (ไม่เปิด popup อัตโนมัติ)
+                history.replaceState(null, '', location.pathname);
+            },
             'inventory-check':   ()=>{ const f=window._origOpenInventoryCheck||window.openInventoryCheck; f(); },
             'monthly-count':     ()=>{
                 // ถ้ามี _mcNav ใน sessionStorage = refresh ระหว่างนับ → restore โดยตรง ข้าม picker

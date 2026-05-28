@@ -2899,7 +2899,8 @@ ${r.zone}`);
                 await addDoc(collection(db,'inventoryHistory'),{
                     type:'branch',
                     zone, month:monthKey,
-                    date:dateTH, datetime:datetimeTH, timestamp:Date.now(),
+                    date:dateTH, datetime:datetimeTH,
+                    timestamp:Date.now(), savedAt:Date.now(),
                     countedBy:currentUser.name, recordedBy:currentUser.name,
                     templateId:tmplId, templateName:tmpl.name,
                     isBranchTemplate:true,

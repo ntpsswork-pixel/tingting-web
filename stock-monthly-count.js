@@ -312,7 +312,7 @@
             const con = document.getElementById('monthlyHistoryContainer'); if(!con) return;
             con.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px;">กำลังโหลด...</p>';
             try {
-                const snap = await getDocs(query(collection(db,'inventoryHistory'), orderBy('savedAt','desc'), limit(500)));
+                const snap = await getDocs(collection(db,'inventoryHistory'));
                 let docs = [];
                 snap.forEach(d => {
                     const x = d.data();
@@ -323,7 +323,12 @@
                 });
                 if(zone) docs = docs.filter(d => d.zone === zone);
                 if(month) docs = docs.filter(d => (d.month||'') === month);
-                docs.sort((a,b) => (b.month||'').localeCompare(a.month||'') || (a.zone||'').localeCompare(b.zone||''));
+                // sort โดยใช้ savedAt หรือ timestamp (fallback)
+                docs.sort((a,b) => {
+                    const ta = b.savedAt||b.timestamp||0;
+                    const tb = a.savedAt||a.timestamp||0;
+                    return ta - tb;
+                });
                 window._monthlyHistoryData = docs;
 
                 if(!docs.length) {
@@ -1146,7 +1151,9 @@
                 await addDoc(collection(db,'inventoryHistory'),{
                     type:'branch',
                     zone, month:monthKey,
-                    date:dateTH, datetime:datetimeTH, timestamp:Date.now(),
+                    date:dateTH, datetime:datetimeTH,
+                    timestamp:Date.now(),
+                    savedAt:Date.now(),
                     countedBy:currentUser.name, recordedBy:currentUser.name,
                     templateId:tmplId, templateName:tmpl.name,
                     isBranchTemplate:true,
