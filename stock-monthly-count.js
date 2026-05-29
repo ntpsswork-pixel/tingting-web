@@ -74,18 +74,7 @@
 
 // stock-monthly-count.js — TTGPlus | tryOpenMonthlyCount, BT/Admin monthly flow, exporters
         window.tryOpenMonthlyCount = async function() {
-            if(!window.monthlyCountOpen) {
-                const existing = document.getElementById('lockedModal'); if(existing) existing.remove();
-                const m = document.createElement('div'); m.className='modal-overlay'; m.id='lockedModal';
-                m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:center;">
-                    <div style="font-size:48px;margin-bottom:12px;">🔒</div>
-                    <h3 style="margin:0 0 8px;">ระบบนับสต๊อกสิ้นเดือนปิดอยู่</h3>
-                    <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Admin ยังไม่ได้เปิดระบบนับสต๊อกสิ้นเดือน<br>กรุณาติดต่อผู้ดูแลระบบ</p>
-                    <button onclick="document.getElementById('lockedModal').remove()" style="background:#1e293b;color:white;border:none;padding:10px 30px;border-radius:10px;cursor:pointer;font-weight:bold;">ตกลง</button>
-                </div>`;
-                document.body.appendChild(m);
-                return;
-            }
+            // monthlyCountOpen check moved to home.html (local scope)
 
             const isBT = currentUser?.username?.toUpperCase().startsWith('BT');
 
