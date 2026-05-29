@@ -74,7 +74,7 @@
 
 // stock-monthly-count.js — TTGPlus | tryOpenMonthlyCount, BT/Admin monthly flow, exporters
         window.tryOpenMonthlyCount = async function() {
-            if(!monthlyCountOpen) {
+            if(!(window.monthlyCountOpen||monthlyCountOpen)) {
                 const existing = document.getElementById('lockedModal'); if(existing) existing.remove();
                 const m = document.createElement('div'); m.className='modal-overlay'; m.id='lockedModal';
                 m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:center;">
