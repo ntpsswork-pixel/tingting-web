@@ -45,16 +45,19 @@
             const perms=roleSettings[role]?.menus||[], isVO=roleSettings[role]?.viewOnly||false;
             const effP = isVO ? ["warehouse","tools","admin"] : perms;
             const menu = document.getElementById('toolsMenu');
+            if(!menu) return; // element ไม่มีในหน้านี้ — skip
             if (!effP.includes('tools')) { menu.classList.add('hidden'); return; }
-            if (role==='admin') { menu.classList.remove('hidden'); document.getElementById('timerDisplay').innerText="⏳ สิทธิ์: ถาวร"; return; }
+            const timerEl = document.getElementById('timerDisplay');
+            if (role==='admin') { menu.classList.remove('hidden'); if(timerEl) timerEl.innerText="⏳ สิทธิ์: ถาวร"; return; }
             try {
                 const snap=await getDoc(doc(db,'users',currentUser.username));
                 if (!snap.exists()) { menu.classList.add('hidden'); return; }
                 const expiry=snap.data().toolExpiry||0;
                 if (now<expiry) {
                     menu.classList.remove('hidden');
-                    if (expiry>4000000000000) { document.getElementById('timerDisplay').innerText="⏳ สิทธิ์: ถาวร"; }
-                    else { const d=Math.floor((expiry-now)/60000); document.getElementById('timerDisplay').innerText=`⏳ เหลือ: ${Math.floor(d/60)}ชม. ${d%60}น.`; }
+                    const _td=document.getElementById('timerDisplay');
+                    if(_td){ if (expiry>4000000000000) { _td.innerText="⏳ สิทธิ์: ถาวร"; }
+                    else { const d=Math.floor((expiry-now)/60000); _td.innerText=`⏳ เหลือ: ${Math.floor(d/60)}ชม. ${d%60}น.`; } }
                 } else { menu.classList.add('hidden'); }
             } catch(e) {}
         };
