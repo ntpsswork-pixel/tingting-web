@@ -129,10 +129,10 @@
 
                 // ถ้ายังไม่เปิดเดือนนี้ — เช็คก่อนว่านับไปแล้วหรือยัง
                 const now = new Date();
-                const monthKey = now.toISOString().slice(0,7);
+                const monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
                 let existingDoc = null;
                 try {
-                    const snap = await getDocs(query(collection(db,'inventoryHistory'), orderBy('savedAt','desc'), limit(500)));
+                    const snap = await getDocs(collection(db,'inventoryHistory'));
                     snap.forEach(d => {
                         const x = d.data();
                         if(x.zone === zone && x.month === monthKey && x.type === 'branch') {
@@ -562,7 +562,7 @@
 
             // โหลดข้อมูลพร้อมกัน: inventoryHistory + users
             const now = new Date();
-            const monthKey = now.toISOString().slice(0,7);
+            const monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             const doneZones = new Set();
             const zoneTemplateMap = {}; // zone → templateId (จาก user ที่ผูกไว้)
 
@@ -707,10 +707,10 @@
             const tmpl = stockSheetTemplates[tmplId];
             if(!tmpl){ toast('⚠️ ไม่พบ Template สำหรับสาขานี้ กรุณาตั้งค่า Template ก่อน','#c2410c'); return; }
             // เช็คว่านับแล้วหรือยัง
-            const monthKey = new Date().toISOString().slice(0,7);
+            const monthKey = (()=>{const _d=new Date();return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             let existingDoc = null;
             try {
-                const snap = await getDocs(query(collection(db,'inventoryHistory'), orderBy('savedAt','desc'), limit(500)));
+                const snap = await getDocs(collection(db,'inventoryHistory'));
                 snap.forEach(d=>{ const x=d.data(); if(x.zone===zone&&x.month===monthKey&&x.type==='branch') existingDoc={id:d.id,...x}; });
             } catch(e){}
             if(existingDoc) openBranchMonthlyDoneSummary(tmplId, tmpl, zone, existingDoc);
@@ -722,10 +722,10 @@
         window.openBranchMonthlyCountForAdmin = async function(tmplId, zone) {
             const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
             const now = new Date();
-            const monthKey = now.toISOString().slice(0,7);
+            const monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             let existingDoc = null;
             try {
-                const snap = await getDocs(query(collection(db,'inventoryHistory'), orderBy('savedAt','desc'), limit(500)));
+                const snap = await getDocs(collection(db,'inventoryHistory'));
                 snap.forEach(d => {
                     const x = d.data();
                     if(x.zone === zone && x.month === monthKey && x.type === 'branch') existingDoc = {id: d.id, ...x};
@@ -1137,7 +1137,7 @@
 
             // เช็คและลบของเดิมถ้ามี (auto-overwrite)
             try {
-                const existSnap = await getDocs(query(collection(db,'inventoryHistory'), orderBy('savedAt','desc'), limit(500)));
+                const existSnap = await getDocs(collection(db,'inventoryHistory'));
                 for(const d of existSnap.docs) {
                     const x = d.data();
                     if(x.zone === zone && x.month === monthKey && (x.type === 'branch' || x.isBranchTemplate)) {
@@ -1299,11 +1299,11 @@
         window.exportAllBranchMonthlyExcel = async function(monthKey) {
             if(!monthKey) {
                 const now = new Date();
-                monthKey = now.toISOString().slice(0,7);
+                monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             }
             toast('⏳ กำลังโหลดข้อมูล...','#0891b2');
             try {
-                const snap = await getDocs(query(collection(db,'inventoryHistory'), orderBy('savedAt','desc'), limit(500)));
+                const snap = await getDocs(collection(db,'inventoryHistory'));
                 const docs = [];
                 snap.forEach(d => {
                     const x = d.data();
@@ -1424,10 +1424,10 @@
 
             // โหลด inventoryHistory เดือนปัจจุบัน เช็คว่านับแล้วหรือยัง
             const now      = new Date();
-            const monthKey = now.toISOString().slice(0,7);
+            const monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             let doneMap    = {}; // { zone: doc }
             try {
-                const snap = await getDocs(query(collection(db,'inventoryHistory'), orderBy('savedAt','desc'), limit(500)));
+                const snap = await getDocs(collection(db,'inventoryHistory'));
                 snap.forEach(d => {
                     const x = d.data();
                     if(x.month === monthKey && x.type === 'branch') {

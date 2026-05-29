@@ -1247,7 +1247,7 @@ ${r.zone}`);
 
                 // ถ้ายังไม่เปิดเดือนนี้ — เช็คก่อนว่านับไปแล้วหรือยัง
                 const now = new Date();
-                const monthKey = now.toISOString().slice(0,7);
+                const monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
                 let existingDoc = null;
                 try {
                     const snap = await getDocs(collection(db,'inventoryHistory'));
@@ -1423,6 +1423,21 @@ ${r.zone}`);
         };
 
         window._monthlyHistoryData = [];
+        window._debugShowAllHistory = function() {
+            const docs = window._debugAllDocs || [];
+            if(!docs.length) { alert('ไม่มี raw data'); return; }
+            const branchDocs = docs.filter(d=>d.type==='branch'||d.isBranchTemplate);
+            const msg = [
+                `ทั้งหมดใน inventoryHistory: ${docs.length} records`,
+                `type=branch หรือ isBranchTemplate: ${branchDocs.length} records`,
+                '',
+                'ตัวอย่าง 5 records แรก:',
+                ...docs.slice(0,5).map(d=>
+                    `• type=${d.type||'(none)'} zone=${d.zone||'?'} month=${d.month||'?'} savedAt=${d.savedAt||'(none)'} timestamp=${d.timestamp||'(none)'}`
+                )
+            ].join('\n');
+            alert(msg);
+        };
 
         window.loadMonthlyHistory = async function() {
             const zone = document.getElementById('mhZone')?.value || '';
@@ -1445,7 +1460,21 @@ ${r.zone}`);
                 window._monthlyHistoryData = docs;
 
                 if(!docs.length) {
-                    con.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px;">ไม่พบข้อมูลการนับสต๊อกสิ้นเดือน</p>';
+                    // แสดงจำนวน raw docs ทั้งหมดใน collection เพื่อ debug
+                    let totalInCol = 0;
+                    snap.forEach(()=>totalInCol++);
+                    con.innerHTML = `<div style="text-align:center;padding:40px;">
+                        <p style="color:#94a3b8;">ไม่พบข้อมูลการนับสต๊อกสิ้นเดือน</p>
+                        <p style="color:#cbd5e1;font-size:12px;margin-top:8px;">
+                            (พบ ${totalInCol} records ทั้งหมดใน Firestore${zone?' · กรอง zone: '+zone:''}${month?' · กรอง month: '+month:''})
+                        </p>
+                        <button onclick="window._debugShowAllHistory()" 
+                            style="margin-top:12px;background:#f1f5f9;border:1px solid #e2e8f0;padding:6px 16px;border-radius:8px;font-size:12px;cursor:pointer;color:#475569;">
+                            🔍 ดู raw data ทั้งหมด
+                        </button>
+                    </div>`;
+                    window._debugAllDocs = [];
+                    snap.forEach(d=>window._debugAllDocs.push({id:d.id,...d.data()}));
                     return;
                 }
 
@@ -2228,7 +2257,7 @@ ${r.zone}`);
         window.openBranchExportModal = async function() {
             const existing = document.getElementById('branchExportModal'); if(existing) existing.remove();
             const now = new Date();
-            const defaultMonth = now.toISOString().slice(0,7);
+            const defaultMonth = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             const m = document.createElement('div');
             m.className='modal-overlay'; m.id='branchExportModal';
             m.innerHTML=`<div class="modal-box" style="max-width:440px;width:95vw;">
@@ -2343,7 +2372,7 @@ ${r.zone}`);
 
             // โหลดข้อมูลพร้อมกัน: inventoryHistory + users
             const now = new Date();
-            const monthKey = now.toISOString().slice(0,7);
+            const monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             const doneZones = new Set();
             const zoneTemplateMap = {}; // zone → templateId (จาก user ที่ผูกไว้)
 
@@ -2488,7 +2517,7 @@ ${r.zone}`);
             const tmpl = stockSheetTemplates[tmplId];
             if(!tmpl){ toast('⚠️ ไม่พบ Template สำหรับสาขานี้ กรุณาตั้งค่า Template ก่อน','#c2410c'); return; }
             // เช็คว่านับแล้วหรือยัง
-            const monthKey = new Date().toISOString().slice(0,7);
+            const monthKey = (()=>{const _d=new Date();return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             let existingDoc = null;
             try {
                 const snap = await getDocs(collection(db,'inventoryHistory'));
@@ -2622,7 +2651,7 @@ ${r.zone}`);
         window.openBranchMonthlyCountForAdmin = async function(tmplId, zone) {
             const tmpl = stockSheetTemplates[tmplId]; if(!tmpl) return;
             const now = new Date();
-            const monthKey = now.toISOString().slice(0,7);
+            const monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             let existingDoc = null;
             try {
                 const snap = await getDocs(collection(db,'inventoryHistory'));
@@ -3044,7 +3073,7 @@ ${r.zone}`);
         window.exportAllBranchMonthlyExcel = async function(monthKey) {
             if(!monthKey) {
                 const now = new Date();
-                monthKey = now.toISOString().slice(0,7);
+                monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             }
             toast('⏳ กำลังโหลดข้อมูล...','#0891b2');
             try {
@@ -3479,7 +3508,7 @@ ${r.zone}`);
 
             // โหลด inventoryHistory เดือนปัจจุบัน เช็คว่านับแล้วหรือยัง
             const now      = new Date();
-            const monthKey = now.toISOString().slice(0,7);
+            const monthKey = (()=>{const _d=now;return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}`})();
             let doneMap    = {}; // { zone: doc }
             try {
                 const snap = await getDocs(collection(db,'inventoryHistory'));
