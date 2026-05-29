@@ -3592,3 +3592,31 @@ ${r.zone}`);
             ${cards || '<div style="text-align:center;padding:40px;color:#94a3b8;">ไม่พบสาขาที่ตรงกับ Template ที่ตั้งค่าไว้</div>'}
             `;
         };
+
+        // ---- DATE INPUT FORMATTER (dd/mm/yyyy → hidden yyyy-mm-dd) ----
+        window.formatDateInput = function(el, hiddenId) {
+            // auto-insert slashes while typing
+            let raw = el.value.replace(/[^0-9]/g, '');
+            if (raw.length > 2) raw = raw.slice(0,2) + '/' + raw.slice(2);
+            if (raw.length > 5) raw = raw.slice(0,5) + '/' + raw.slice(5,9);
+            el.value = raw;
+
+            // write yyyy-mm-dd into the hidden input for timestamp comparison
+            const parts = raw.split('/');
+            const hidden = document.getElementById(hiddenId);
+            if (!hidden) return;
+            if (parts.length === 3 && parts[2].length === 4) {
+                const dd = parts[0].padStart(2,'0');
+                const mm = parts[1].padStart(2,'0');
+                // รองรับทั้งปี พ.ศ. (2568) และปี ค.ศ. (2025)
+                const rawYear = parseInt(parts[2], 10);
+                const yyyy = rawYear > 2400 ? rawYear - 543 : rawYear;
+                if (!isNaN(yyyy) && yyyy > 1900) {
+                    hidden.value = `${yyyy}-${mm}-${dd}`;
+                } else {
+                    hidden.value = '';
+                }
+            } else {
+                hidden.value = '';
+            }
+        };
