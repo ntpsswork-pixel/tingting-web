@@ -501,9 +501,13 @@
                 <div id="subWH" class="submenu">
                     <div onclick="openCentralStock()" data-tool="stock" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=stock','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=stock','_blank');" style="color:#10b981;">● นับสต๊อก</div>
                     <div onclick="openInventoryCheck()" data-tool="inventory-check" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=inventory-check','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=inventory-check','_blank');" style="color:var(--accent-gold);">● ใบนับสต๊อกคงเหลือ</div>
-                    <div onclick="if(!monthlyCountOpen&&!window.monthlyCountOpen){alert('ระบบนับสต๊อกสิ้นเดือนยังปิดอยู่');return;} tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" style="color:#06b6d4;">● นับสต๊อกสิ้นเดือน</div>
-                    <div onclick="openMonthlyHistoryView()" data-tool="monthly-history" style="color:#a78bfa;">● ประวัติ & Export สิ้นเดือน</div>
+                    <div onclick="tryOpenMonthlyCount()" data-tool="monthly-count" onauxclick="if(event.button===1){event.preventDefault();window.open('home.html?tool=monthly-count','_blank');}" oncontextmenu="event.preventDefault();window.open('home.html?tool=monthly-count','_blank');" style="color:#06b6d4;">● นับสต๊อกสิ้นเดือน</div>
                 </div>
+            </div>
+
+            <!-- ── ประวัติสิ้นเดือน (แยกออกมาให้ BT user เข้าถึงได้แม้ไม่มีสิทธิ์ warehouse) ── -->
+            <div id="monthlyHistoryMenu" class="hidden">
+                <div onclick="openMonthlyHistoryView()" data-tool="monthly-history" style="color:#a78bfa;padding:8px 20px;cursor:pointer;font-size:13px;">📅 ประวัติ & Export สิ้นเดือน</div>
             </div>
 
             <!-- ── ทรัพย์สิน ── -->
@@ -838,7 +842,7 @@
                 {icon:'🏷️', label:'ทรัพย์สิน',   sub:'Asset Mgmt',   fn:'openAssetManagement()',  tool:'asset-registry',color:'linear-gradient(135deg,#451a03,#b45309)', show:true},
                 {icon:'🔧', label:'แจ้งซ่อม',      sub:'Repair',       fn:"openAssetManagement('repair')", tool:'asset-repair', color:'linear-gradient(135deg,#7f1d1d,#b91c1c)', show:true},
                 {icon:'🔄', label:'โอนย้าย',        sub:'Transfer',     fn:"openAssetManagement('transfer')", tool:'asset-transfer', color:'linear-gradient(135deg,#3b0764,#6d28d9)', show:true},
-                {icon:'📅', label:'นับสิ้นเดือน', sub:'Monthly Count', fn:'if(!monthlyCountOpen&&!window.monthlyCountOpen){alert("ระบบนับสต๊อกสิ้นเดือนยังปิดอยู่");return;} tryOpenMonthlyCount()',  tool:'monthly-count', color:'linear-gradient(135deg,#1e3a8a,#2563eb)', show:true},
+                {icon:'📅', label:'นับสิ้นเดือน', sub:'Monthly Count', fn:'tryOpenMonthlyCount()',  tool:'monthly-count', color:'linear-gradient(135deg,#1e3a8a,#2563eb)', show:true},
                 {icon:'⚙️', label:'ตั้งค่า',        sub:'Settings',     fn:'openWarehouseManager()', tool:'warehouse-mgr', color:'linear-gradient(135deg,#1c1917,#44403c)', show:isAdmin},
             ];
             const ar = document.getElementById('dashActionRow');
@@ -1471,11 +1475,6 @@
                         return;
                     }
                 } catch(_) {}
-                // เช็ค monthlyCountOpen ที่นี่เลย ไม่ให้ script defer เช็คเอง
-                if(!monthlyCountOpen && !window.monthlyCountOpen) {
-                    alert('ระบบนับสต๊อกสิ้นเดือนยังปิดอยู่ กรุณาติดต่อ Admin');
-                    return;
-                }
                 if(window.tryOpenMonthlyCount) window.tryOpenMonthlyCount();
             },
             'monthly-history':   ()=>{ if(window.openMonthlyHistoryView) window.openMonthlyHistoryView(); },

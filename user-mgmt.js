@@ -9,6 +9,10 @@
 
             const warehouseMenu = document.getElementById('warehouseMenu');
             if(warehouseMenu) warehouseMenu.classList.toggle('hidden', !effectivePerms.includes('warehouse'));
+            // monthlyHistoryMenu แสดงเสมอถ้า role มี warehouse หรือเป็น BT user (username ขึ้นต้น BT)
+            const monthlyHistoryMenu = document.getElementById('monthlyHistoryMenu');
+            const isBTUser = (currentUser?.username||'').toUpperCase().startsWith('BT');
+            if(monthlyHistoryMenu) monthlyHistoryMenu.classList.toggle('hidden', !effectivePerms.includes('warehouse') && !isBTUser);
             const adminMenu = document.getElementById('adminMenu');
             if(adminMenu) adminMenu.classList.toggle('hidden', !effectivePerms.includes('admin'));
             const assetMenu = document.getElementById('assetMenu');

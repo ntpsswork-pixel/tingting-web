@@ -74,7 +74,18 @@
 
 // stock-monthly-count.js — TTGPlus | tryOpenMonthlyCount, BT/Admin monthly flow, exporters
         window.tryOpenMonthlyCount = async function() {
-            // monthlyCountOpen check moved to home.html (local scope)
+            if(!window.monthlyCountOpen) {
+                const existing = document.getElementById('lockedModal'); if(existing) existing.remove();
+                const m = document.createElement('div'); m.className='modal-overlay'; m.id='lockedModal';
+                m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:center;">
+                    <div style="font-size:48px;margin-bottom:12px;">🔒</div>
+                    <h3 style="margin:0 0 8px;">ระบบนับสต๊อกสิ้นเดือนปิดอยู่</h3>
+                    <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Admin ยังไม่ได้เปิดระบบนับสต๊อกสิ้นเดือน<br>กรุณาติดต่อผู้ดูแลระบบ</p>
+                    <button onclick="document.getElementById('lockedModal').remove()" style="background:#1e293b;color:white;border:none;padding:10px 30px;border-radius:10px;cursor:pointer;font-weight:bold;">ตกลง</button>
+                </div>`;
+                document.body.appendChild(m);
+                return;
+            }
 
             const isBT = currentUser?.username?.toUpperCase().startsWith('BT');
 
@@ -1137,7 +1148,7 @@
             } catch(e){ console.error('ลบของเดิม error:', e); }
 
             try {
-                await addDoc(collection(db,'inventoryHistory'),{
+                const newRef = await addDoc(collection(db,'inventoryHistory'),{
                     type:'branch',
                     zone, month:monthKey,
                     date:dateTH, datetime:datetimeTH,
@@ -1156,7 +1167,9 @@
                     const key=`monthly_${tmplId}_${(zone||'').replace(/\s/g,'_')}`;
                     _DM.clear(key);
                 }
-                goToDashboard();
+                // redirect ไปหน้า summary แทน dashboard เพื่อให้เห็นปุ่ม "ประวัติทุกเดือน" ทันที
+                const savedDoc = { id: newRef.id, type:'branch', zone, month:monthKey, date:dateTH, datetime:datetimeTH, timestamp:Date.now(), savedAt:Date.now(), countedBy:currentUser.name, recordedBy:currentUser.name, templateId:tmplId, templateName:tmpl.name, isBranchTemplate:true, items };
+                openBranchMonthlyDoneSummary(tmplId, tmpl, zone, savedDoc);
             } catch(e){toast('❌ บันทึกไม่สำเร็จ: '+e.message,'#ef4444');}
         };
 
@@ -1480,6 +1493,7 @@
             <div class="tool-header no-print">
                 <h2>🏪 นับสต๊อกสิ้นเดือนสาขา</h2>
                 <div style="display:flex;gap:8px;">
+                    <button onclick="openMonthlyHistoryView()" style="background:#7c3aed;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">📅 ประวัติทุกเดือน</button>
                     <button onclick="goToDashboard()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;">🏠 Dashboard</button>
                     <button onclick="closeTool()" style="background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;">✕ ปิด</button>
                 </div>
