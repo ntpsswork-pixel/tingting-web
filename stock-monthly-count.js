@@ -74,7 +74,7 @@
 
 // stock-monthly-count.js — TTGPlus | tryOpenMonthlyCount, BT/Admin monthly flow, exporters
         window.tryOpenMonthlyCount = async function() {
-            if(!(window.monthlyCountOpen||monthlyCountOpen)) {
+            if(!window.monthlyCountOpen) {
                 const existing = document.getElementById('lockedModal'); if(existing) existing.remove();
                 const m = document.createElement('div'); m.className='modal-overlay'; m.id='lockedModal';
                 m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:center;">
@@ -1339,14 +1339,13 @@
         };
 
         window.toggleMonthlyCount = function() {
-            const action = monthlyCountOpen ? 'ปิด' : 'เปิด';
-            if(!confirm(`ยืนยัน${action}ระบบนับสต๊อกสิ้นเดือน?\n${monthlyCountOpen?'พนักงานจะไม่สามารถนับสต๊อกได้จนกว่า Admin จะเปิดอีกครั้ง':'พนักงานทุกคนจะสามารถเข้าระบบนับสต๊อกได้'}`)) return;
-            monthlyCountOpen = !monthlyCountOpen;
-            window.monthlyCountOpen = monthlyCountOpen;
+            const action = window.monthlyCountOpen ? 'ปิด' : 'เปิด';
+            if(!confirm(`ยืนยัน${action}ระบบนับสต๊อกสิ้นเดือน?\n${window.monthlyCountOpen?'พนักงานจะไม่สามารถนับสต๊อกได้จนกว่า Admin จะเปิดอีกครั้ง':'พนักงานทุกคนจะสามารถเข้าระบบนับสต๊อกได้'}`)) return;
+            window.monthlyCountOpen = !window.monthlyCountOpen;
             saveConfig();
             applyPermissions();
             _updateMonthlyBadges();
-            toast(`${monthlyCountOpen?'🟢 เปิด':'🔴 ปิด'}ระบบนับสต๊อกสิ้นเดือนแล้ว`, monthlyCountOpen?'#059669':'#c2410c');
+            toast(`${window.monthlyCountOpen?'🟢 เปิด':'🔴 ปิด'}ระบบนับสต๊อกสิ้นเดือนแล้ว`, window.monthlyCountOpen?'#059669':'#c2410c');
         };
 
         // ── Toggle เฉพาะครัวกลาง (ปิดสาขา BT) ──
