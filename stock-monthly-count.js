@@ -562,7 +562,7 @@
                 ]);
                 histSnap.forEach(d => {
                     const x = d.data();
-                    if(x.month === monthKey && x.type === 'branch') doneZones.add(x.zone);
+                    if(x.month === monthKey && (x.type === 'branch' || x.isBranchTemplate)) doneZones.add(x.zone);
                 });
                 usersSnap.forEach(d => {
                     const u = d.data();
@@ -572,31 +572,39 @@
                 });
             } catch(e) { console.error(e); }
 
-            // หาสาขา BT ทั้งหมดจาก warehouseList
+            // หา ALL zones รวมทั้ง WHRM (คลังหลัก) และ BT (สาขา)
             const btZones = warehouseList.filter(z => z.toUpperCase().startsWith('BT'));
+            const whrmZones = warehouseList.filter(z => !z.toUpperCase().startsWith('BT'));
+            const allCountableZones = [...whrmZones, ...btZones]; // คลังหลักก่อน แล้วสาขา
             const sstEntries = Object.entries(stockSheetTemplates);
             const fallbackTmplId = sstEntries[0]?.[0] || '';
 
             const monthTH = now.toLocaleDateString('th-TH',{year:'numeric',month:'long'});
 
-            // เก็บ zone→tmplId map ไว้ใน window เพื่อให้ onclick เรียกใช้ได้ปลอดภัย
-            window._mcZoneTmplMap = Object.fromEntries(btZones.map(z=>[z, zoneTemplateMap[z]||fallbackTmplId]));
+            // เก็บ zone→tmplId map
+            window._mcZoneTmplMap = Object.fromEntries(allCountableZones.map(z=>[z, zoneTemplateMap[z]||fallbackTmplId]));
 
-            const zoneCards = btZones.length
-                ? btZones.map(zone => {
+            const zoneCards = allCountableZones.length
+                ? allCountableZones.map(zone => {
+                    const isWHRM = !zone.toUpperCase().startsWith('BT');
                     const isDone = doneZones.has(zone);
                     const tmplId = zoneTemplateMap[zone] || fallbackTmplId;
                     const tmplName = stockSheetTemplates[tmplId]?.name || '';
                     const safeZone = zone.replace(/'/g,"\\'");
+                    const icon = isDone ? '✅' : (isWHRM ? '🏭' : '🏪');
+                    const accentColor = isWHRM ? (isDone?'#059669':'#6d28d9') : (isDone?'#059669':'#3b82f6');
+                    const bgColor = isDone ? '#f0fdf4' : (isWHRM ? '#faf5ff' : 'white');
+                    const borderColor = isDone ? '#10b981' : (isWHRM ? '#a78bfa' : '#e2e8f0');
+                    const tag = isWHRM ? '<span style="font-size:10px;background:#ede9fe;color:#6d28d9;padding:1px 6px;border-radius:8px;font-weight:700;">คลังหลัก</span>' : '';
                     return `
                     <div onclick="closeMCAdminPicker();pickAdminZone('${safeZone}')"
-                        style="padding:14px 16px;border:2px solid ${isDone?'#10b981':'#e2e8f0'};border-radius:12px;cursor:pointer;background:${isDone?'#f0fdf4':'white'};display:flex;align-items:center;justify-content:space-between;transition:all .2s;"
-                        onmouseover="this.style.borderColor='${isDone?`#059669`:`#3b82f6`}';this.style.transform='translateY(-1px)'"
-                        onmouseout="this.style.borderColor='${isDone?`#10b981`:`#e2e8f0`}';this.style.transform=''">
+                        style="padding:14px 16px;border:2px solid ${borderColor};border-radius:12px;cursor:pointer;background:${bgColor};display:flex;align-items:center;justify-content:space-between;transition:all .2s;"
+                        onmouseover="this.style.borderColor='${accentColor}';this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.borderColor='${borderColor}';this.style.transform=''">
                         <div style="display:flex;align-items:center;gap:10px;">
-                            <div style="font-size:24px;">${isDone?'✅':'🏪'}</div>
+                            <div style="font-size:24px;">${icon}</div>
                             <div>
-                                <div style="font-weight:700;font-size:14px;color:${isDone?'#065f46':'#1e293b'};">${zone}</div>
+                                <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;color:${isDone?'#065f46':'#1e293b'};">${zone} ${tag}</div>
                                 <div style="font-size:11px;color:${isDone?'#059669':'#64748b'};">
                                     ${isDone ? 'นับแล้วเดือนนี้ — กดเพื่อดู/แก้ไข' : 'ยังไม่ได้นับ'}
                                     ${tmplName ? ` • 📋 ${tmplName}` : ''}
@@ -618,7 +626,7 @@
                 <div style="font-size:12px;color:#64748b;margin-bottom:16px;">📅 ${monthTH} • 👤 ${currentUser?.name||''}</div>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
                     <span style="background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">✅ นับแล้ว ${doneZones.size}</span>
-                    <span style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">⏳ รอ ${btZones.length - doneZones.size}</span>
+                    <span style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">⏳ รอ ${allCountableZones.length - doneZones.size}</span>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto;padding-right:4px;">
                     ${zoneCards}
@@ -633,10 +641,7 @@
                         style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">
                         🎲 สุ่ม 10 SKU ทดลองนับ (ช่วง Pilot)
                     </button>
-                    <button onclick="closeMCAdminPicker();openCentralStock()"
-                        style="width:100%;padding:11px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:13px;color:#475569;font-weight:600;">
-                        📦 นับสต๊อกคลังหลัก (ไม่ใช้ Template)
-                    </button>
+
                 </div>
             </div>`;
             document.body.appendChild(m);
