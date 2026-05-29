@@ -2918,6 +2918,7 @@ ${r.zone}`);
                 for(const d of existSnap.docs) {
                     const x = d.data();
                     if(x.zone === zone && x.month === monthKey && (x.type === 'branch' || x.isBranchTemplate)) {
+                        console.log('[BMC] ลบ doc เก่า:', d.id, 'zone:', x.zone, 'month:', x.month);
                         await deleteDoc(doc(db,'inventoryHistory',d.id));
                         break;
                     }
@@ -2925,6 +2926,7 @@ ${r.zone}`);
             } catch(e){ console.error('ลบของเดิม error:', e); }
 
             try {
+                console.log('[BMC] กำลัง save zone:', zone, 'month:', monthKey, 'items:', items.length);
                 await addDoc(collection(db,'inventoryHistory'),{
                     type:'branch',
                     zone, month:monthKey,
@@ -2935,6 +2937,7 @@ ${r.zone}`);
                     isBranchTemplate:true,
                     items
                 });
+                console.log('[BMC] save สำเร็จ');
                 toast('✅ บันทึกผลการนับเรียบร้อย','#059669');
                 // clear draft หลัง save สำเร็จ
                 if(window._DM){
