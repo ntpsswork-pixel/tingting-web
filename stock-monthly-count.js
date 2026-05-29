@@ -312,7 +312,9 @@
             const con = document.getElementById('monthlyHistoryContainer'); if(!con) return;
             con.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px;">กำลังโหลด...</p>';
             try {
-                const snap = await getDocs(collection(db,'inventoryHistory'));
+                // ใช้ getDocsFromServer เพื่อบังคับดึงข้อมูลล่าสุดจาก Firestore เสมอ (ไม่ใช้ cache)
+                const _fetchFn = (typeof getDocsFromServer !== 'undefined') ? getDocsFromServer : getDocs;
+                const snap = await _fetchFn(collection(db,'inventoryHistory'));
                 let docs = [];
                 snap.forEach(d => {
                     const x = d.data();
